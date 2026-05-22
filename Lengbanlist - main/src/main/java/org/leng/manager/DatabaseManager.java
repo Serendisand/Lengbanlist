@@ -214,9 +214,12 @@ public class DatabaseManager {
 
     public List<BanEntry> getBans() {
         List<BanEntry> entries = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE active = 1 ORDER BY target"); ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                entries.add(readBan(rs));
+        try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE active = 1 AND end_time > ? ORDER BY target")) {
+            ps.setLong(1, System.currentTimeMillis());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(readBan(rs));
+                }
             }
         } catch (SQLException e) {
             logSql(e);
@@ -276,9 +279,12 @@ public class DatabaseManager {
 
     public List<BanIpEntry> getIpBans() {
         List<BanIpEntry> entries = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT ip, staff, end_time, reason, is_auto, active FROM ip_bans WHERE active = 1 ORDER BY ip"); ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                entries.add(readIpBan(rs));
+        try (PreparedStatement ps = connection.prepareStatement("SELECT ip, staff, end_time, reason, is_auto, active FROM ip_bans WHERE active = 1 AND end_time > ? ORDER BY ip")) {
+            ps.setLong(1, System.currentTimeMillis());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(readIpBan(rs));
+                }
             }
         } catch (SQLException e) {
             logSql(e);

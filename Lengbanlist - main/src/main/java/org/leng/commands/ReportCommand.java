@@ -133,14 +133,26 @@ public class ReportCommand implements CommandExecutor {
             if (op.isOp()) {
                 org.bukkit.entity.Player targetPlayer = org.bukkit.Bukkit.getPlayer(target);
                 String targetLoc = "";
+                net.md_5.bungee.api.chat.BaseComponent targetComponent;
                 if (targetPlayer != null) {
                     targetLoc = " §7(世界: " + targetPlayer.getWorld().getName() + " X:" + (int)targetPlayer.getLocation().getX() + " Y:" + (int)targetPlayer.getLocation().getY() + " Z:" + (int)targetPlayer.getLocation().getZ() + ")";
+                    targetComponent = org.leng.utils.Utils.clickableText("§c" + target, "/lban tp " + target);
+                } else {
+                    targetComponent = new net.md_5.bungee.api.chat.TextComponent("§7" + target);
                 }
+
+                net.md_5.bungee.api.chat.BaseComponent reporterComponent;
+                if (org.bukkit.Bukkit.getPlayer(reporter.getName()) != null) {
+                    reporterComponent = org.leng.utils.Utils.clickableText("§e" + reporter.getName(), "/lban tp " + reporter.getName());
+                } else {
+                    reporterComponent = new net.md_5.bungee.api.chat.TextComponent("§7" + reporter.getName());
+                }
+
                 op.spigot().sendMessage(
                     new net.md_5.bungee.api.chat.TextComponent(plugin.prefix() + "§e新举报！编号：§f" + reportId + " §e被举报人："),
-                    org.leng.utils.Utils.clickableText("§c" + target, "/lban tp " + target),
+                    targetComponent,
                     new net.md_5.bungee.api.chat.TextComponent(" §e举报人："),
-                    org.leng.utils.Utils.clickableText("§a" + reporter.getName(), "/lban tp " + reporter.getName()),
+                    reporterComponent,
                     new net.md_5.bungee.api.chat.TextComponent(" §e原因：§f" + reason + targetLoc)
                 );
             }

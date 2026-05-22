@@ -75,9 +75,6 @@ public class BanIpCommand extends Command implements CommandExecutor {
         plugin.getBanManager().banIp(
             new org.leng.object.BanIpEntry(args[0], sender.getName(), banEndTime, reason, isAuto)
         );
-
-        // 发送结果消息
-        sendBanResult(sender, args[0], banDuration, isAuto);
         return true;
     }
 
@@ -111,22 +108,6 @@ public class BanIpCommand extends Command implements CommandExecutor {
             case 4:  return TimeUtils.daysToMillis(30);
             default: return Long.MAX_VALUE;
         }
-    }
-
-    private void sendBanResult(CommandSender sender, String ip, long durationMillis, boolean isAuto) {
-        String durationStr;
-        if (durationMillis == Long.MAX_VALUE) {
-            durationStr = "永久";
-        } else {
-            durationStr = TimeUtils.formatDuration(durationMillis);
-        }
-
-        String message = String.format("§a成功封禁 IP: %s，时长: %s%s",
-            ip,
-            durationStr,
-            isAuto ? " §6<auto>" : "");
-
-        Utils.sendMessage(sender, message);
     }
 
     private void showTimeFormatError(CommandSender sender) {

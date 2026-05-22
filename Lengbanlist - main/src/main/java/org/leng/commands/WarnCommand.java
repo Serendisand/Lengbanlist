@@ -5,6 +5,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
+import org.leng.manager.ModelManager;
 import org.leng.manager.WarnManager;
 import org.leng.utils.Utils;
 
@@ -55,13 +56,13 @@ public class WarnCommand extends Command implements CommandExecutor {
             }
             // IP警告逻辑
             warnManager.warnPlayer(target, sender.getName(), reason);
-            Utils.sendMessage(sender, plugin.prefix() + "§a已警告IP: " + target);
+            Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addWarn(target, reason));
             return true;
         }
 
         // 玩家警告逻辑 - 允许超过3次警告，警告将在1天后自动过期
         warnManager.warnPlayer(target, sender.getName(), reason);
-        Utils.sendMessage(sender, plugin.prefix() + "§a已警告玩家 " + target + ": " + reason);
+        Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addWarn(target, reason));
 
         return true;
     }

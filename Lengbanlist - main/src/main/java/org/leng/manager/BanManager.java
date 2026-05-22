@@ -47,8 +47,6 @@ public class BanManager {
         } else {
             String defaultMessage = String.format("§c玩家 %s 已被封禁！原因：%s，时长：%s", banEntry.getTarget(), banEntry.getReason(), TimeUtils.formatDuration(durationMillis));
             Bukkit.broadcastMessage(defaultMessage);
-            String modelName = plugin.getModelManager().getCurrentModelName();
-            Bukkit.getLogger().warning("模型 [" + modelName + "] 封禁玩家 [" + banEntry.getTarget() + "] 时未返回消息，使用默认消息");
         }
     }
 
@@ -65,8 +63,6 @@ public class BanManager {
         } else {
             String defaultMessage = String.format("§cIP %s 已被封禁！原因：%s，时长：%s", banIpEntry.getIp(), banIpEntry.getReason(), TimeUtils.formatDuration(durationMillis));
             Bukkit.broadcastMessage(defaultMessage);
-            String modelName = plugin.getModelManager().getCurrentModelName();
-            Bukkit.getLogger().warning("模型 [" + modelName + "] 封禁 IP [" + banIpEntry.getIp() + "] 时未返回消息，使用默认消息");
         }
     }
 
@@ -81,12 +77,7 @@ public class BanManager {
                 Bukkit.broadcastMessage(unbanResult);
             } else {
                 Bukkit.broadcastMessage(String.format("§a玩家 %s 已被解封", target));
-                String modelName = plugin.getModelManager().getCurrentModelName();
-                Bukkit.getLogger().warning("模型 [" + modelName + "] 解封玩家 [" + target + "] 时未返回消息，使用默认消息");
             }
-        } else {
-            String modelName = plugin.getModelManager().getCurrentModelName();
-            Bukkit.getLogger().warning("通过模型 [" + modelName + "] 解封玩家 [" + target + "] 失败：玩家不在封禁列表中");
         }
     }
 
@@ -101,12 +92,7 @@ public class BanManager {
                 Bukkit.broadcastMessage(unbanIpResult);
             } else {
                 Bukkit.broadcastMessage(String.format("§aIP %s 已被解封", ip));
-                String modelName = plugin.getModelManager().getCurrentModelName();
-                Bukkit.getLogger().warning("模型 [" + modelName + "] 解封 IP [" + ip + "] 时未返回消息，使用默认消息");
             }
-        } else {
-            String modelName = plugin.getModelManager().getCurrentModelName();
-            Bukkit.getLogger().warning("通过模型 [" + modelName + "] 解封 IP [" + ip + "] 失败：IP不在封禁列表中");
         }
     }
 

@@ -10,7 +10,6 @@ import org.leng.Lengbanlist;
 import org.leng.utils.SaveIP;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
-import org.leng.object.WarnEntry;
 
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
@@ -79,7 +78,6 @@ public class CheckCommand extends Command implements CommandExecutor {
         boolean isMuted = plugin.getMuteManager().isPlayerMuted(playerName);
         boolean isBanned = plugin.getBanManager().isPlayerBanned(playerName);
         boolean isOp = player.isOp();
-        List<WarnEntry> warnings = plugin.getWarnManager().getActiveWarnings(playerName);
 
         // 特殊处理DEV作者（通过UUID判定）
         String specialTag = "a5dc2127-d472-4c87-90b6-0b9fff386236".equals(uuid) ? "§c[DEV] " : "";
@@ -97,16 +95,6 @@ public class CheckCommand extends Command implements CommandExecutor {
             showSponsorInfo(sender);
         }
 
-        if (warnings.isEmpty()) {
-            Utils.sendMessage(sender, plugin.prefix() + "§b警告: 无警告");
-        } else {
-            Utils.sendMessage(sender, plugin.prefix() + "§b警告记录:");
-            for (WarnEntry warn : warnings) {
-                Utils.sendMessage(sender, plugin.prefix() + "§7- 时间: " + TimeUtils.timestampToReadable(warn.getTime()) +
-                        " §7判断者: " + warn.getStaff() +
-                        " §7原因: " + warn.getReason());
-            }
-        }
     }
 
     private void checkIpInfo(CommandSender sender, String ip) {

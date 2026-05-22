@@ -42,17 +42,15 @@ public class UnbanCommand extends Command implements CommandExecutor {
             // 解封 IP
             if (Lengbanlist.getInstance().banManager.isIpBanned(args[0])) {
                 Lengbanlist.getInstance().banManager.unbanIp(args[0]);
-                Utils.sendMessage(sender, "§l§a成功解封 IP: " + args[0]);
             } else {
-                Utils.sendMessage(sender, "§cIP " + args[0] + " 未被封禁");
+                Utils.sendMessage(sender, "§cIP " + args[0] + " 未被封禁或封禁已过期");
             }
         } else {
             // 解封玩家
             if (Lengbanlist.getInstance().banManager.isPlayerBanned(args[0])) {
                 Lengbanlist.getInstance().banManager.unbanPlayer(args[0]);
-                Utils.sendMessage(sender, "§l§a成功解封玩家: " + args[0]);
             } else {
-                Utils.sendMessage(sender, "§c玩家 " + args[0] + " 未被封禁");
+                Utils.sendMessage(sender, "§c玩家 " + args[0] + " 未被封禁或封禁已过期");
             }
         }
         return true;

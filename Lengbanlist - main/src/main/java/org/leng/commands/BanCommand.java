@@ -78,7 +78,6 @@ public class BanCommand implements CommandExecutor {
         );
         
         plugin.getBanManager().banPlayer(entry);
-        sendBanResult(sender, target, banDuration, isAuto);
         return true;
     }
 
@@ -94,23 +93,6 @@ public class BanCommand implements CommandExecutor {
             case 4:  return TimeUtils.daysToMillis(30);
             default: return Long.MAX_VALUE; // 超过4次永久封禁
         }
-    }
-
-    private void sendBanResult(CommandSender sender, String player, long durationMillis, boolean isAuto) {
-        String durationStr;
-        if (durationMillis == Long.MAX_VALUE) {
-            durationStr = "永久";
-        } else {
-            long days = durationMillis / TimeUtils.daysToMillis(1);
-            durationStr = days + "天";
-        }
-
-        String message = String.format("§a成功封禁 玩家: %s，时长: %s%s",
-            player,
-            durationStr,
-            isAuto ? " §6<auto>" : "");
-
-        Utils.sendMessage(sender, message);
     }
 
     private void sendUsage(CommandSender sender) {

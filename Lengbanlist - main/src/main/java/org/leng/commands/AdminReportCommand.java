@@ -66,12 +66,21 @@ public class AdminReportCommand implements CommandExecutor {
             Player reporterPlayer = Bukkit.getPlayer(report.getReporter());
 
             String targetLoc = "";
+            net.md_5.bungee.api.chat.BaseComponent targetComponent;
             if (targetPlayer != null) {
                 targetLoc = " §7(世界:" + targetPlayer.getWorld().getName() + " X:" + (int)targetPlayer.getLocation().getX() + " Y:" + (int)targetPlayer.getLocation().getY() + " Z:" + (int)targetPlayer.getLocation().getZ() + ")";
+                targetComponent = Utils.clickableText("§c" + report.getTarget() + targetLoc, "/lban tp " + report.getTarget());
+            } else {
+                targetComponent = new net.md_5.bungee.api.chat.TextComponent("§7" + report.getTarget());
             }
+
             String reporterLoc = "";
+            net.md_5.bungee.api.chat.BaseComponent reporterComponent;
             if (reporterPlayer != null) {
                 reporterLoc = " §7(世界:" + reporterPlayer.getWorld().getName() + " X:" + (int)reporterPlayer.getLocation().getX() + " Y:" + (int)reporterPlayer.getLocation().getY() + " Z:" + (int)reporterPlayer.getLocation().getZ() + ")";
+                reporterComponent = Utils.clickableText("§e" + report.getReporter() + reporterLoc, "/lban tp " + report.getReporter());
+            } else {
+                reporterComponent = new net.md_5.bungee.api.chat.TextComponent("§7" + report.getReporter());
             }
 
             String status = report.getStatus() == null ? "" : "§a【当前状态：" + report.getStatus() + "】";
@@ -81,9 +90,9 @@ public class AdminReportCommand implements CommandExecutor {
 
             player.spigot().sendMessage(
                 new net.md_5.bungee.api.chat.TextComponent("§e被举报人："),
-                Utils.clickableText("§c" + report.getTarget() + targetLoc, "/lban tp " + report.getTarget()),
+                targetComponent,
                 new net.md_5.bungee.api.chat.TextComponent(" §e举报人："),
-                Utils.clickableText("§a" + report.getReporter() + reporterLoc, "/lban tp " + report.getReporter())
+                reporterComponent
             );
 
             player.spigot().sendMessage(

@@ -1,5 +1,6 @@
 package org.leng.commands;
 
+import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -29,7 +30,7 @@ public class UnmuteCommand implements CommandExecutor {
             return true;
         }
         plugin.getMuteManager().unmutePlayer(args[0]);
-        Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().removeMute(args[0]));
+        Bukkit.broadcastMessage(ModelManager.getInstance().getCurrentModel().removeMute(args[0]));
         return true;
     }
 }

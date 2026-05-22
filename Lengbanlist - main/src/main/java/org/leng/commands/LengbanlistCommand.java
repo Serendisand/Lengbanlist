@@ -158,10 +158,8 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
 
                     if (args[1].contains(".")) {
                         plugin.getBanManager().banIp(new BanIpEntry(args[1], sender.getName(), duration, args[3], false));
-                        Utils.sendMessage(sender, currentModel.addBanIp(args[1], duration, args[3]));
                     } else {
                         plugin.getBanManager().banPlayer(new BanEntry(args[1], sender.getName(), duration, args[3], false));
-                        Utils.sendMessage(sender, currentModel.addBan(args[1], duration, args[3]));
                     }
                 } catch (IllegalArgumentException e) {
                     Utils.sendMessage(sender, plugin.prefix() + e.getMessage());
@@ -181,11 +179,17 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     return true;
                 }
                 if (args[1].contains(".")) {
-                    plugin.getBanManager().unbanIp(args[1]);
-                    Utils.sendMessage(sender, currentModel.removeBanIp(args[1]));
+                    if (plugin.getBanManager().isIpBanned(args[1])) {
+                        plugin.getBanManager().unbanIp(args[1]);
+                    } else {
+                        Utils.sendMessage(sender, plugin.prefix() + "§cIP " + args[1] + " 未被封禁或封禁已过期");
+                    }
                 } else {
-                    plugin.getBanManager().unbanPlayer(args[1]);
-                    Utils.sendMessage(sender, currentModel.removeBan(args[1]));
+                    if (plugin.getBanManager().isPlayerBanned(args[1])) {
+                        plugin.getBanManager().unbanPlayer(args[1]);
+                    } else {
+                        Utils.sendMessage(sender, plugin.prefix() + "§c玩家 " + args[1] + " 未被封禁或封禁已过期");
+                    }
                 }
                 break;
             case "help":
@@ -297,7 +301,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 try {
                     MuteEntry muteEntry = new MuteEntry(muteTarget, sender.getName(), System.currentTimeMillis(), muteReason);
                     plugin.getMuteManager().mutePlayer(muteEntry);
-                    Utils.sendMessage(sender, currentModel.addMute(muteTarget, muteReason));
+                    Bukkit.broadcastMessage(currentModel.addMute(muteTarget, muteReason));
                 } catch (Exception e) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c禁言失败: " + e.getMessage());
                 }
@@ -317,7 +321,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 }
                 String unmuteTarget = args[1];
                 plugin.getMuteManager().unmutePlayer(unmuteTarget);
-                Utils.sendMessage(sender, currentModel.removeMute(unmuteTarget));
+                Bukkit.broadcastMessage(currentModel.removeMute(unmuteTarget));
                 break;
             case "list-mute":
                 if (!plugin.isFeatureEnabled("mute")) {
@@ -841,10 +845,8 @@ public void handleChatWizard(Player player, String input) {
             }
             if (input.contains(".")) {
                 plugin.getBanManager().unbanIp(input);
-                Utils.sendMessage(player, plugin.prefix() + "§a解封IP成功：" + input);
             } else {
                 plugin.getBanManager().unbanPlayer(input);
-                Utils.sendMessage(player, plugin.prefix() + "§a解封玩家成功：" + input);
             }
             clearWizard(player);
             break;
@@ -863,7 +865,7 @@ public void handleChatWizard(Player player, String input) {
                 return;
             }
             plugin.getMuteManager().unmutePlayer(input);
-            Utils.sendMessage(player, plugin.prefix() + "§a解除禁言成功：" + input);
+            Bukkit.broadcastMessage(ModelManager.getInstance().getCurrentModel().removeMute(input));
             clearWizard(player);
             break;
     }
@@ -894,10 +896,8 @@ private void handleBanWizard(Player player, String input) {
                 return;
             }
             plugin.getBanManager().banIp(new BanIpEntry(playerID, player.getName(), duration, input, false));
-            Utils.sendMessage(player, plugin.prefix() + "§a封禁IP成功：" + playerID);
         } else {
             plugin.getBanManager().banPlayer(new BanEntry(playerID, player.getName(), duration, input, false));
-            Utils.sendMessage(player, plugin.prefix() + "§a封禁玩家成功：" + playerID);
         }
         clearWizard(player);
     }
@@ -913,7 +913,7 @@ private void handleMuteWizard(Player player, String input) {
         String playerID = player.getMetadata("lengbanlist-playerID").get(0).asString();
         MuteEntry entry = new MuteEntry(playerID, player.getName(), System.currentTimeMillis(), input);
         plugin.getMuteManager().mutePlayer(entry);
-        Utils.sendMessage(player, plugin.prefix() + "§a禁言玩家成功：" + playerID);
+        Bukkit.broadcastMessage(ModelManager.getInstance().getCurrentModel().addMute(playerID, input));
         clearWizard(player);
     }
 }
