@@ -43,10 +43,19 @@ jobs:
         echo "jar_file=$JAR_FILE" >> $GITHUB_OUTPUT
         echo "jar_path=Lengbanlist - main/target/$JAR_FILE" >> $GITHUB_OUTPUT
     
+    - name: Extract release title from commit
+      id: release_title
+      run: |
+        COMMIT_MSG="${{ github.event.head_commit.message }}"
+        TITLE=$(echo "$COMMIT_MSG" | sed 's/^release:\s*//i' | head -n 1)
+        if [ -z "$TITLE" ]; then
+          TITLE="${{ steps.get_version.outputs.version }}"
+        fi
+        echo "title=$TITLE" >> $GITHUB_OUTPUT
+    
     - name: Generate changelog from commits
       id: changelog
       run: |
-        # 尝试获取上一个 release 的 tag
         LAST_TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || echo "")
         
         if [ -z "$LAST_TAG" ]; then
@@ -98,7 +107,6 @@ jobs:
       uses: actions/github-script@v7
       with:
         script: |
-          // 获取最近30天已关闭的 issues 和 PRs
           const sinceDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
           
           console.log(`Fetching issues since: ${sinceDate}`);
@@ -132,24 +140,10 @@ jobs:
     - name: Build release body
       id: build_body
       run: |
-        VERSION="${{ steps.get_version.outputs.version }}"
-        
         cat > release_body.md << 'EOF'
-        <p align="right">
-          <sub>✨ 一个可爱的版本发布了 ✨</sub>
-        </p>
+        ## 📝 更新日志
         
         EOF
-        
-        echo "## 📦 下载" >> release_body.md
-        echo "" >> release_body.md
-        echo "\`${{ steps.find_jar.outputs.jar_file }}\`" >> release_body.md
-        
-        if [ -n "${{ steps.changelog.outputs.FEATURES }}" ] || [ -n "${{ steps.changelog.outputs.FIXES }}" ] || [ -n "${{ steps.changelog.outputs.IMPROVEMENTS }}" ] || [ -n "${{ steps.changelog.outputs.OTHERS }}" ]; then
-          echo "" >> release_body.md
-          echo "## 📝 更新日志" >> release_body.md
-          echo "" >> release_body.md
-        fi
         
         if [ -n "${{ steps.changelog.outputs.FEATURES }}" ]; then
           echo "### 🎀 新功能" >> release_body.md
@@ -181,7 +175,6 @@ jobs:
           ISSUES_COUNT=$(jq '.resolvedIssues | length' github_data.json 2>/dev/null || echo "0")
           PRS_COUNT=$(jq '.mergedPRs | length' github_data.json 2>/dev/null || echo "0")
           
-          echo "" >> release_body.md
           echo "## 📊 项目动态" >> release_body.md
           echo "" >> release_body.md
           
@@ -226,8 +219,8 @@ jobs:
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v${{ steps.get_version.outputs.version }}
-        name: 🎀 v${{ steps.get_version.outputs.version }}
+        tag_name: ${{ steps.get_version.outputs.version }}
+        name: ${{ steps.release_title.outputs.title }}
         body: ${{ steps.build_body.outputs.body }}
         files: ${{ steps.find_jar.outputs.jar_path }}
         draft: false
