@@ -25,7 +25,9 @@ public class SaveIP {
     public static void saveIP(Player player) {
         String newIP = player.getAddress().getAddress().getHostAddress();
         if (isRealIP(newIP)) {
-            Lengbanlist.getInstance().getDatabaseManager().upsertPlayerIp(player.getName(), newIP, System.currentTimeMillis());
+            Lengbanlist plugin = Lengbanlist.getInstance();
+            plugin.getDatabaseManager().upsertPlayerIp(player.getName(), newIP, System.currentTimeMillis());
+            plugin.getDatabaseManager().recordPlayerIp(player.getName(), newIP, System.currentTimeMillis());
         }
     }
 

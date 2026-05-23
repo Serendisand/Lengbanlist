@@ -7,7 +7,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.OfflinePlayer;
 import org.leng.Lengbanlist;
-import org.leng.utils.SaveIP;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
 
@@ -79,7 +78,6 @@ public class CheckCommand extends Command implements CommandExecutor {
         boolean isBanned = plugin.getBanManager().isPlayerBanned(playerName);
         boolean isOp = player.isOp();
 
-        // 特殊处理DEV作者（通过UUID判定）
         String specialTag = "a5dc2127-d472-4c87-90b6-0b9fff386236".equals(uuid) ? "§c[DEV] " : "";
 
         Utils.sendMessage(sender, plugin.prefix() + "§a玩家信息：");
@@ -90,7 +88,31 @@ public class CheckCommand extends Command implements CommandExecutor {
         Utils.sendMessage(sender, plugin.prefix() + "§b是否封禁: " + (isBanned ? "是" : "否"));
         Utils.sendMessage(sender, plugin.prefix() + "§b是否是OP: " + (isOp ? "是" : "否"));
 
-        // 如果是DEV作者，显示赞助信息
+        if (plugin.isFeatureEnabled("ip-association")) {
+            Utils.sendMessage(sender, "§7--- §cIP关联信息 §7---");
+            List<String[]> ipHistory = plugin.getIpAssociationManager().getPlayerIps(playerName);
+            if (ipHistory.isEmpty()) {
+                Utils.sendMessage(sender, plugin.prefix() + "§e暂无 IP 记录");
+            } else {
+                for (String[] record : ipHistory) {
+                    String ip = record[0];
+                    String firstSeen = TimeUtils.timestampToReadable(Long.parseLong(record[1]));
+                    List<String> associatedPlayers = plugin.getDatabaseManager().getPlayersByIpFromHistory(ip);
+                    StringBuilder line = new StringBuilder();
+                    line.append(" §7- §f").append(ip).append(" §7(首次: ").append(firstSeen).append(")");
+                    if (associatedPlayers.size() > 1) {
+                        line.append(" §c关联: §f");
+                        for (String ap : associatedPlayers) {
+                            if (!ap.equalsIgnoreCase(playerName)) {
+                                line.append(ap).append(" ");
+                            }
+                        }
+                    }
+                    Utils.sendMessage(sender, plugin.prefix() + line.toString());
+                }
+            }
+        }
+
         if ("a5dc2127-d472-4c87-90b6-0b9fff386236".equals(uuid)) {
             showSponsorInfo(sender);
         }
@@ -99,16 +121,12 @@ public class CheckCommand extends Command implements CommandExecutor {
 
     private void checkIpInfo(CommandSender sender, String ip) {
         boolean isBanned = plugin.getBanManager().isIpBanned(ip);
-        List<String> associatedPlayers = getPlayersAssociatedWithIp(ip);
+        List<String> associatedPlayers = plugin.getDatabaseManager().getPlayersByIpFromHistory(ip);
 
         Utils.sendMessage(sender, plugin.prefix() + "§aIP信息：");
         Utils.sendMessage(sender, plugin.prefix() + "§bIP: " + ip);
         Utils.sendMessage(sender, plugin.prefix() + "§b是否封禁: " + (isBanned ? "是" : "否"));
         Utils.sendMessage(sender, plugin.prefix() + "§b关联玩家: " + (associatedPlayers.isEmpty() ? "无" : String.join(", ", associatedPlayers)));
-    }
-
-    private List<String> getPlayersAssociatedWithIp(String ip) {
-        return SaveIP.getPlayersByIp(ip);
     }
 
     private void showSponsorInfo(CommandSender sender) {

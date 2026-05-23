@@ -24,6 +24,8 @@ features:
   model: true          # 模型切换 /lban model
   tp: true             # 传送 /lban tp
   chest-ui: true       # 可视化箱子界面 /lban open
+  ip-association: true # IP关联检测，记录玩家历史IP并检测可疑登录
+  vpn-detection: true  # VPN/代理检测，自动检测并处理VPN登录
   update-check: true  # 检查插件更新
   auto-update: false   # 自动下载更新
 
@@ -42,5 +44,13 @@ database:
     database: "lengbanlist"
     username: "root"
     password: "password"
-    
-    
+
+# VPN/代理检测配置
+vpn-detection:
+  action: "warn"           # 检测到VPN时的处理方式: warn(仅通知), kick(踢出), ban(封禁IP)
+  ban-duration: "7d"       # 自动封禁时长（ban模式下）
+  ban-reason: "使用代理/VPN登录"  # 自动封禁原因
+  kick-message: "请关闭代理或VPN后重新加入游戏"  # 踢出提示信息
+
+# 配置文件版本（用于自动合并新增字段，请勿修改）
+config-version: 1

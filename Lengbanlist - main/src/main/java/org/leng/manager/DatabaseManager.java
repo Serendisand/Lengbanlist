@@ -111,6 +111,8 @@ public class DatabaseManager {
         addColumnIfMissing("reports", "status", varcharType(32) + " NOT NULL DEFAULT '未处理'");
         addColumnIfMissing("reports", "timestamp", longType() + " NOT NULL DEFAULT 0");
 
+        execute("CREATE TABLE IF NOT EXISTS player_ip_history (id " + integerPrimaryKey() + ", player_name " + varcharType(191) + " NOT NULL, ip " + varcharType(191) + " NOT NULL, first_seen " + longType() + " NOT NULL, last_seen " + longType() + " NOT NULL, UNIQUE(player_name, ip))");
+
         createIndexIfMissing("warnings", "idx_warnings_player", "player");
         createIndexIfMissing("reports", "idx_reports_target", "target");
         createIndexIfMissing("reports", "idx_reports_reporter", "reporter");
@@ -165,6 +167,55 @@ public class DatabaseManager {
     public List<String> getPlayersByIp(String ip) {
         List<String> players = new ArrayList<>();
         try (PreparedStatement ps = connection.prepareStatement("SELECT player_name FROM player_ips WHERE ip = ? ORDER BY player_name")) {
+            ps.setString(1, ip);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    players.add(rs.getString("player_name"));
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return players;
+    }
+
+    /** 记录玩家IP到历史表（如果已存在则更新最后 seen 时间） */
+    public void recordPlayerIp(String playerName, String ip, long timestamp) {
+        if (mysql) {
+            executeUpdate(
+                "INSERT INTO player_ip_history (player_name, ip, first_seen, last_seen) VALUES (?, ?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE last_seen = VALUES(last_seen)",
+                playerName, ip, timestamp, timestamp
+            );
+        } else {
+            executeUpdate(
+                "INSERT INTO player_ip_history (player_name, ip, first_seen, last_seen) VALUES (?, ?, ?, ?) " +
+                "ON CONFLICT(player_name, ip) DO UPDATE SET last_seen = excluded.last_seen",
+                playerName, ip, timestamp, timestamp
+            );
+        }
+    }
+
+    /** 获取玩家所有历史 IP 及首次/最后使用时间 */
+    public List<String[]> getPlayerIpHistory(String playerName) {
+        List<String[]> history = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement("SELECT ip, first_seen, last_seen FROM player_ip_history WHERE player_name = ? ORDER BY last_seen DESC")) {
+            ps.setString(1, playerName);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    history.add(new String[]{rs.getString("ip"), String.valueOf(rs.getLong("first_seen")), String.valueOf(rs.getLong("last_seen"))});
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return history;
+    }
+
+    /** 从历史表中查询使用过该 IP 的所有玩家 */
+    public List<String> getPlayersByIpFromHistory(String ip) {
+        List<String> players = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement("SELECT DISTINCT player_name FROM player_ip_history WHERE ip = ? ORDER BY player_name")) {
             ps.setString(1, ip);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
