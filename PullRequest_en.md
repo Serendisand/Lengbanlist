@@ -16,3 +16,6 @@ Before you start contributing, please ensure you have the following environment 
    ```bash
    git clone https://github.com/LengMC/Lengbanlist.git
    cd Lengbanlist
+
+2. **提交规范**
+> 详细说明请查看 [commit_help.md](commit_help.md)
