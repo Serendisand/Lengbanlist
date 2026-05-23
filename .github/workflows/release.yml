@@ -47,7 +47,7 @@ jobs:
       id: release_title
       run: |
         COMMIT_MSG="${{ github.event.head_commit.message }}"
-        TITLE=$(echo "$COMMIT_MSG" | sed 's/^release:\s*//i' | head -n 1)
+        TITLE=$(echo "$COMMIT_MSG" | head -n 1 | sed 's/^release:\s*//i')
         if [ -z "$TITLE" ]; then
           TITLE="${{ steps.get_version.outputs.version }}"
         fi
@@ -98,8 +98,12 @@ jobs:
         
         while IFS= read -r line; do
           if [ -z "$line" ]; then continue; fi
-          # 跳过 release 开头的提交
-          if echo "$line" | grep -qi '^release'; then continue; fi
+          
+          # release 开头的提交去掉前缀后参与分类
+          if echo "$line" | grep -qi '^release'; then
+            line=$(echo "$line" | sed 's/^release:\s*//i')
+            if [ -z "$line" ]; then continue; fi
+          fi
           
           if echo "$line" | grep -qiE '^(feat|add|新增|添加|feature|新功能)'; then
             FEATURES="${FEATURES}• ${line}\n"
