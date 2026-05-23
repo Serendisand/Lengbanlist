@@ -199,6 +199,18 @@ public void onEnable() {
     startHistoryCleanupTask();
 }
 
+public void reloadWebServer() {
+    boolean enabled = isFeatureEnabled("web") && getConfig().getBoolean("web.enabled", false);
+    if (enabled && !webServer.isRunning()) {
+        webServer.start();
+    } else if (!enabled && webServer.isRunning()) {
+        webServer.stop();
+    } else if (enabled && webServer.isRunning()) {
+        webServer.stop();
+        webServer.start();
+    }
+}
+
 @Override
 public void onDisable() {
     getServer().getConsoleSender().sendMessage(prefix() + "§k§4正在卸载");

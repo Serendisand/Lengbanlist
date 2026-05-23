@@ -64,7 +64,11 @@ public class WebServer {
 
             server.start();
             running = true;
-            plugin.getLogger().info("Web管理面板已启动: http://" + host + ":" + port);
+            String displayHost = host.equals("0.0.0.0") ? "本机IP" : host;
+            plugin.getLogger().info("Web管理面板已启动: http://" + displayHost + ":" + port);
+            if (host.equals("0.0.0.0")) {
+                plugin.getLogger().info("绑定到 0.0.0.0，可从 http://本机IP:" + port + " 访问（如 http://localhost:" + port + "）");
+            }
             return true;
         } catch (Exception e) {
             plugin.getLogger().severe("Web管理面板启动失败: " + e.getMessage());
@@ -444,7 +448,18 @@ public class WebServer {
 
     private void handleRoot(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
-        if (!requireAuth(exchange)) return;
-        sendJson(exchange, 200, "{\"name\":\"Lengbanlist Web API\",\"version\":\"" + plugin.getPluginVersion() + "\"}");
+        try {
+            java.io.InputStream htmlStream = plugin.getResource("web/index.html");
+            if (htmlStream != null) {
+                byte[] htmlBytes = htmlStream.readAllBytes();
+                exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
+                exchange.sendResponseHeaders(200, htmlBytes.length);
+                exchange.getResponseBody().write(htmlBytes);
+                exchange.close();
+                return;
+            }
+        } catch (IOException e) {
+        }
+        sendJson(exchange, 200, "{\"name\":\"Lengbanlist Web API\",\"version\":\"" + plugin.getPluginVersion() + "\",\"login\":\"POST /api/login 获取token\",\"usage\":\"在请求头加 Authorization: Bearer <token> 调用其他接口\"}");
     }
 }

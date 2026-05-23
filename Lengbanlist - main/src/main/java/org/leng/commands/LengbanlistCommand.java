@@ -128,6 +128,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
         }
     }
     Utils.sendMessage(sender, currentModel.reloadConfig());
+    plugin.reloadWebServer();
     break;
             case "add":
                 if (args.length >= 2 && args[1].contains(".")) {

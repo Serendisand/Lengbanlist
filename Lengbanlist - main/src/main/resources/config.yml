@@ -56,7 +56,7 @@ vpn-detection:
 # Web管理面板配置
 web:
   enabled: false                # 是否启用Web管理面板
-  host: "0.0.0.0"              # 监听地址
+  host: "127.0.0.1"              # 监听地址（127.0.0.1仅本机访问，0.0.0.0允许远程访问）
   port: 8080                    # 监听端口
   jwt-secret: "change-this-to-a-random-secret-key"  # JWT密钥（请修改为随机字符串）
   admin-username: "admin"       # 管理员用户名

@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lengbanlist 管理面板</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+  background: #0b1219; color: #d0d8e0; min-height: 100vh;
+}
+.login-overlay { position: fixed; inset: 0; background: #0b1219; display: flex; align-items: center; justify-content: center; z-index: 100; }
+.login-box { background: #16222e; padding: 48px 40px 40px; border-radius: 16px; width: 380px; box-shadow: 0 12px 48px rgba(0,0,0,0.5); }
+.login-box h1 { color: #4fc3f7; font-size: 26px; text-align: center; letter-spacing: 1px; }
+.login-box .sub { color: #7a8a9a; text-align: center; margin: 4px 0 28px; font-size: 13px; }
+.login-box.hidden { display: none; }
+.form-group { margin-bottom: 18px; }
+.form-group label { display: block; margin-bottom: 6px; color: #9aabbb; font-size: 13px; font-weight: 500; }
+.form-group input, .form-group select {
+  width: 100%; padding: 10px 14px; border: 1px solid #253545; border-radius: 8px;
+  background: #0b1219; color: #d0d8e0; font-size: 14px; outline: none; transition: border .2s;
+}
+.form-group input:focus, .form-group select:focus { border-color: #4fc3f7; }
+.form-group select { cursor: pointer; }
+.btn {
+  padding: 10px 22px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer;
+  transition: all .2s; font-weight: 500; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: #4fc3f7; color: #0b1219; }
+.btn-primary:hover { background: #39b0e4; }
+.btn-danger { background: #e5554e; color: #fff; }
+.btn-danger:hover { background: #d0443d; }
+.btn-block { width: 100%; justify-content: center; }
+.btn-sm { padding: 8px 16px; font-size: 13px; }
+.btn-logout { background: transparent; border: 1px solid #4a3a3a; color: #d06660; }
+.btn-logout:hover { border-color: #e5554e; background: #1a0a0a; }
+.container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid #16222e; flex-wrap: wrap; gap: 12px; }
+.header-left { display: flex; align-items: center; gap: 14px; }
+.header h1 { color: #4fc3f7; font-size: 22px; font-weight: 700; }
+.header .subtitle { color: #6a7a8a; font-size: 13px; }
+.header .username { color: #4fc3f7; font-weight: 600; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 28px; }
+.stat-card { background: #16222e; padding: 20px 16px; border-radius: 10px; text-align: center; border: 1px solid #1e2e3e; }
+.stat-card:hover { border-color: #2a4a5a; }
+.stat-card .num { font-size: 30px; font-weight: 700; color: #4fc3f7; line-height: 1.2; }
+.stat-card .label { font-size: 12px; color: #6a7a8a; margin-top: 6px; }
+.tabs { display: flex; gap: 2px; margin-bottom: 20px; background: #16222e; border-radius: 10px; padding: 4px; border: 1px solid #1e2e3e; overflow-x: auto; }
+.tab {
+  padding: 10px 24px; border: none; background: transparent; color: #6a7a8a; cursor: pointer;
+  border-radius: 7px; font-size: 14px; transition: all .2s; white-space: nowrap; font-weight: 500;
+}
+.tab:hover { color: #d0d8e0; background: rgba(255,255,255,.04); }
+.tab.active { background: #4fc3f7; color: #0b1219; }
+.tab-content { display: none; animation: fadeIn .2s; }
+.tab-content.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.card { background: #16222e; border-radius: 10px; padding: 24px; margin-bottom: 16px; border: 1px solid #1e2e3e; }
+.card-title { color: #4fc3f7; font-size: 15px; font-weight: 600; margin-bottom: 18px; }
+.search-row { display: flex; gap: 8px; }
+.search-row input { flex: 1; padding: 10px 14px; border: 1px solid #253545; border-radius: 8px; background: #0b1219; color: #d0d8e0; font-size: 14px; outline: none; transition: border .2s; }
+.search-row input:focus { border-color: #4fc3f7; }
+.form-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.form-row .form-group { flex: 1; min-width: 140px; margin-bottom: 0; }
+.form-row .form-group.duration-wrap { flex: 0 0 170px; }
+.form-row .form-group.duration-wrap select {
+  width: 100%; padding: 10px 14px; border: 1px solid #253545; border-radius: 8px;
+  background: #0b1219; color: #d0d8e0; font-size: 14px; outline: none; cursor: pointer;
+}
+.form-row .form-group.duration-wrap select:focus { border-color: #4fc3f7; }
+.form-row .btn { align-self: flex-end; margin-bottom: 0; height: 40px; }
+.table-wrap { overflow-x: auto; margin-top: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #1a2a3a; white-space: nowrap; }
+th { color: #6a7a8a; font-weight: 600; background: #0f1a24; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+td { color: #c8d0d8; }
+tr:hover td { background: rgba(79,195,247,.03); }
+.badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.badge-red { background: rgba(229,85,78,.15); color: #e5554e; }
+.badge-green { background: rgba(102,187,106,.15); color: #66bb6a; }
+.badge-yellow { background: rgba(255,167,38,.15); color: #ffa726; }
+.tag {
+  display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500;
+  background: rgba(255,167,38,.12); color: #ffa726; margin: 2px 4px 2px 0;
+}
+.alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; line-height: 1.5; margin-bottom: 14px; }
+.alert-error { background: rgba(229,85,78,.12); color: #e5554e; border: 1px solid rgba(229,85,78,.2); }
+.alert-success { background: rgba(102,187,106,.12); color: #66bb6a; border: 1px solid rgba(102,187,106,.2); }
+.alert-info { background: rgba(79,195,247,.1); color: #4fc3f7; border: 1px solid rgba(79,195,247,.15); }
+.hidden { display: none !important; }
+.section-title { font-size: 13px; color: #6a7a8a; margin: 20px 0 10px; font-weight: 600; letter-spacing: .5px; }
+.stats-grid-sm { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.sm-card { background: #0f1a24; border-radius: 8px; padding: 14px; text-align: center; border: 1px solid #1e2e3e; }
+.sm-card .v { font-size: 24px; font-weight: 700; color: #4fc3f7; }
+.sm-card .l { font-size: 12px; color: #6a7a8a; margin-top: 4px; }
+.refresh-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 12px; color: #6a7a8a; }
+.refresh-bar .dot { width: 6px; height: 6px; border-radius: 50%; background: #66bb6a; display: inline-block; animation: pulse 2s infinite; }
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: .4; } 100% { opacity: 1; } }
+@media (max-width: 720px) {
+  .container { padding: 16px; }
+  .stats-grid { grid-template-columns: repeat(3, 1fr); }
+  .form-row { flex-direction: column; }
+  .tabs { gap: 0; }
+  .tab { padding: 10px 14px; font-size: 13px; }
+}
+</style>
+</head>
+<body>
+
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box" id="loginBox">
+    <h1>Lengbanlist</h1>
+    <p class="sub">管理控制面板</p>
+    <div id="loginError" class="alert alert-error hidden"></div>
+    <div class="form-group">
+      <label>用户名</label>
+      <input type="text" id="loginUser" placeholder="admin">
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <input type="password" id="loginPass" placeholder="输入密码" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn btn-primary btn-block" onclick="doLogin()">登 录</button>
+  </div>
+</div>
+
+<div class="container" id="mainApp">
+  <div class="header">
+    <div class="header-left">
+      <h1>Lengbanlist</h1>
+      <span class="subtitle">已登录: <span class="username" id="headerInfo">-</span></span>
+    </div>
+    <button class="btn btn-logout btn-sm" onclick="logout()">退出登录</button>
+  </div>
+
+  <div class="stats-grid" id="statsCards"></div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('dashboard')">概览</button>
+    <button class="tab" onclick="switchTab('players')">玩家查询</button>
+    <button class="tab" onclick="switchTab('ban')">封禁管理</button>
+    <button class="tab" onclick="switchTab('history')">处罚历史</button>
+  </div>
+
+  <div class="tab-content active" id="tabDashboard">
+    <div class="card">
+      <div class="card-title">服务器概况</div>
+      <div class="refresh-bar"><span class="dot"></span> 每 10 秒自动刷新 · <span id="lastUpdate">刚刚</span></div>
+      <div id="statsDetail"></div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tabPlayers">
+    <div class="card">
+      <div class="card-title">搜索玩家或 IP</div>
+      <div class="search-row">
+        <input type="text" id="playerSearchInput" placeholder="输入玩家名或 IP 地址，回车搜索" onkeydown="if(event.key==='Enter')searchPlayer()">
+        <button class="btn btn-primary btn-sm" onclick="searchPlayer()">搜索</button>
+      </div>
+      <div id="playerResult"></div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tabBan">
+    <div class="card">
+      <div class="card-title">执行封禁</div>
+      <div id="banResult" class="hidden"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>目标（玩家名 / IP）</label>
+          <input type="text" id="banTarget" placeholder="输入玩家名或 IP">
+        </div>
+        <div class="form-group duration-wrap">
+          <label>时长</label>
+          <select id="banDurationSelect" onchange="onDurationChange()">
+            <optgroup label="常用时间">
+              <option value="30m">30 分钟</option>
+              <option value="1h">1 小时</option>
+              <option value="6h">6 小时</option>
+              <option value="12h">12 小时</option>
+              <option value="1d" selected>1 天</option>
+              <option value="3d">3 天</option>
+              <option value="7d">7 天</option>
+              <option value="14d">14 天</option>
+              <option value="30d">30 天</option>
+              <option value="90d">90 天</option>
+              <option value="180d">180 天</option>
+              <option value="1y">1 年</option>
+            </optgroup>
+            <optgroup label="特殊">
+              <option value="forever">永久封禁</option>
+              <option value="auto">自动计算</option>
+            </optgroup>
+            <optgroup label="其他">
+              <option value="__custom__">自定义...</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="form-group hidden" id="banDurationCustom" style="flex:0 0 130px">
+          <label>自定义时长</label>
+          <input type="text" id="banDurationInput" placeholder="如 45d" value="7d">
+        </div>
+        <div class="form-group" style="flex:1.5">
+          <label>原因</label>
+          <input type="text" id="banReason" placeholder="管理员操作" value="违规行为">
+        </div>
+        <button class="btn btn-danger" onclick="doBan()">执行封禁</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">执行解封</div>
+      <div id="unbanResult" class="hidden"></div>
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label>目标（玩家名 / IP）</label>
+          <input type="text" id="unbanTarget" placeholder="输入玩家名或 IP，回车解封" onkeydown="if(event.key==='Enter')doUnban()">
+        </div>
+        <button class="btn btn-primary" onclick="doUnban()">执行解封</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tabHistory">
+    <div class="card">
+      <div class="card-title">查询处罚记录</div>
+      <div class="search-row">
+        <input type="text" id="historyInput" placeholder="输入玩家名，回车查询" onkeydown="if(event.key==='Enter')loadHistory()">
+        <button class="btn btn-primary btn-sm" onclick="loadHistory()">查询</button>
+      </div>
+      <div id="historyResult"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+var BASE = '';
+var token = localStorage.getItem('lengbanlist_token') || '';
+var currentUser = '';
+var refreshTimer = null;
+var refreshTab = 'dashboard';
+
+function jwtDecode(t) {
+  try { return JSON.parse(atob(t.split('.')[1])); } catch(e) { return {}; }
+}
+if (!currentUser && token) { currentUser = jwtDecode(token).sub || ''; }
+
+async function api(path, opts) {
+  opts = opts || {};
+  var headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  try {
+    var res = await fetch(BASE + path, Object.assign({}, opts, { headers: headers }));
+    var text = await res.text();
+    try { return { ok: res.ok, data: JSON.parse(text) }; } catch(e) { return { ok: false, data: text }; }
+  } catch(e) {
+    return { ok: false, data: { error: '网络错误' } };
+  }
+}
+
+async function doLogin() {
+  var user = document.getElementById('loginUser').value.trim();
+  var pass = document.getElementById('loginPass').value;
+  if (!user || !pass) { showLoginError('请输入用户名和密码'); return; }
+  document.getElementById('loginError').classList.add('hidden');
+  var res = await api('/api/login', { method: 'POST', body: JSON.stringify({ username: user, password: pass }) });
+  if (res.ok) {
+    token = res.data.token;
+    currentUser = res.data.username;
+    localStorage.setItem('lengbanlist_token', token);
+    document.getElementById('loginOverlay').classList.add('hidden');
+    document.getElementById('headerInfo').textContent = currentUser;
+    loadDashboard();
+  } else {
+    showLoginError(res.data.error || '登录失败');
+  }
+}
+
+function showLoginError(msg) {
+  var el = document.getElementById('loginError');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function logout() {
+  token = ''; currentUser = ''; localStorage.removeItem('lengbanlist_token');
+  document.getElementById('loginOverlay').classList.remove('hidden');
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').classList.add('hidden');
+}
+
+function switchTab(name) {
+  refreshTab = name;
+  var tabs = ['dashboard','players','ban','history'];
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.tab-content').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelector('.tab:nth-child(' + (tabs.indexOf(name) + 1) + ')').classList.add('active');
+  document.getElementById('tab' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
+  if (name === 'dashboard') { loadDashboard(); startAutoRefresh(); }
+  else { stopAutoRefresh(); }
+}
+
+function onDurationChange() {
+  var sel = document.getElementById('banDurationSelect');
+  if (sel.value === '__custom__') {
+    document.getElementById('banDurationCustom').classList.remove('hidden');
+  } else {
+    document.getElementById('banDurationCustom').classList.add('hidden');
+  }
+}
+
+function getDuration() {
+  var sel = document.getElementById('banDurationSelect');
+  if (sel.value === '__custom__') {
+    return document.getElementById('banDurationInput').value.trim() || '7d';
+  }
+  return sel.value;
+}
+
+async function loadDashboard() {
+  var res = await api('/api/stats');
+  if (!res.ok) return;
+  var s = res.data;
+  document.getElementById('statsCards').innerHTML =
+    '<div class="stat-card"><div class="num">' + (s.total_bans||0) + '</div><div class="label">总封禁</div></div>' +
+    '<div class="stat-card"><div class="num">' + (s.active_bans||0) + '</div><div class="label">活跃封禁</div></div>' +
+    '<div class="stat-card"><div class="num">' + (s.ip_bans||0) + '</div><div class="label">IP封禁</div></div>' +
+    '<div class="stat-card"><div class="num">' + (s.mutes||0) + '</div><div class="label">禁言</div></div>' +
+    '<div class="stat-card"><div class="num">' + (s.warnings||0) + '</div><div class="label">警告</div></div>' +
+    '<div class="stat-card"><div class="num">' + (s.pending_reports||0) + '</div><div class="label">待处理举报</div></div>';
+
+  var fields = [
+    {k:'total_bans', l:'总封禁数'}, {k:'active_bans', l:'活跃封禁'}, {k:'ip_bans', l:'IP封禁'},
+    {k:'mutes', l:'禁言数'}, {k:'warnings', l:'警告数'}, {k:'pending_reports', l:'待处理举报'}
+  ];
+  var html = '<div class="stats-grid-sm">';
+  for (var i = 0; i < fields.length; i++) {
+    html += '<div class="sm-card"><div class="v">' + (s[fields[i].k]||0) + '</div><div class="l">' + fields[i].l + '</div></div>';
+  }
+  html += '</div>';
+  document.getElementById('statsDetail').innerHTML = html;
+}
+
+async function searchPlayer() {
+  var q = document.getElementById('playerSearchInput').value.trim();
+  if (!q) return;
+  var res = await api('/api/players?q=' + encodeURIComponent(q));
+  var el = document.getElementById('playerResult');
+  if (!res.ok) { el.innerHTML = '<div class="alert alert-error">' + (res.data.error||'查询失败') + '</div>'; return; }
+  var d = res.data;
+  var html = '<div class="alert alert-info"><strong>' + d.query + '</strong></div>';
+  if (d.type === 'ip') {
+    html += '<div class="table-wrap"><table><tr><th>关联玩家</th></tr>';
+    for (var i = 0; i < (d.players||[]).length; i++) { html += '<tr><td>' + d.players[i] + '</td></tr>'; }
+    html += '</table></div>';
+  } else {
+    if (d.associated_players && d.associated_players.length > 0) {
+      html += '<div class="alert alert-error" style="margin-bottom:12px">该玩家与其他账号共享 IP</div>';
+      html += '<div class="section-title">关联账号</div><div style="margin-bottom:16px">';
+      for (var i = 0; i < d.associated_players.length; i++) { html += '<span class="tag">' + d.associated_players[i] + '</span>'; }
+      html += '</div>';
+    } else {
+      html += '<div class="alert alert-success" style="margin-bottom:12px">无关联账号</div>';
+    }
+    if (d.ips && d.ips.length > 0) {
+      html += '<div class="section-title">IP 历史记录</div><div class="table-wrap"><table><tr><th>IP 地址</th><th>首次使用</th><th>最近使用</th></tr>';
+      for (var i = 0; i < d.ips.length; i++) {
+        html += '<tr><td>' + d.ips[i].ip + '</td><td>' + d.ips[i].first_seen + '</td><td>' + d.ips[i].last_seen + '</td></tr>';
+      }
+      html += '</table></div>';
+    }
+  }
+  el.innerHTML = html;
+}
+
+async function doBan() {
+  var target = document.getElementById('banTarget').value.trim();
+  if (!target) { showBanMsg('请输入目标', true); return; }
+  var duration = getDuration();
+  var reason = document.getElementById('banReason').value.trim() || '管理员操作';
+  if (!confirm('确认封禁 ' + target + ' ?\n时长: ' + duration + '\n原因: ' + reason)) return;
+  var res = await api('/api/ban', { method: 'POST', body: JSON.stringify({ target: target, duration: duration, reason: reason }) });
+  showBanMsg(res.ok ? res.data.message : (res.data.error||'封禁失败'), !res.ok);
+}
+
+function showBanMsg(msg, isError) {
+  var el = document.getElementById('banResult');
+  el.classList.remove('hidden');
+  el.className = 'alert ' + (isError ? 'alert-error' : 'alert-success');
+  el.textContent = msg;
+}
+
+async function doUnban() {
+  var target = document.getElementById('unbanTarget').value.trim();
+  if (!target) { showUnbanMsg('请输入目标', true); return; }
+  if (!confirm('确认解封 ' + target + ' ?')) return;
+  var res = await api('/api/unban', { method: 'POST', body: JSON.stringify({ target: target }) });
+  showUnbanMsg(res.ok ? res.data.message : (res.data.error||'解封失败'), !res.ok);
+}
+
+function showUnbanMsg(msg, isError) {
+  var el = document.getElementById('unbanResult');
+  el.classList.remove('hidden');
+  el.className = 'alert ' + (isError ? 'alert-error' : 'alert-success');
+  el.textContent = msg;
+}
+
+async function loadHistory() {
+  var player = document.getElementById('historyInput').value.trim();
+  if (!player) return;
+  var res = await api('/api/history?player=' + encodeURIComponent(player));
+  var el = document.getElementById('historyResult');
+  if (!res.ok) { el.innerHTML = '<div class="alert alert-error">' + (res.data.error||'查询失败') + '</div>'; return; }
+  var d = res.data;
+  var html = '<div class="alert alert-info"><strong>' + d.player + '</strong></div>';
+
+  if (d.bans && d.bans.length) {
+    html += '<div class="section-title">封禁记录</div><div class="table-wrap"><table><tr><th>目标</th><th>处理人</th><th>原因</th><th>到期</th><th>状态</th></tr>';
+    for (var i = 0; i < d.bans.length; i++) {
+      var b = d.bans[i];
+      html += '<tr><td>' + b.target + '</td><td>' + b.staff + '</td><td>' + b.reason + '</td><td>' + b.end_time + '</td><td><span class="badge ' + (b.active?'badge-red':'badge-green') + '">' + (b.active?'封禁中':'已解封') + '</span></td></tr>';
+    }
+    html += '</table></div>';
+  } else { html += '<p style="color:#6a7a8a;margin:8px 0">无封禁记录</p>'; }
+
+  if (d.mutes && d.mutes.length) {
+    html += '<div class="section-title">禁言记录</div><div class="table-wrap"><table><tr><th>处理人</th><th>原因</th><th>到期</th></tr>';
+    for (var i = 0; i < d.mutes.length; i++) {
+      html += '<tr><td>' + d.mutes[i].staff + '</td><td>' + d.mutes[i].reason + '</td><td>' + d.mutes[i].end_time + '</td></tr>';
+    }
+    html += '</table></div>';
+  } else { html += '<p style="color:#6a7a8a;margin:8px 0">无禁言记录</p>'; }
+
+  if (d.warnings && d.warnings.length) {
+    html += '<div class="section-title">警告记录</div><div class="table-wrap"><table><tr><th>处理人</th><th>原因</th><th>时间</th><th>状态</th></tr>';
+    for (var i = 0; i < d.warnings.length; i++) {
+      var w = d.warnings[i];
+      html += '<tr><td>' + w.staff + '</td><td>' + w.reason + '</td><td>' + w.warn_time + '</td><td><span class="badge ' + (w.revoked?'badge-green':'badge-yellow') + '">' + (w.revoked?'已撤销':'有效') + '</span></td></tr>';
+    }
+    html += '</table></div>';
+  } else { html += '<p style="color:#6a7a8a;margin:8px 0">无警告记录</p>'; }
+
+  el.innerHTML = html;
+}
+
+(function() {
+  if (token) {
+    api('/api/stats').then(function(res) {
+      if (res.ok) {
+        document.getElementById('loginOverlay').classList.add('hidden');
+        document.getElementById('headerInfo').textContent = currentUser || '已登录'; currentUser = currentUser;
+        loadDashboard();
+      } else {
+        localStorage.removeItem('lengbanlist_token');
+      }
+    });
+  }
+})();
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  refreshTimer = setInterval(function() {
+    if (refreshTab === "dashboard") {
+      api("/api/stats").then(function(res) {
+        if (res.ok) { updateStatsUI(res.data); }
+      });
+    }
+  }, 10000);
+}
+
+function stopAutoRefresh() {
+  if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+}
+
+function updateStatsUI(s) {
+  document.getElementById('statsCards').innerHTML =
+    '<div class="stat-card"><div class="num">' + (s.total_bans||0) + '</div><div class="label">总封禁</div></div>' +
+    '<div class="stat-card"><div class="num">' + (s.active_bans||0) + '</div><div class="label">活跃封禁</div></div>' +
+    '<div class="stat-card"><div class="num">' + (s.ip_bans||0) + '</div><div class="label">IP封禁</div></div>' +
+    '<div class="stat-card"><div class="num">' + (s.mutes||0) + '</div><div class="label">禁言</div></div>' +
+    '<div class="stat-card"><div class="num">' + (s.warnings||0) + '</div><div class="label">警告</div></div>' +
+    '<div class="stat-card"><div class="num">' + (s.pending_reports||0) + '</div><div class="label">待处理举报</div></div>';
+
+  var fields = [
+    {k:'total_bans', l:'总封禁数'}, {k:'active_bans', l:'活跃封禁'},
+    {k:'ip_bans', l:'IP封禁'}, {k:'mutes', l:'禁言数'},
+    {k:'warnings', l:'警告数'}, {k:'pending_reports', l:'待处理举报'}
+  ];
+  var html = '<div class="stats-grid-sm">';
+  for (var i = 0; i < fields.length; i++) {
+    html += '<div class="sm-card"><div class="v">' + (s[fields[i].k]||0) + '</div><div class="l">' + fields[i].l + '</div></div>';
+  }
+  html += '</div>';
+  document.getElementById('statsDetail').innerHTML = html;
+  document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+}
+
+</script>
+</body>
+</html>
