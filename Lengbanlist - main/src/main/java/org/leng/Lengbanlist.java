@@ -26,6 +26,8 @@ import java.io.InputStreamReader;
 
 import org.bukkit.configuration.ConfigurationSection;
 
+import org.leng.web.WebServer;
+
 public class Lengbanlist extends JavaPlugin {
     private static Lengbanlist instance;
     public BanManager banManager;
@@ -33,6 +35,7 @@ public class Lengbanlist extends JavaPlugin {
     public WarnManager warnManager;
     public ReportManager reportManager;
     public IpAssociationManager ipAssociationManager;
+    public WebServer webServer;
     public SchedulerUtils.SchedulerTask broadcastTask;
     private SchedulerUtils.SchedulerTask historyCleanupTask;
     private boolean isBroadcast;
@@ -88,6 +91,7 @@ public void onLoad() {
     warnManager = new WarnManager(this);
     reportManager = new ReportManager(this);
     ipAssociationManager = new IpAssociationManager(this);
+    webServer = new WebServer(this);
     isBroadcast = getConfig().getBoolean("opensendtime");
     modelManager = ModelManager.getInstance();
 
@@ -195,6 +199,10 @@ public void onEnable() {
         startBroadcastTask();
     }
 
+    if (isFeatureEnabled("web") && getConfig().getBoolean("web.enabled", false)) {
+        webServer.start();
+    }
+
     startHistoryCleanupTask();
 }
 
@@ -204,6 +212,7 @@ public void onDisable() {
 
     if (broadcastTask != null) broadcastTask.cancel();
     if (historyCleanupTask != null) historyCleanupTask.cancel();
+    if (webServer != null) webServer.stop();
 
     if (eulaAgreed) {
         try {
@@ -220,6 +229,8 @@ public void onDisable() {
     private void updateConfig() {
         reloadConfig();
         updateResourceConfig("config.yml", getConfig());
+        getConfig().set("config-version", getPluginVersion());
+        saveConfig();
     }
 
     private void updateResourceConfig(String resourceName, FileConfiguration config) {
@@ -374,6 +385,10 @@ private void unregisterCommands() {
 
     public IpAssociationManager getIpAssociationManager() {
         return ipAssociationManager;
+    }
+
+    public WebServer getWebServer() {
+        return webServer;
     }
 
     public ModelChoiceListener getModelChoiceListener() {

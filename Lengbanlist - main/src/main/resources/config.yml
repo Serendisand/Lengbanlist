@@ -26,6 +26,7 @@ features:
   chest-ui: true       # 可视化箱子界面 /lban open
   ip-association: true # IP关联检测，记录玩家历史IP并检测可疑登录
   vpn-detection: true  # VPN/代理检测，自动检测并处理VPN登录
+  web: true            # Web管理面板 REST API
   update-check: true  # 检查插件更新
   auto-update: false   # 自动下载更新
 
@@ -52,5 +53,14 @@ vpn-detection:
   ban-reason: "使用代理/VPN登录"  # 自动封禁原因
   kick-message: "请关闭代理或VPN后重新加入游戏"  # 踢出提示信息
 
-# 配置文件版本（用于自动合并新增字段，请勿修改）
+# Web管理面板配置
+web:
+  enabled: false                # 是否启用Web管理面板
+  host: "0.0.0.0"              # 监听地址
+  port: 8080                    # 监听端口
+  jwt-secret: "change-this-to-a-random-secret-key"  # JWT密钥（请修改为随机字符串）
+  admin-username: "admin"       # 管理员用户名
+  admin-password: "lban123"    # 管理员密码
+
+# 配置文件版本（自动跟踪插件版本，请勿修改）
 config-version: 1

@@ -91,8 +91,8 @@ public class AutoUpdateManager {
             newFileName = "Lengbanlist - " + version + ".jar";
         }
 
-        // 下载URL - 使用 latest 路径
-        String downloadUrl = "https://github.com/Ukiyograin/Lengbanlist/releases/latest/download/Lengbanlist-" + version + ".jar";
+        // 下载URL - 从 GitHub API 获取真实下载链接
+        String downloadUrl = GitHubUpdateChecker.getLatestDownloadUrl();
         
         // 下载到临时文件
         File tempFile = new File(currentPluginFile.getParentFile(), 

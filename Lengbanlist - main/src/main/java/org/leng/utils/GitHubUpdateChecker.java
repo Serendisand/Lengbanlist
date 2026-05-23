@@ -49,30 +49,54 @@ public class GitHubUpdateChecker {
         }
     }
 
-    /**
-     * 获取最新版本号（最多重试3次）
-     *
-     * @return 最新版本号
-     * @throws Exception 如果所有 API 都请求失败
-     */
     public static String getLatestReleaseVersion() throws Exception {
+        return fetchJsonFromApi().get("tag_name").getAsString();
+    }
+
+    public static String getLatestDownloadUrl() throws Exception {
+        JsonObject json = fetchJsonFromApi();
+        if (json.has("assets") && json.get("assets").getAsJsonArray().size() > 0) {
+            return json.get("assets").getAsJsonArray().get(0).getAsJsonObject().get("browser_download_url").getAsString();
+        }
+        String tag = json.get("tag_name").getAsString();
+        return "https://github.com/Ukiyograin/Lengbanlist/releases/download/" + tag + "/Lengbanlist-" + tag + ".jar";
+    }
+
+    private static JsonObject fetchJsonFromApi() throws Exception {
         Exception lastException = null;
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             for (String apiUrl : STATIC_API_URLS) {
                 try {
-                    return fetchVersionFromUrl(apiUrl);
+                    return doFetch(apiUrl);
                 } catch (Exception e) {
                     lastException = e;
-                    Lengbanlist.getInstance().getLogger().warning("哇呜，当前 API 请求失败: " + apiUrl + "（第" + attempt + "次尝试），喵喵正在重试...");
+                    Lengbanlist.getInstance().getLogger().warning("API 请求失败: " + apiUrl + "（第" + attempt + "次），正在重试...");
                 }
             }
             if (attempt < MAX_RETRIES) {
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException ignored) {}
+                Thread.sleep(1000);
             }
         }
-        throw new Exception("喵喵：所有 API 请求均失败（已重试" + MAX_RETRIES + "次），无法获取最新版本号", lastException);
+        throw new Exception("所有 API 请求均失败（已重试" + MAX_RETRIES + "次）", lastException);
+    }
+
+    private static JsonObject doFetch(String url) throws Exception {
+        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+        connection.setRequestMethod("GET");
+        connection.setRequestProperty("Accept", "application/vnd.github.v3+json");
+        connection.setConnectTimeout(TIMEOUT);
+        connection.setReadTimeout(TIMEOUT);
+        try (InputStreamReader reader = new InputStreamReader(connection.getInputStream())) {
+            StringBuilder response = new StringBuilder();
+            int data = reader.read();
+            while (data != -1) {
+                response.append((char) data);
+                data = reader.read();
+            }
+            return JsonParser.parseString(response.toString()).getAsJsonObject();
+        } finally {
+            connection.disconnect();
+        }
     }
 
     /**
