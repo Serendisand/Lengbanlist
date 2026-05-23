@@ -6,7 +6,7 @@
         <autoDetectTypes>
           <platformType>SPIGOT</platformType>
         </autoDetectTypes>
-        <projectReimportVersion>1</projectReimportVersion>
+        <projectReimportVersion>2</projectReimportVersion>
       </configuration>
     </facet>
   </component>
