@@ -16,15 +16,11 @@ import org.leng.utils.Utils;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Field;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.io.BufferedReader;
-import java.io.InputStreamReader;
-
-import org.bukkit.configuration.ConfigurationSection;
 
 import org.leng.web.WebServer;
 
@@ -53,7 +49,6 @@ public class Lengbanlist extends JavaPlugin {
 @Override
 public void onLoad() {
     saveDefaultConfig();
-    updateConfig();
     instance = this;
 
     SchedulerUtils.init(this);
@@ -101,7 +96,6 @@ public void onLoad() {
         saveResource("chatconfig.yml", false);
     }
     chatConfig = YamlConfiguration.loadConfiguration(chatConfigFile);
-    updateResourceConfig("chatconfig.yml", chatConfig);
 
     File broadcastFile = new File(getDataFolder(), "broadcast.yml");
     if (!broadcastFile.exists()) {
@@ -109,7 +103,6 @@ public void onLoad() {
         saveResource("broadcast.yml", false);
     }
     broadcastFC = YamlConfiguration.loadConfiguration(broadcastFile);
-    updateResourceConfig("broadcast.yml", broadcastFC);
 
 }
 
@@ -225,51 +218,6 @@ public void onDisable() {
 
     getServer().getConsoleSender().sendMessage(prefix() + "§f期待我们的下一次相遇！");
 }
-
-    private void updateConfig() {
-        reloadConfig();
-        updateResourceConfig("config.yml", getConfig());
-        getConfig().set("config-version", getPluginVersion());
-        saveConfig();
-    }
-
-    private void updateResourceConfig(String resourceName, FileConfiguration config) {
-        InputStream defStream = getResource(resourceName);
-        if (defStream == null) return;
-
-        YamlConfiguration defConfig = YamlConfiguration.loadConfiguration(new InputStreamReader(defStream));
-        boolean modified = mergeMissingKeys(defConfig, config, "");
-
-        if (modified) {
-            getLogger().info("检测到 " + resourceName + " 更新，已自动合并新增字段");
-            try {
-                config.save(new File(getDataFolder(), resourceName));
-            } catch (IOException e) {
-                getLogger().warning("保存 " + resourceName + " 时出错: " + e.getMessage());
-            }
-        }
-    }
-
-    private boolean mergeMissingKeys(ConfigurationSection source, ConfigurationSection target, String path) {
-        boolean modified = false;
-        for (String key : source.getKeys(false)) {
-            String fullPath = path.isEmpty() ? key : path + "." + key;
-            if (source.isConfigurationSection(key)) {
-                if (!target.contains(key)) {
-                    target.createSection(key, source.getConfigurationSection(key).getValues(true));
-                    modified = true;
-                } else if (target.isConfigurationSection(key)) {
-                    modified |= mergeMissingKeys(source.getConfigurationSection(key), target.getConfigurationSection(key), fullPath);
-                }
-            } else {
-                if (!target.contains(fullPath)) {
-                    target.set(fullPath, source.get(fullPath));
-                    modified = true;
-                }
-            }
-        }
-        return modified;
-    }
 
     private void startBroadcastTask() {
         long interval = getConfig().getInt("sendtime") * 1200L;

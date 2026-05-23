@@ -61,6 +61,3 @@ web:
   jwt-secret: "change-this-to-a-random-secret-key"  # JWT密钥（请修改为随机字符串）
   admin-username: "admin"       # 管理员用户名
   admin-password: "lban123"    # 管理员密码
-
-# 配置文件版本（自动跟踪插件版本，请勿修改）
-config-version: 1
