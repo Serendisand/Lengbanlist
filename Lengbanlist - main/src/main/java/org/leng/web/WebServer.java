@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.leng.Lengbanlist;
+import org.leng.manager.ModelManager;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.object.MuteEntry;
@@ -16,6 +17,7 @@ import org.leng.utils.TimeUtils;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
@@ -697,13 +699,36 @@ public class WebServer {
 
         try {
             plugin.reloadConfig();
-            plugin.reloadWebServer();
+            ModelManager.getInstance().reloadModel();
+
+            File broadcastFile = new File(plugin.getDataFolder(), "broadcast.yml");
+            if (broadcastFile.exists()) {
+                try {
+                    plugin.getBroadcastFC().load(broadcastFile);
+                } catch (Exception e) {
+                    plugin.getLogger().warning("重载broadcast.yml失败: " + e.getMessage());
+                }
+            }
+            File chatConfigFile = new File(plugin.getDataFolder(), "chatconfig.yml");
+            if (chatConfigFile.exists()) {
+                try {
+                    plugin.getChatConfig().load(chatConfigFile);
+                } catch (Exception e) {
+                    plugin.getLogger().warning("重载chatconfig.yml失败: " + e.getMessage());
+                }
+            }
+
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
             result.addProperty("message", "配置已重新加载");
             sendJson(exchange, 200, result.toString());
         } catch (Exception e) {
             sendJson(exchange, 500, "{\"error\":\"重载失败: " + e.getMessage() + "\"}");
+            return;
+        }
+        try {
+            plugin.reloadWebServer();
+        } catch (Exception ignored) {
         }
     }
 
@@ -740,17 +765,38 @@ public class WebServer {
     private void handleRoot(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
         try {
-            java.io.InputStream htmlStream = plugin.getResource("web/index.html");
-            if (htmlStream != null) {
-                byte[] htmlBytes = htmlStream.readAllBytes();
-                exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
-                exchange.sendResponseHeaders(200, htmlBytes.length);
-                exchange.getResponseBody().write(htmlBytes);
+            String path = exchange.getRequestURI().getPath();
+            if (path == null || path.equals("/")) path = "/index.html";
+
+            String resourcePath = "web" + path;
+            java.io.InputStream stream = plugin.getResource(resourcePath);
+            if (stream != null) {
+                byte[] bytes = stream.readAllBytes();
+                exchange.getResponseHeaders().set("Content-Type", getMimeType(path));
+                exchange.sendResponseHeaders(200, bytes.length);
+                exchange.getResponseBody().write(bytes);
                 exchange.close();
+                return;
+            }
+
+            if (path.equals("/index.html")) {
+                sendJson(exchange, 200, "{\"name\":\"Lengbanlist Web API\",\"version\":\"" + plugin.getPluginVersion() + "\",\"login\":\"POST /api/login 获取token\",\"usage\":\"在请求头加 Authorization: Bearer <token> 调用其他接口\"}");
                 return;
             }
         } catch (IOException e) {
         }
-        sendJson(exchange, 200, "{\"name\":\"Lengbanlist Web API\",\"version\":\"" + plugin.getPluginVersion() + "\",\"login\":\"POST /api/login 获取token\",\"usage\":\"在请求头加 Authorization: Bearer <token> 调用其他接口\"}");
+        sendJson(exchange, 404, "{\"error\":\"Not Found\"}");
+    }
+
+    private String getMimeType(String path) {
+        if (path.endsWith(".html")) return "text/html; charset=UTF-8";
+        if (path.endsWith(".css")) return "text/css; charset=UTF-8";
+        if (path.endsWith(".js")) return "application/javascript; charset=UTF-8";
+        if (path.endsWith(".cur")) return "image/x-win-bitmap";
+        if (path.endsWith(".ani")) return "application/x-navi-animation";
+        if (path.endsWith(".png")) return "image/png";
+        if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
+        if (path.endsWith(".svg")) return "image/svg+xml";
+        return "application/octet-stream";
     }
 }

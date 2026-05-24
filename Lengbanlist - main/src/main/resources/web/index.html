@@ -119,6 +119,43 @@ tr:hover td { background: rgba(79,195,247,.03); }
 .action-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .loading { text-align: center; padding: 24px; color: #6a7a8a; }
 .empty-state { text-align: center; padding: 32px; color: #6a7a8a; font-size: 14px; }
+/* Right-click context menu */
+.context-menu {
+  position: fixed; background: #1a2a3a; border: 1px solid #2a3a4a;
+  border-radius: 8px; padding: 4px; min-width: 150px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6); z-index: 9999;
+}
+.context-menu.hidden { display: none !important; }
+.context-menu-item {
+  padding: 8px 14px; cursor: pointer; border-radius: 5px;
+  font-size: 13px; color: #c8d0d8; user-select: none;
+}
+.context-menu-item:hover { background: #4fc3f7; color: #0b1219; }
+.context-menu-item.danger { color: #e5554e; }
+.context-menu-item.danger:hover { background: #e5554e; color: #fff; }
+td.context-row { cursor: context-menu; }
+
+/* EULA overlay */
+.eula-overlay {
+  position: fixed; inset: 0; background: rgba(11,18,25,0.95);
+  display: flex; align-items: center; justify-content: center; z-index: 200;
+}
+.eula-overlay.hidden { display: none !important; }
+.eula-box {
+  background: #16222e; padding: 40px; border-radius: 16px;
+  width: 520px; max-width: 90vw; max-height: 85vh;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.5);
+  display: flex; flex-direction: column;
+}
+.eula-box h1 { color: #4fc3f7; font-size: 22px; text-align: center; }
+.eula-box .sub { color: #7a8a9a; text-align: center; margin: 4px 0 20px; font-size: 13px; }
+.eula-scroll {
+  flex: 1; overflow-y: auto; padding: 16px; margin-bottom: 20px;
+  background: #0b1219; border-radius: 8px; border: 1px solid #253545;
+  font-size: 13px; line-height: 1.8; color: #b0b8c0;
+}
+.eula-scroll p { margin-bottom: 8px; }
+
 @media (max-width: 720px) {
   .container { padding: 16px; }
   .stats-grid { grid-template-columns: repeat(3, 1fr); }
@@ -129,6 +166,24 @@ tr:hover td { background: rgba(79,195,247,.03); }
 </style>
 </head>
 <body>
+
+<div class="eula-overlay hidden" id="eulaOverlay">
+  <div class="eula-box">
+    <h1>使用协议</h1>
+    <p class="sub">请仔细阅读以下条款后再使用</p>
+    <div class="eula-scroll">
+      <p>在使用 Lengbanlist Web 管理面板前，请先阅读并同意以下内容：</p>
+      <p><strong>1. EULA 协议</strong></p>
+      <p style="padding-left:16px">请前往插件目录 <code>plugins/Lengbanlist/eula.yml</code> 完整阅读 EULA 协议，并按文件中的说明将 "no" 改为 "yes" 以同意协议。</p>
+      <p><strong>2. 光标文件来源</strong></p>
+      <p style="padding-left:16px">本面板使用的光标文件来自 <strong>YOU MING 柚明</strong>。</p>
+      <p><strong>3. 免责声明</strong></p>
+      <p style="padding-left:16px">本面板为管理辅助工具，使用者须自行承担操作后果。请确保您拥有管理员权限后再行使用。</p>
+      <p style="margin-top:16px;color:#4fc3f7">点击下方按钮即表示您已完整阅读、理解并同意上述全部条款。</p>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="acceptEula()">我已阅读并同意</button>
+  </div>
+</div>
 
 <div class="login-overlay" id="loginOverlay">
   <div class="login-box" id="loginBox">
@@ -537,7 +592,7 @@ async function loadBanLists() {
       html += '<div class="table-wrap"><table><tr><th>玩家</th><th>处理人</th><th>原因</th><th>到期时间</th><th>剩余</th><th>类型</th></tr>';
       for (var i = 0; i < d.bans.length; i++) {
         var b = d.bans[i];
-        html += '<tr><td>' + escapeHtml(b.target) + '</td><td>' + escapeHtml(b.staff) + '</td><td>' + escapeHtml(b.reason) + '</td><td>' + escapeHtml(b.end_time) + '</td><td>' + escapeHtml(b.remaining) + '</td><td>' + (b.auto?'<span class="badge badge-yellow">自动</span>':'<span class="badge badge-red">手动</span>') + '</td></tr>';
+        html += '<tr oncontextmenu="showContextMenu(event,\'ban\',\'' + escapeHtml(b.target) + '\')"><td>' + escapeHtml(b.target) + '</td><td>' + escapeHtml(b.staff) + '</td><td>' + escapeHtml(b.reason) + '</td><td>' + escapeHtml(b.end_time) + '</td><td>' + escapeHtml(b.remaining) + '</td><td>' + (b.auto?'<span class="badge badge-yellow">自动</span>':'<span class="badge badge-red">手动</span>') + '</td></tr>';
       }
       html += '</table></div>';
     } else {
@@ -556,7 +611,7 @@ async function loadBanLists() {
       html += '<div class="table-wrap"><table><tr><th>IP</th><th>处理人</th><th>原因</th><th>到期时间</th><th>剩余</th></tr>';
       for (var i = 0; i < d.bans.length; i++) {
         var b = d.bans[i];
-        html += '<tr><td>' + escapeHtml(b.ip) + '</td><td>' + escapeHtml(b.staff) + '</td><td>' + escapeHtml(b.reason) + '</td><td>' + escapeHtml(b.end_time) + '</td><td>' + escapeHtml(b.remaining) + '</td></tr>';
+        html += '<tr oncontextmenu="showContextMenu(event,\'ipban\',\'' + escapeHtml(b.ip) + '\')"><td>' + escapeHtml(b.ip) + '</td><td>' + escapeHtml(b.staff) + '</td><td>' + escapeHtml(b.reason) + '</td><td>' + escapeHtml(b.end_time) + '</td><td>' + escapeHtml(b.remaining) + '</td></tr>';
       }
       html += '</table></div>';
     } else {
@@ -579,7 +634,7 @@ async function loadMuteList() {
       html += '<div class="table-wrap"><table><tr><th>玩家</th><th>处理人</th><th>原因</th><th>禁言时间</th></tr>';
       for (var i = 0; i < d.mutes.length; i++) {
         var m = d.mutes[i];
-        html += '<tr><td>' + escapeHtml(m.target) + '</td><td>' + escapeHtml(m.staff) + '</td><td>' + escapeHtml(m.reason) + '</td><td>' + escapeHtml(m.time) + '</td></tr>';
+        html += '<tr oncontextmenu="showContextMenu(event,\'mute\',\'' + escapeHtml(m.target) + '\')"><td>' + escapeHtml(m.target) + '</td><td>' + escapeHtml(m.staff) + '</td><td>' + escapeHtml(m.reason) + '</td><td>' + escapeHtml(m.time) + '</td></tr>';
       }
       html += '</table></div>';
     } else {
@@ -633,7 +688,7 @@ async function loadReports() {
       html += '<div class="table-wrap"><table><tr><th>编号</th><th>被举报人</th><th>举报人</th><th>原因</th><th>时间</th><th>操作</th></tr>';
       for (var i = 0; i < d.reports.length; i++) {
         var r = d.reports[i];
-        html += '<tr><td>' + escapeHtml(r.id) + '</td><td>' + escapeHtml(r.target) + '</td><td>' + escapeHtml(r.reporter) + '</td><td>' + escapeHtml(r.reason) + '</td><td>' + escapeHtml(r.timestamp) + '</td>' +
+        html += '<tr oncontextmenu="showContextMenu(event,\'report\',\'' + escapeHtml(r.id) + '\')"><td>' + escapeHtml(r.id) + '</td><td>' + escapeHtml(r.target) + '</td><td>' + escapeHtml(r.reporter) + '</td><td>' + escapeHtml(r.reason) + '</td><td>' + escapeHtml(r.timestamp) + '</td>' +
           '<td><button class="btn btn-success btn-sm" onclick="closeReport(\'' + r.id + '\')">关闭</button></td></tr>';
       }
       html += '</table></div>';
@@ -712,7 +767,25 @@ function escapeHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function acceptEula() {
+  localStorage.setItem('lengbanlist_eula', 'accepted');
+  document.getElementById('eulaOverlay').classList.add('hidden');
+  document.getElementById('loginOverlay').classList.remove('hidden');
+  if (token) {
+    api('/api/stats').then(function(res) {
+      if (res.ok) {
+        document.getElementById('loginOverlay').classList.add('hidden');
+        document.getElementById('headerInfo').textContent = currentUser || '已登录';
+        loadDashboard();
+      }
+    });
+  }
+}
+
 (function() {
+  if (!localStorage.getItem('lengbanlist_eula')) {
+    document.getElementById('eulaOverlay').classList.remove('hidden');
+  }
   if (token) {
     api('/api/stats').then(function(res) {
       if (res.ok) {
@@ -739,6 +812,60 @@ function startAutoRefresh() {
 
 function stopAutoRefresh() {
   if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+}
+
+// ===== Context Menu =====
+var contextTarget = '';
+
+document.addEventListener('click', function() { hideContextMenu(); });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') hideContextMenu(); });
+
+function hideContextMenu() {
+  document.getElementById('contextMenu').classList.add('hidden');
+}
+
+function showContextMenu(e, type, target) {
+  e.preventDefault();
+  e.stopPropagation();
+  contextTarget = target;
+  var menu = document.getElementById('contextMenu');
+
+  var unbanItem = menu.querySelector('[data-action="unban"]');
+  var unmuteItem = menu.querySelector('[data-action="unmute"]');
+  var reportItem = menu.querySelector('[data-action="close-report"]');
+
+  unbanItem.classList.toggle('hidden', type !== 'ban' && type !== 'ipban');
+  unmuteItem.classList.toggle('hidden', type !== 'mute');
+  reportItem.classList.toggle('hidden', type !== 'report');
+
+  var x = Math.min(e.clientX, window.innerWidth - 160);
+  var y = Math.min(e.clientY, window.innerHeight - 120);
+  menu.style.left = Math.max(0, x) + 'px';
+  menu.style.top = Math.max(0, y) + 'px';
+  menu.classList.remove('hidden');
+}
+
+function contextMenuAction(action) {
+  hideContextMenu();
+  if (action === 'unban') {
+    if (!confirm('确认解封 ' + contextTarget + ' ?')) return;
+    api('/api/unban', { method: 'POST', body: JSON.stringify({ target: contextTarget }) }).then(function(res) {
+      if (res.ok) { loadBanLists(); }
+      else { alert(res.data.error || '解封失败'); }
+    });
+  } else if (action === 'unmute') {
+    if (!confirm('确认解除 ' + contextTarget + ' 的禁言?')) return;
+    api('/api/unmute', { method: 'POST', body: JSON.stringify({ target: contextTarget }) }).then(function(res) {
+      if (res.ok) { loadMuteList(); }
+      else { alert(res.data.error || '解除禁言失败'); }
+    });
+  } else if (action === 'close-report') {
+    if (!confirm('确认关闭举报 ' + contextTarget + ' ?')) return;
+    api('/api/report/action', { method: 'POST', body: JSON.stringify({ id: contextTarget, action: 'close' }) }).then(function(res) {
+      if (res.ok) { loadReports(); }
+      else { alert(res.data.error || '操作失败'); }
+    });
+  }
 }
 
 function updateStatsUI(s) {
@@ -777,5 +904,12 @@ function updateStatsUI(s) {
 }
 
 </script>
+<!-- Context Menu -->
+<div id="contextMenu" class="context-menu hidden">
+  <div class="context-menu-item" data-action="unban" onclick="contextMenuAction('unban')">解封</div>
+  <div class="context-menu-item" data-action="unmute" onclick="contextMenuAction('unmute')">解除禁言</div>
+  <div class="context-menu-item danger" data-action="close-report" onclick="contextMenuAction('close-report')">关闭举报</div>
+</div>
+
 </body>
 </html>
