@@ -27,7 +27,7 @@ public class ListMuteCommand implements CommandExecutor {
         }
         Utils.sendMessage(sender, "§7--§bLengbanlist 禁言名单§7--");
         for (MuteEntry entry : plugin.getMuteManager().getMuteList()) {
-            Utils.sendMessage(sender, "§9§o被禁言者: " + entry.getTarget() + " §6处理人: " + entry.getStaff() + " §d禁言时间: " + TimeUtils.timestampToReadable(entry.getTime()) + " §l§n禁言原因: " + entry.getReason());
+            Utils.sendMessage(sender, "§c被禁言者：§f" + entry.getTarget() + " §e处理人：§f" + entry.getStaff() + " §e禁言原因：§f" + entry.getReason() + " §f禁言时间：" + TimeUtils.timestampToReadable(entry.getTime()));
         }
         return true;
     }

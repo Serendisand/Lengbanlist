@@ -143,7 +143,7 @@ public class HistoryCommand implements CommandExecutor, TabCompleter {
                 }
                 case "mute": {
                     MuteEntry m = (MuteEntry) data;
-                    return "§7- §9禁言 §7| 处理人: §b" + m.getStaff() + " §7| 时间: §f" + TimeUtils.timestampToReadable(m.getTime()) + " §7| 原因: §f" + m.getReason();
+                    return "§7- §c禁言 §7| 处理人: §b" + m.getStaff() + " §7| 时间: §f" + TimeUtils.timestampToReadable(m.getTime()) + " §7| 原因: §f" + m.getReason();
                 }
                 case "warn": {
                     WarnEntry w = (WarnEntry) data;

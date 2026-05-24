@@ -8,6 +8,7 @@ import org.leng.Lengbanlist;
 import org.leng.manager.ReportManager;
 import org.leng.utils.GitHubUpdateChecker;
 import org.leng.utils.SchedulerUtils;
+import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.chat.HoverEvent;
@@ -37,7 +38,7 @@ public class OpJoinListener implements Listener {
             int pendingReports = reportManager.getPendingReportCount();
 
             String greeting = getGreetingMessage();
-            TextComponent adminMessage = new TextComponent("——————————\n" +
+            BaseComponent[] adminMessage = TextComponent.fromLegacyText("——————————\n" +
                     plugin.prefix() + "\n" +
                     "尊敬的Admin：" + player.getName() + "\n" +
                     greeting + "，来杯咖啡，开始今天的工作吧\n" +
@@ -48,7 +49,8 @@ public class OpJoinListener implements Listener {
             clickableAdminLink.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/lban admin"));
             clickableAdminLink.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("§a点击前往举报管理界面").create()));
 
-            player.spigot().sendMessage(adminMessage, clickableAdminLink);
+            player.spigot().sendMessage(adminMessage);
+            player.spigot().sendMessage(clickableAdminLink);
         }
     }
 
@@ -60,12 +62,13 @@ public class OpJoinListener implements Listener {
 
             if (GitHubUpdateChecker.isUpdateAvailable(pluginVersion)) {
                 String prefix = plugin.prefix();
-                TextComponent message = new TextComponent(prefix + " §a喵喵发现有新版本可用，当前版本：§e" + pluginVersion + "§a，最新版本：§e" + latestVersion + "§a 请前往: §b" + updateUrl);
+                BaseComponent[] message = TextComponent.fromLegacyText(prefix + " §a喵喵发现有新版本可用，当前版本：§e" + pluginVersion + "§a，最新版本：§e" + latestVersion + "§a 请前往: §b" + updateUrl);
                 TextComponent clickableLink = new TextComponent("§f【§b点击前往喵~§f】");
                 clickableLink.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, updateUrl));
                 clickableLink.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("§a点击打开更新页面喵~").create()));
 
-                player.spigot().sendMessage(message, clickableLink);
+                player.spigot().sendMessage(message);
+                player.spigot().sendMessage(clickableLink);
             } else {
                 player.sendMessage(plugin.prefix() + " §a喵喵发现现在是最新版本！");
             }

@@ -171,8 +171,13 @@ public class ChestUIListener implements Listener {
         event.setCancelled(true);
 
         Player player = (Player) event.getWhoClicked();
+        if (!player.hasMetadata("lengbanlist-action")) return;
         String action = player.getMetadata("lengbanlist-action").get(0).asString();
-        String step = player.getMetadata("lengbanlist-step").get(0).asString();
+
+        String step = "";
+        if (player.hasMetadata("lengbanlist-step")) {
+            step = player.getMetadata("lengbanlist-step").get(0).asString();
+        }
 
         ItemStack item = event.getInventory().getItem(0);
         if (item == null || item.getItemMeta() == null) {
@@ -206,7 +211,7 @@ public class ChestUIListener implements Listener {
             openAnvilForBan(player, "time");
         } else if (step.equals("time")) {
             if (!TimeUtils.isValidTime(input)) {
-                Utils.sendMessage(player, "§c时间格式无效，请使用以下格式：10s, 5m, 2h, 7d, 1w, 1M, 1y");
+                Utils.sendMessage(player, "§c时间格式无效，请使用以下格式：10s, 5m, 2h, 7d, 1w, 1M, 1y, auto");
                 return;
             }
             player.setMetadata("lengbanlist-time", new FixedMetadataValue(plugin, input));
@@ -214,15 +219,39 @@ public class ChestUIListener implements Listener {
         } else if (step.equals("reason")) {
             String playerID = player.getMetadata("lengbanlist-playerID").get(0).asString();
             String time = player.getMetadata("lengbanlist-time").get(0).asString();
-            long duration = TimeUtils.parseTime(time);
+            long duration;
+            boolean isAuto = false;
+            if (time.equalsIgnoreCase("auto")) {
+                isAuto = true;
+                duration = calculateAutoBanTime(playerID);
+            } else {
+                duration = TimeUtils.parseTime(time);
+            }
+            if (duration <= 0) {
+                Utils.sendMessage(player, "§c时间格式无效。");
+                return;
+            }
+            long endTime = System.currentTimeMillis() + duration;
             if (playerID.contains(".")) {
-                plugin.getBanManager().banIp(new BanIpEntry(playerID, player.getName(), duration, input, false));
+                plugin.getBanManager().banIp(new BanIpEntry(playerID, player.getName(), endTime, input, isAuto));
                 Utils.sendMessage(player, "§a封禁IP成功：" + playerID);
             } else {
-                plugin.getBanManager().banPlayer(new BanEntry(playerID, player.getName(), duration, input, false));
+                plugin.getBanManager().banPlayer(new BanEntry(playerID, player.getName(), endTime, input, isAuto));
                 Utils.sendMessage(player, "§a封禁玩家成功：" + playerID);
             }
             clearMetadata(player);
+        }
+    }
+
+    private long calculateAutoBanTime(String playerName) {
+        int warnCount = Math.max(0, plugin.getWarnManager().getActiveWarnings(playerName).size());
+        switch (warnCount) {
+            case 0:  return TimeUtils.daysToMillis(1);
+            case 1:  return TimeUtils.daysToMillis(3);
+            case 2:  return TimeUtils.daysToMillis(7);
+            case 3:  return TimeUtils.daysToMillis(14);
+            case 4:  return TimeUtils.daysToMillis(30);
+            default: return Long.MAX_VALUE;
         }
     }
 
@@ -262,7 +291,7 @@ public class ChestUIListener implements Listener {
             openAnvilForIPBan(player, "time");
         } else if (step.equals("time")) {
             if (!TimeUtils.isValidTime(input)) {
-                Utils.sendMessage(player, "§c时间格式无效，请使用以下格式：10s, 5m, 2h, 7d, 1w, 1M, 1y");
+                Utils.sendMessage(player, "§c时间格式无效，请使用以下格式：10s, 5m, 2h, 7d, 1w, 1M, 1y, auto");
                 return;
             }
             player.setMetadata("lengbanlist-time", new FixedMetadataValue(plugin, input));
@@ -270,8 +299,20 @@ public class ChestUIListener implements Listener {
         } else if (step.equals("reason")) {
             String ip = player.getMetadata("lengbanlist-ip").get(0).asString();
             String time = player.getMetadata("lengbanlist-time").get(0).asString();
-            long duration = TimeUtils.parseTime(time);
-            plugin.getBanManager().banIp(new BanIpEntry(ip, player.getName(), duration, input, false));
+            long duration;
+            boolean isAuto = false;
+            if (time.equalsIgnoreCase("auto")) {
+                isAuto = true;
+                duration = TimeUtils.daysToMillis(7);
+            } else {
+                duration = TimeUtils.parseTime(time);
+            }
+            if (duration <= 0) {
+                Utils.sendMessage(player, "§c时间格式无效。");
+                return;
+            }
+            long endTime = System.currentTimeMillis() + duration;
+            plugin.getBanManager().banIp(new BanIpEntry(ip, player.getName(), endTime, input, isAuto));
             Utils.sendMessage(player, "§a封禁IP成功：" + ip);
             clearMetadata(player);
         }

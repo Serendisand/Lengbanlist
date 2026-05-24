@@ -120,13 +120,16 @@ public class TimeUtils {
     // 验证时间格式
     public static boolean isValidTimeFormat(String timeStr) {
         if (timeStr == null || timeStr.isEmpty()) return false;
-        
+
         // 永久封禁关键词
-        if (timeStr.equalsIgnoreCase("forever") || 
-            timeStr.equalsIgnoreCase("perm") || 
+        if (timeStr.equalsIgnoreCase("forever") ||
+            timeStr.equalsIgnoreCase("perm") ||
             timeStr.equalsIgnoreCase("permanent")) {
             return true;
         }
+
+        // 自动计算
+        if (timeStr.equalsIgnoreCase("auto")) return true;
 
         // 数字+单位格式
         return timeStr.matches("^\\d+[smhdwMy]$");

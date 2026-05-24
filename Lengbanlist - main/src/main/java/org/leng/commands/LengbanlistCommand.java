@@ -551,7 +551,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
     private void showMuteList(CommandSender sender) {
         Utils.sendMessage(sender, "§7--§bLengbanlist 禁言名单§7--");
         for (MuteEntry entry : plugin.getMuteManager().getMuteList()) {
-            Utils.sendMessage(sender, "§9§o被禁言者: " + entry.getTarget() + " §6处理人: " + entry.getStaff() + " §d禁言时间: " + TimeUtils.timestampToReadable(entry.getTime()) + " §l§n禁言原因: " + entry.getReason());
+            Utils.sendMessage(sender, "§c被禁言者：§f" + entry.getTarget() + " §e处理人：§f" + entry.getStaff() + " §e禁言原因：§f" + entry.getReason() + " §f禁言时间：" + TimeUtils.timestampToReadable(entry.getTime()));
         }
     }
 
@@ -747,7 +747,12 @@ public void onInventoryClick(InventoryClickEvent event) {
             return;
         }
 
-        String command = clickedItem.getItemMeta().getLore().get(0).replace("§7", "");
+        ItemMeta clickMeta = clickedItem.getItemMeta();
+        if (clickMeta.getLore() == null || clickMeta.getLore().isEmpty()) {
+            return;
+        }
+
+        String command = clickMeta.getLore().get(0).replace("§7", "");
         player.closeInventory();
 
         switch (command) {
@@ -880,7 +885,7 @@ private void handleBanWizard(Player player, String input) {
         Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f封禁时间§e（如：1d, 7d, forever）：");
     } else if (step.equals("time")) {
         if (!TimeUtils.isValidTime(input)) {
-            Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效，请使用：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever");
+            Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效，请使用：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever, auto");
             return;
         }
         player.setMetadata("lengbanlist-time", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
@@ -889,16 +894,28 @@ private void handleBanWizard(Player player, String input) {
     } else if (step.equals("reason")) {
         String playerID = player.getMetadata("lengbanlist-playerID").get(0).asString();
         String time = player.getMetadata("lengbanlist-time").get(0).asString();
-        long duration = TimeUtils.parseTime(time);
+        long duration;
+        boolean isAuto = false;
+        if (time.equalsIgnoreCase("auto")) {
+            isAuto = true;
+            duration = calculateAutoBanTime(playerID);
+        } else {
+            duration = TimeUtils.parseTime(time);
+        }
+        if (duration <= 0) {
+            Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效。");
+            return;
+        }
+        long endTime = System.currentTimeMillis() + duration;
         if (playerID.contains(".")) {
             if (!plugin.isFeatureEnabled("ban-ip")) {
                 plugin.sendFeatureDisabled(player);
                 clearWizard(player);
                 return;
             }
-            plugin.getBanManager().banIp(new BanIpEntry(playerID, player.getName(), duration, input, false));
+            plugin.getBanManager().banIp(new BanIpEntry(playerID, player.getName(), endTime, input, isAuto));
         } else {
-            plugin.getBanManager().banPlayer(new BanEntry(playerID, player.getName(), duration, input, false));
+            plugin.getBanManager().banPlayer(new BanEntry(playerID, player.getName(), endTime, input, isAuto));
         }
         clearWizard(player);
     }
@@ -916,6 +933,18 @@ private void handleMuteWizard(Player player, String input) {
         plugin.getMuteManager().mutePlayer(entry);
         Bukkit.broadcastMessage(ModelManager.getInstance().getCurrentModel().addMute(playerID, input));
         clearWizard(player);
+    }
+}
+
+private long calculateAutoBanTime(String playerName) {
+    int warnCount = Math.max(0, plugin.getWarnManager().getActiveWarnings(playerName).size());
+    switch (warnCount) {
+        case 0:  return TimeUtils.daysToMillis(1);
+        case 1:  return TimeUtils.daysToMillis(3);
+        case 2:  return TimeUtils.daysToMillis(7);
+        case 3:  return TimeUtils.daysToMillis(14);
+        case 4:  return TimeUtils.daysToMillis(30);
+        default: return Long.MAX_VALUE;
     }
 }
 

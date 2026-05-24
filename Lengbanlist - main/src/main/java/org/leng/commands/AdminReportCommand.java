@@ -100,7 +100,7 @@ public class AdminReportCommand implements CommandExecutor {
                 new net.md_5.bungee.api.chat.TextComponent(" "),
                 Utils.clickableText("§b【点击关闭】", "/report close " + report.getId()),
                 new net.md_5.bungee.api.chat.TextComponent(" "),
-                Utils.clickableText("§c【点击封禁】", "/lban add " + report.getTarget() + " ")
+                Utils.clickableText("§c【点击封禁】", "/ban " + report.getTarget() + " auto unfair advantage")
             );
             player.sendMessage("§7————————————————");
         }
