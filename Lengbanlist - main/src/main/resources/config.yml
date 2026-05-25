@@ -2,7 +2,6 @@ prefix: "§f§l[§x§0§8§4§c§f§bL§x§1§9§5§d§f§be§x§2§9§6§d§f§
 sendtime: 5 #以分钟为单位
 opensendtime: true #开启循环播报封禁人数
 Model: "Default" #当前模型
-valid-models: "Default English HuTao Furina Zhongli Keqing Xiao Ayaka Zero Herta" #可用模型
 # 功能开关 - 可单独启用或禁用各项功能，被禁用的功能执行时会提示"已被禁用"
 features:
   ban: true            # 玩家封禁 /ban, /lban add
