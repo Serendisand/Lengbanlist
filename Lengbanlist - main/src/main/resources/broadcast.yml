@@ -1,4 +1,5 @@
-default-message: "§f[§b§oServer §f§oNetwork§f] §6当前§c已封禁 §f%t §c人 §b(§f%s §c个ID §c已封禁 §f%i §c个IP §b)§4§n禁止私自盗取物品，破坏机器，损坏建筑！§f如遭遇此类事件，请进群处理：§bxxxxxxx"
+default-message: "§d⚝ §5§oServer守护灵 §d⚝ §f当前已筑起 §d§l%t §f道防火墙 §7(§f囚禁了 §d%s §7个捣蛋ID §d%i §7个分身IP§7) §c§n请做乖孩子哦~ §f如需解疑，来群里找窝→ §bxxxxxxx"
+
 #可用变量：
 # %s 封禁玩家（ID），
 # %i 封禁IP 

@@ -1,38 +1,42 @@
-prefix: "§f§l[§x§0§8§4§c§f§bL§x§1§9§5§d§f§be§x§2§9§6§d§f§bn§x§3§a§7§e§f§cg§x§4§a§8§f§f§cb§x§5§b§a§0§f§ca§x§6§b§b§0§f§cn§x§7§c§c§1§f§cl§x§8§c§d§2§f§di§x§9§d§e§2§f§ds§x§a§d§f§3§f§dt§f§l]" #插件前缀
-sendtime: 5 #以分钟为单位
+# 插件前缀
+prefix: "§f§l[§x§0§8§4§c§f§bL§x§1§9§5§d§f§be§x§2§9§6§d§f§bn§x§3§a§7§e§f§cg§x§4§a§8§f§f§cb§x§5§b§a§0§f§ca§x§6§b§b§0§f§cn§x§7§c§c§1§f§cl§x§8§c§d§2§f§di§x§9§d§e§2§f§ds§x§a§d§f§3§f§dt§f§l]" 
+# 广播
 opensendtime: true #开启循环播报封禁人数
+sendtime: 5 #以分钟为单位
+# 模型
 Model: "Default" #当前模型
-# 功能开关 - 可单独启用或禁用各项功能，被禁用的功能执行时会提示"已被禁用"
+
+# 功能开关
 features:
-  ban: true            # 玩家封禁 /ban, /lban add
-  ban-ip: true         # IP封禁 /ban-ip
-  unban: true          # 解封 /unban, /lban remove
-  warn: true           # 警告 /warn, /lban warn, /warnmsg
-  unwarn: true         # 移除警告 /unwarn, /lban unwarn
-  check: true          # 查询玩家/IP /check, /lban check
-  report: true         # 举报系统 /report
-  admin: true          # 管理界面 /admin, /lban admin
-  info: true           # 插件信息 /info, /lban info
-  kick: true           # 踢出 /kick
-  mute: true           # 禁言 /lban mute/unmute/list-mute
-  setban: true         # 修改封禁时间 /setban
-  history: true        # 查询处罚历史 /history, /lban history
-  broadcast: true      # 自动循环播报封禁人数
+  ban: true            
+  ban-ip: true      
+  unban: true       
+  warn: true      
+  unwarn: true      
+  check: true         
+  report: true        
+  admin: true        
+  info: true        
+  kick: true         
+  mute: true          
+  setban: true       
+  history: true    
+  broadcast: true     
   chat-filter: true    # 违禁词过滤、自动禁言、可疑消息标记
-  getip: true          # 查询玩家IP /lban getip
-  model: true          # 模型切换 /lban model
-  tp: true             # 传送 /lban tp
-  chest-ui: true       # 可视化箱子界面 /lban open
-  ip-association: true # IP关联检测，记录玩家历史IP并检测可疑登录
-  vpn-detection: true  # VPN/代理检测，自动检测并处理VPN登录
-  web: true            # Web管理面板 REST API
+  getip: true        
+  model: true      
+  tp: true          
+  chest-ui: true       
+  ip-association: true # IP关联检测
+  vpn-detection: true  # VPN/代理检测
+  web: true            # Web管理面板
   update-check: true  # 检查插件更新
   auto-update: false   # 自动下载更新
 
-# 历史记录保留天数（过期/解封的封禁记录保留N天后自动清理，默认7天）
+# 历史记录保留天数
 history-retention-days: 7
 
-# 数据库类型: sqlite 或 mysql
+# 数据库类型: sqlite 或 mysql （请直接复制不要自行填）
 # 旧版本的 yml 会自动按 sqlite 处理，并从旧 YAML 文件迁移数据
 database:
   type: "sqlite"
