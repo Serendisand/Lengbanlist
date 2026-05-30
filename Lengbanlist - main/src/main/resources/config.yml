@@ -32,6 +32,7 @@ features:
   web: true            # Web管理面板
   update-check: true  # 检查插件更新
   auto-update: false   # 自动下载更新
+  staffchat: true   
 
 # 预设封禁/警告原因
 preset-reasons:

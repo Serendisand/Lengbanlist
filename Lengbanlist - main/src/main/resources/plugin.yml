@@ -86,6 +86,10 @@ commands:
     description: 查询玩家 IP 地理位置
     usage: /<command> [玩家名]
     permission: lengbanlist.getip
+  sc:
+    description: 工作频道聊天
+    usage: /<command> <内容>
+    permission: lengbanlist.staffchat
 permissions:
   lengbanlist.ban:
     description: 允许使用封禁玩家命令
@@ -134,4 +138,7 @@ permissions:
     default: op
   lengbanlist.getip:
     description: 允许使用查询玩家 IP 地理位置命令
+    default: op
+  lengbanlist.staffchat:
+    description: 允许使用工作频道聊天命令
     default: op
