@@ -82,6 +82,10 @@ commands:
     description: 查看禁言列表
     usage: /<command>
     permission: lengbanlist.listmute
+  getip:
+    description: 查询玩家 IP 地理位置
+    usage: /<command> [玩家名]
+    permission: lengbanlist.getip
 permissions:
   lengbanlist.ban:
     description: 允许使用封禁玩家命令
@@ -127,4 +131,7 @@ permissions:
     default: op
   lengbanlist.history:
     description: 允许使用查询处罚历史命令
+    default: op
+  lengbanlist.getip:
+    description: 允许使用查询玩家 IP 地理位置命令
     default: op

@@ -167,6 +167,7 @@ public void onEnable() {
     getCommand("mute").setExecutor(new MuteCommand(Lengbanlist.this));
     getCommand("unmute").setExecutor(new UnmuteCommand(Lengbanlist.this));
     getCommand("listmute").setExecutor(new ListMuteCommand(Lengbanlist.this));
+    getCommand("getip").setExecutor(new GetIPCommand(Lengbanlist.this));
 
     getServer().getConsoleSender().sendMessage("§b  _                      ____              _      _     _   ");
     getServer().getConsoleSender().sendMessage("§6 | |                    |  _ \\            | |    (_)   | |  ");

@@ -37,6 +37,9 @@ public class ModelManager {
         loadModel("Ayaka");
         loadModel("Zero");
         loadModel("Herta");
+        loadModel("Nahida");
+        loadModel("Klee");
+        loadModel("YaeMiko");
 
         String modelName = Lengbanlist.getInstance().getConfig().getString("Model", "Default");
         switchModel(modelName.toLowerCase());
