@@ -25,6 +25,7 @@ import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
@@ -488,6 +489,11 @@ public class WebServer {
         JsonObject stats = new JsonObject();
         List<BanEntry> bans = plugin.getBanManager().getBanList();
         List<BanIpEntry> ipBans = plugin.getBanManager().getBanIpList();
+        stats.addProperty("plugin_version", plugin.getPluginVersion());
+        stats.addProperty("online_players", plugin.getServer().getOnlinePlayers().size());
+        stats.addProperty("max_players", plugin.getServer().getMaxPlayers());
+        stats.addProperty("database_status", plugin.getDatabaseManager().isHealthy() ? "正常" : "异常");
+        stats.addProperty("database_type", getDatabaseType());
         stats.addProperty("total_bans", bans.size() + ipBans.size());
         stats.addProperty("active_bans", bans.size());
         stats.addProperty("ip_bans", ipBans.size());
@@ -495,7 +501,32 @@ public class WebServer {
         stats.addProperty("warnings", plugin.getWarnManager().getWarnedPlayers().size());
         stats.addProperty("pending_reports", plugin.getReportManager().getPendingReportCount());
 
+        JsonArray recentBans = new JsonArray();
+        for (BanEntry entry : plugin.getDatabaseManager().getRecentBans(5)) {
+            JsonObject obj = new JsonObject();
+            obj.addProperty("target", entry.getTarget());
+            obj.addProperty("staff", entry.getStaff());
+            obj.addProperty("reason", entry.getReason());
+            obj.addProperty("end_time", TimeUtils.timestampToReadable(entry.getTime()));
+            obj.addProperty("remaining", TimeUtils.getRemainingTime(entry.getTime()));
+            obj.addProperty("active", entry.isActive() && entry.getTime() > System.currentTimeMillis());
+            obj.addProperty("auto", entry.isAuto());
+            recentBans.add(obj);
+        }
+        stats.add("recent_bans", recentBans);
+
         sendJson(exchange, 200, stats.toString());
+    }
+
+    private String getDatabaseType() {
+        try {
+            Connection connection = plugin.getDatabaseManager().getConnection();
+            if (connection != null && !connection.isClosed()) {
+                return connection.getMetaData().getDatabaseProductName();
+            }
+        } catch (Exception ignored) {
+        }
+        return plugin.getDatabaseManager().isMySql() ? "MySQL" : "SQLite";
     }
 
     private void handleBanList(HttpExchange exchange) {

@@ -293,6 +293,30 @@ public class DatabaseManager {
         return entries;
     }
 
+    public List<BanEntry> getRecentBans(int limit) {
+        List<BanEntry> entries = new ArrayList<>();
+        try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans ORDER BY id DESC LIMIT ?")) {
+            ps.setInt(1, limit);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(readBan(rs));
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
+    }
+
+    public boolean isHealthy() {
+        try {
+            return connection != null && !connection.isClosed() && connection.isValid(2);
+        } catch (SQLException e) {
+            logSql(e);
+            return false;
+        }
+    }
+
     /** 新增IP封禁记录 */
     public void addIpBan(BanIpEntry entry) {
         deactivateIpBan(entry.getIp());

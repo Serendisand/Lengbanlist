@@ -567,11 +567,11 @@ async function loadDashboard() {
   var s = res.data;
 
   var cards = [
+    {k:'online_players', l:'在线人数', tab:'players'},
     {k:'total_bans', l:'总封禁', tab:'banlist'},
     {k:'active_bans', l:'活跃封禁', tab:'banlist'},
     {k:'ip_bans', l:'IP封禁', tab:'banlist'},
     {k:'mutes', l:'禁言', tab:'mutelist'},
-    {k:'warnings', l:'警告', tab:'history'},
     {k:'pending_reports', l:'待处理举报', tab:'reports'}
   ];
 
@@ -580,22 +580,25 @@ async function loadDashboard() {
     (function(c) {
       var card = document.createElement('div');
       card.className = 'stat-card';
-      card.innerHTML = '<div class="num">' + (s[c.k]||0) + '</div><div class="label">' + c.l + '</div>';
+      var value = c.k === 'online_players' ? ((s.online_players||0) + '/' + (s.max_players||0)) : (s[c.k]||0);
+      card.innerHTML = '<div class="num">' + value + '</div><div class="label">' + c.l + '</div>';
       card.onclick = function() { switchTab(c.tab); };
       document.getElementById('statsCards').appendChild(card);
     })(cards[i]);
   }
 
   var fields = [
-    {k:'total_bans', l:'总封禁数'}, {k:'active_bans', l:'活跃封禁'},
-    {k:'ip_bans', l:'IP封禁'}, {k:'mutes', l:'禁言数'},
-    {k:'warnings', l:'警告数'}, {k:'pending_reports', l:'待处理举报'}
+    {v:s.plugin_version || '-', l:'插件版本'}, {v:s.database_status || '-', l:'数据库状态'},
+    {v:s.database_type || '-', l:'数据库类型'}, {v:(s.online_players||0) + '/' + (s.max_players||0), l:'在线人数'},
+    {v:s.total_bans || 0, l:'总封禁数'}, {v:s.active_bans || 0, l:'活跃封禁'},
+    {v:s.ip_bans || 0, l:'IP封禁'}, {v:s.pending_reports || 0, l:'待处理举报'}
   ];
   var html = '<div class="stats-grid-sm">';
   for (var i = 0; i < fields.length; i++) {
-    html += '<div class="sm-card"><div class="v">' + (s[fields[i].k]||0) + '</div><div class="l">' + fields[i].l + '</div></div>';
+    html += '<div class="sm-card"><div class="v">' + escapeHtml(String(fields[i].v)) + '</div><div class="l">' + fields[i].l + '</div></div>';
   }
   html += '</div>';
+  html += renderRecentBans(s.recent_bans || []);
   document.getElementById('statsDetail').innerHTML = html;
   document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
 }
@@ -851,6 +854,20 @@ function escapeHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function renderRecentBans(bans) {
+  var html = '<div class="section-title">最近封禁记录</div>';
+  if (!bans.length) {
+    return html + '<div class="empty-state">暂无封禁记录</div>';
+  }
+  html += '<div class="table-wrap"><table><tr><th>玩家</th><th>处理人</th><th>原因</th><th>到期时间</th><th>剩余</th><th>状态</th></tr>';
+  for (var i = 0; i < bans.length; i++) {
+    var b = bans[i];
+    html += '<tr><td>' + escapeHtml(b.target) + '</td><td>' + escapeHtml(b.staff) + '</td><td>' + escapeHtml(b.reason) + '</td><td>' + escapeHtml(b.end_time) + '</td><td>' + escapeHtml(b.remaining) + '</td><td><span class="badge ' + (b.active?'badge-red':'badge-green') + '">' + (b.active?'封禁中':'已失效') + '</span></td></tr>';
+  }
+  html += '</table></div>';
+  return html;
+}
+
 function showEula() {
   document.getElementById('eulaOverlay').classList.remove('hidden');
 }
@@ -958,11 +975,11 @@ function contextMenuAction(action) {
 
 function updateStatsUI(s) {
   var cards = [
+    {k:'online_players', l:'在线人数', tab:'players'},
     {k:'total_bans', l:'总封禁', tab:'banlist'},
     {k:'active_bans', l:'活跃封禁', tab:'banlist'},
     {k:'ip_bans', l:'IP封禁', tab:'banlist'},
     {k:'mutes', l:'禁言', tab:'mutelist'},
-    {k:'warnings', l:'警告', tab:'history'},
     {k:'pending_reports', l:'待处理举报', tab:'reports'}
   ];
 
@@ -971,22 +988,25 @@ function updateStatsUI(s) {
     (function(c) {
       var card = document.createElement('div');
       card.className = 'stat-card';
-      card.innerHTML = '<div class="num">' + (s[c.k]||0) + '</div><div class="label">' + c.l + '</div>';
+      var value = c.k === 'online_players' ? ((s.online_players||0) + '/' + (s.max_players||0)) : (s[c.k]||0);
+      card.innerHTML = '<div class="num">' + value + '</div><div class="label">' + c.l + '</div>';
       card.onclick = function() { switchTab(c.tab); };
       document.getElementById('statsCards').appendChild(card);
     })(cards[i]);
   }
 
   var fields = [
-    {k:'total_bans', l:'总封禁数'}, {k:'active_bans', l:'活跃封禁'},
-    {k:'ip_bans', l:'IP封禁'}, {k:'mutes', l:'禁言数'},
-    {k:'warnings', l:'警告数'}, {k:'pending_reports', l:'待处理举报'}
+    {v:s.plugin_version || '-', l:'插件版本'}, {v:s.database_status || '-', l:'数据库状态'},
+    {v:s.database_type || '-', l:'数据库类型'}, {v:(s.online_players||0) + '/' + (s.max_players||0), l:'在线人数'},
+    {v:s.total_bans || 0, l:'总封禁数'}, {v:s.active_bans || 0, l:'活跃封禁'},
+    {v:s.ip_bans || 0, l:'IP封禁'}, {v:s.pending_reports || 0, l:'待处理举报'}
   ];
   var html = '<div class="stats-grid-sm">';
   for (var i = 0; i < fields.length; i++) {
-    html += '<div class="sm-card"><div class="v">' + (s[fields[i].k]||0) + '</div><div class="l">' + fields[i].l + '</div></div>';
+    html += '<div class="sm-card"><div class="v">' + escapeHtml(String(fields[i].v)) + '</div><div class="l">' + fields[i].l + '</div></div>';
   }
   html += '</div>';
+  html += renderRecentBans(s.recent_bans || []);
   document.getElementById('statsDetail').innerHTML = html;
   document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
 }
