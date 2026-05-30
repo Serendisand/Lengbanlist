@@ -176,8 +176,8 @@ public void onEnable() {
     getServer().getConsoleSender().sendMessage("§6 |______\\___|_| |_|\\__,_|___/ \\__,_|_| |_|______|_|___/\\__|");
     getServer().getConsoleSender().sendMessage("§b                   __/ |                                    ");
     getServer().getConsoleSender().sendMessage("§f                   |___/                                     ");
-    getServer().getConsoleSender().sendMessage("§6当前运行版本：v" + getPluginVersion());
-    getServer().getConsoleSender().sendMessage("§3当前运行在：" + Bukkit.getServer().getVersion());
+    getServer().getConsoleSender().sendMessage("§6插件版本：v" + getPluginVersion());
+    getServer().getConsoleSender().sendMessage("§3服务端版本：" + Bukkit.getServer().getVersion());
 
     new Metrics(Lengbanlist.this, 24495);
 
@@ -213,7 +213,7 @@ public void reloadWebServer() {
 
 @Override
 public void onDisable() {
-    getServer().getConsoleSender().sendMessage(prefix() + "§k§4正在卸载");
+    getServer().getConsoleSender().sendMessage(prefix() + "§k§4正在收拾行李qwq...");
 
     if (broadcastTask != null) broadcastTask.cancel();
     if (historyCleanupTask != null) historyCleanupTask.cancel();
