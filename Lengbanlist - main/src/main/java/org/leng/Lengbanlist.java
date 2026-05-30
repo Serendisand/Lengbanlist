@@ -48,7 +48,6 @@ public class Lengbanlist extends JavaPlugin {
 
 @Override
 public void onLoad() {
-    saveDefaultConfig();
     instance = this;
 
     SchedulerUtils.init(this);
@@ -69,6 +68,8 @@ public void onLoad() {
     if (!eulaAgreed) {
         return;
     }
+
+    saveDefaultConfig();
 
     databaseManager = new DatabaseManager(this);
     try {
