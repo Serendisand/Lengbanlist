@@ -1,6 +1,6 @@
 name: Lengbanlist
 main: org.leng.Lengbanlist
-version: 1.8.6
+version: ${project.version}
 api-version: 1.21
 folia-supported: true
 authors: 
