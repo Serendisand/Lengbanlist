@@ -52,7 +52,7 @@ public class InfoCommand implements CommandExecutor {
                     message = "§c检查更新失败，请检查网络连接或稍后再试。\n";
                 } else if (GitHubUpdateChecker.compareVersions(plugin.getDescription().getVersion(), latestVersion) < 0) {
                     message = "§a发现新版本：§e" + latestVersion + "§a，当前版本：§e" + plugin.getDescription().getVersion() + "\n" +
-                             "§b更新地址：§ehttps://github.com/LengMC/Lengbanlist/releases\n";
+                             "§b更新地址：§ehttps://github.com/Ukiyograin/Lengbanlist/releases\n";
                 } else {
                     message = "§a你正在使用最新版本：§e" + plugin.getDescription().getVersion() + "\n";
                 }
