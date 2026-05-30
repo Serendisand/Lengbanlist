@@ -50,7 +50,6 @@ public class ModelManager {
             Class<?> modelClass = Class.forName("org.leng.models." + modelName);
             Model model = (Model) modelClass.getDeclaredConstructor().newInstance();
             models.put(modelName.toLowerCase(), model);
-            Lengbanlist.getInstance().getServer().getConsoleSender().sendMessage("§a模型 " + modelName + " 已加载。");
         } catch (Exception e) {
             Lengbanlist.getInstance().getServer().getConsoleSender().sendMessage("§c模型 " + modelName + " 加载失败！");
             e.printStackTrace();
