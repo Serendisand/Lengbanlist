@@ -113,24 +113,29 @@ public class BanManager {
     }
 
     public void checkBanOnJoin(Player player) {
-        BanEntry ban = getBanEntry(player.getName());
-        if (ban != null) {
-            long currentTime = System.currentTimeMillis();
-            if (ban.getTime() <= currentTime) {
-                unbanPlayer(player.getName());
-            } else {
-                player.kickPlayer("您仍处于封禁状态，原因：" + ban.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(ban.getTime()));
+        if (plugin.isFeatureEnabled("ban")) {
+            BanEntry ban = getBanEntry(player.getName());
+            if (ban != null) {
+                long currentTime = System.currentTimeMillis();
+                if (ban.getTime() <= currentTime) {
+                    unbanPlayer(player.getName());
+                } else {
+                    player.kickPlayer("您仍处于封禁状态，原因：" + ban.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(ban.getTime()));
+                    return;
+                }
             }
         }
 
-        String ip = player.getAddress().getAddress().getHostAddress();
-        BanIpEntry banIp = getBanIpEntry(ip);
-        if (banIp != null) {
-            long currentTime = System.currentTimeMillis();
-            if (banIp.getTime() <= currentTime) {
-                unbanIp(ip);
-            } else {
-                player.kickPlayer("您的 IP 仍处于封禁状态，原因：" + banIp.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(banIp.getTime()));
+        if (plugin.isFeatureEnabled("ban-ip") && player.getAddress() != null) {
+            String ip = player.getAddress().getAddress().getHostAddress();
+            BanIpEntry banIp = getBanIpEntry(ip);
+            if (banIp != null) {
+                long currentTime = System.currentTimeMillis();
+                if (banIp.getTime() <= currentTime) {
+                    unbanIp(ip);
+                } else {
+                    player.kickPlayer("您的 IP 仍处于封禁状态，原因：" + banIp.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(banIp.getTime()));
+                }
             }
         }
     }

@@ -32,6 +32,9 @@ public class MuteManager {
 
     public boolean isPlayerMuted(String playerName) {
         MuteEntry entry = db.getMute(playerName);
-        return entry != null;
+        if (entry == null) return false;
+        if (entry.getTime() == Long.MAX_VALUE || entry.getTime() > System.currentTimeMillis()) return true;
+        unmutePlayer(playerName);
+        return false;
     }
 }

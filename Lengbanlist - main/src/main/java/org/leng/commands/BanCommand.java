@@ -71,7 +71,7 @@ public class BanCommand implements CommandExecutor, TabCompleter {
             // 玩家手动设置的封禁时间不做限制
         }
 
-        long banEndTime = System.currentTimeMillis() + banDuration;
+        long banEndTime = TimeUtils.calculateEndTime(banDuration);
         
         BanEntry entry = new BanEntry(
             target,

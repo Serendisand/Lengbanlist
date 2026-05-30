@@ -86,7 +86,7 @@ public class ChestUIListener implements Listener {
     }
 
     public void openAnvilForMute(Player player, String step) {
-        Inventory anvil = Bukkit.createInventory(player, 9, "§b禁言玩家 - 输入" + (step.equals("playerID") ? "玩家ID" : "原因"));
+        Inventory anvil = Bukkit.createInventory(player, 9, "§b禁言玩家 - 输入" + (step.equals("playerID") ? "玩家ID" : (step.equals("time") ? "时间" : "原因")));
         ItemStack item = new ItemStack(Material.PAPER);
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName("§a输入内容");
@@ -231,7 +231,7 @@ public class ChestUIListener implements Listener {
                 Utils.sendMessage(player, "§c时间格式无效。");
                 return;
             }
-            long endTime = System.currentTimeMillis() + duration;
+            long endTime = TimeUtils.calculateEndTime(duration);
             if (playerID.contains(".")) {
                 plugin.getBanManager().banIp(new BanIpEntry(playerID, player.getName(), endTime, input, isAuto));
                 Utils.sendMessage(player, "§a封禁IP成功：" + playerID);
@@ -269,10 +269,18 @@ public class ChestUIListener implements Listener {
     private void handleMute(Player player, String step, String input) {
         if (step.equals("playerID")) {
             player.setMetadata("lengbanlist-playerID", new FixedMetadataValue(plugin, input));
+            openAnvilForMute(player, "time");
+        } else if (step.equals("time")) {
+            if (!TimeUtils.isValidTime(input) || input.equalsIgnoreCase("auto")) {
+                Utils.sendMessage(player, "§c时间格式无效，请使用以下格式：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever");
+                return;
+            }
+            player.setMetadata("lengbanlist-time", new FixedMetadataValue(plugin, input));
             openAnvilForMute(player, "reason");
         } else if (step.equals("reason")) {
             String playerID = player.getMetadata("lengbanlist-playerID").get(0).asString();
-            MuteEntry entry = new MuteEntry(playerID, player.getName(), System.currentTimeMillis(), input);
+            String time = player.getMetadata("lengbanlist-time").get(0).asString();
+            MuteEntry entry = new MuteEntry(playerID, player.getName(), TimeUtils.calculateEndTime(TimeUtils.parseTime(time)), input);
             plugin.getMuteManager().mutePlayer(entry);
             Utils.sendMessage(player, "§a禁言玩家成功：" + playerID);
             clearMetadata(player);
@@ -311,7 +319,7 @@ public class ChestUIListener implements Listener {
                 Utils.sendMessage(player, "§c时间格式无效。");
                 return;
             }
-            long endTime = System.currentTimeMillis() + duration;
+            long endTime = TimeUtils.calculateEndTime(duration);
             plugin.getBanManager().banIp(new BanIpEntry(ip, player.getName(), endTime, input, isAuto));
             Utils.sendMessage(player, "§a封禁IP成功：" + ip);
             clearMetadata(player);

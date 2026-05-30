@@ -26,13 +26,19 @@ public class MuteCommand implements CommandExecutor {
             Utils.sendMessage(sender, plugin.prefix() + "§c你没有权限使用此命令。");
             return true;
         }
-        if (args.length < 2) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c用法: /" + label + " <玩家名> <原因>");
+        if (args.length < 3) {
+            Utils.sendMessage(sender, plugin.prefix() + "§c用法: /" + label + " <玩家名> <时间/forever> <原因>");
             return true;
         }
-        MuteEntry entry = new MuteEntry(args[0], sender.getName(), System.currentTimeMillis(), args[1]);
+        long duration = org.leng.utils.TimeUtils.parseDurationToMillis(args[1]);
+        if (duration <= 0) {
+            Utils.sendMessage(sender, plugin.prefix() + "§c时间格式错误，请使用 10s, 5m, 2h, 7d, 1w, 1M, 1y 或 forever。");
+            return true;
+        }
+        String reason = String.join(" ", java.util.Arrays.copyOfRange(args, 2, args.length));
+        MuteEntry entry = new MuteEntry(args[0], sender.getName(), org.leng.utils.TimeUtils.calculateEndTime(duration), reason);
         plugin.getMuteManager().mutePlayer(entry);
-        Bukkit.broadcastMessage(ModelManager.getInstance().getCurrentModel().addMute(args[0], args[1]));
+        Bukkit.broadcastMessage(ModelManager.getInstance().getCurrentModel().addMute(args[0], reason));
         return true;
     }
 }

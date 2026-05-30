@@ -90,7 +90,7 @@ public class IpAssociationManager {
 
     public boolean isVpnIp(String ip) {
         try {
-            String apiUrl = "http://ip-api.com/json/" + ip + "?fields=status,proxy,hosting";
+            String apiUrl = "https://ip-api.com/json/" + ip + "?fields=status,proxy,hosting";
             URL url = new URL(apiUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");

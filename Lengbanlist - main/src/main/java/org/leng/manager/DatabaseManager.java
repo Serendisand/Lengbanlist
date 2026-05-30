@@ -7,6 +7,8 @@ import org.leng.object.MuteEntry;
 import org.leng.object.ReportEntry;
 import org.leng.object.WarnEntry;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import java.io.File;
 import java.sql.*;
 import java.util.ArrayList;
@@ -15,7 +17,7 @@ import java.util.logging.Level;
 
 public class DatabaseManager {
     private final Lengbanlist plugin;
-    private Connection connection;
+    private HikariDataSource dataSource;
     private boolean mysql;
 
     public DatabaseManager(Lengbanlist plugin) {
@@ -36,7 +38,11 @@ public class DatabaseManager {
             mysql = false;
             String fileName = plugin.getConfig().getString("database.sqlite.file", "lengbanlist.db");
             File dbFile = new File(plugin.getDataFolder(), fileName == null || fileName.trim().isEmpty() ? "lengbanlist.db" : fileName);
-            connection = DriverManager.getConnection("jdbc:sqlite:" + dbFile.getAbsolutePath());
+            HikariConfig config = new HikariConfig();
+            config.setJdbcUrl("jdbc:sqlite:" + dbFile.getAbsolutePath());
+            config.setMaximumPoolSize(1);
+            config.setConnectionInitSql("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000");
+            dataSource = new HikariDataSource(config);
             execute("PRAGMA foreign_keys = ON");
             execute("PRAGMA journal_mode = WAL");
             execute("PRAGMA busy_timeout = 5000");
@@ -48,7 +54,13 @@ public class DatabaseManager {
             String username = plugin.getConfig().getString("database.mysql.username", "root");
             String password = plugin.getConfig().getString("database.mysql.password", "password");
             String url = "jdbc:mysql://" + host + ":" + port + "/" + database + "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&useUnicode=true&characterEncoding=utf8";
-            connection = DriverManager.getConnection(url, username, password);
+            HikariConfig config = new HikariConfig();
+            config.setJdbcUrl(url);
+            config.setUsername(username);
+            config.setPassword(password);
+            config.setMaximumPoolSize(10);
+            config.setMinimumIdle(1);
+            dataSource = new HikariDataSource(config);
             execute("SELECT 1");
         } else {
             throw new SQLException("未知 database.type: " + type);
@@ -57,8 +69,17 @@ public class DatabaseManager {
         ensureSchema();
     }
 
-    public Connection getConnection() {
-        return connection;
+    public Connection getConnection() throws SQLException {
+        return dataSource.getConnection();
+    }
+
+    public String getDatabaseProductName() {
+        try (Connection connection = getConnection()) {
+            return connection.getMetaData().getDatabaseProductName();
+        } catch (SQLException e) {
+            logSql(e);
+            return mysql ? "MySQL" : "SQLite";
+        }
     }
 
     public boolean isMySql() {
@@ -66,12 +87,8 @@ public class DatabaseManager {
     }
 
     public void close() {
-        if (connection != null) {
-            try {
-                connection.close();
-            } catch (SQLException e) {
-                plugin.getLogger().log(Level.WARNING, "关闭数据库连接时出错", e);
-            }
+        if (dataSource != null) {
+            dataSource.close();
         }
     }
 
@@ -153,7 +170,7 @@ public class DatabaseManager {
     }
 
     public String getPlayerIp(String playerName) {
-        try (PreparedStatement ps = connection.prepareStatement("SELECT ip FROM player_ips WHERE player_name = ?")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT ip FROM player_ips WHERE player_name = ?")) {
             ps.setString(1, playerName);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? rs.getString("ip") : null;
@@ -166,7 +183,7 @@ public class DatabaseManager {
 
     public List<String> getPlayersByIp(String ip) {
         List<String> players = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT player_name FROM player_ips WHERE ip = ? ORDER BY player_name")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT player_name FROM player_ips WHERE ip = ? ORDER BY player_name")) {
             ps.setString(1, ip);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -199,7 +216,7 @@ public class DatabaseManager {
     /** 获取玩家所有历史 IP 及首次/最后使用时间 */
     public List<String[]> getPlayerIpHistory(String playerName) {
         List<String[]> history = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT ip, first_seen, last_seen FROM player_ip_history WHERE player_name = ? ORDER BY last_seen DESC")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT ip, first_seen, last_seen FROM player_ip_history WHERE player_name = ? ORDER BY last_seen DESC")) {
             ps.setString(1, playerName);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -215,7 +232,7 @@ public class DatabaseManager {
     /** 从历史表中查询使用过该 IP 的所有玩家 */
     public List<String> getPlayersByIpFromHistory(String ip) {
         List<String> players = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT DISTINCT player_name FROM player_ip_history WHERE ip = ? ORDER BY player_name")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT DISTINCT player_name FROM player_ip_history WHERE ip = ? ORDER BY player_name")) {
             ps.setString(1, ip);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -252,7 +269,7 @@ public class DatabaseManager {
     }
 
     public BanEntry getBan(String target) {
-        try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE LOWER(target) = LOWER(?) AND active = 1 ORDER BY end_time DESC LIMIT 1")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE LOWER(target) = LOWER(?) AND active = 1 ORDER BY end_time DESC LIMIT 1")) {
             ps.setString(1, target);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? readBan(rs) : null;
@@ -265,7 +282,7 @@ public class DatabaseManager {
 
     public List<BanEntry> getBans() {
         List<BanEntry> entries = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE active = 1 AND end_time > ? ORDER BY target")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE active = 1 AND end_time > ? ORDER BY target")) {
             ps.setLong(1, System.currentTimeMillis());
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -280,7 +297,7 @@ public class DatabaseManager {
 
     public List<BanEntry> getBansByPlayer(String player) {
         List<BanEntry> entries = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE LOWER(target) = LOWER(?) ORDER BY end_time DESC")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE LOWER(target) = LOWER(?) ORDER BY end_time DESC")) {
             ps.setString(1, player);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -295,7 +312,7 @@ public class DatabaseManager {
 
     public List<BanEntry> getRecentBans(int limit) {
         List<BanEntry> entries = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans ORDER BY id DESC LIMIT ?")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans ORDER BY id DESC LIMIT ?")) {
             ps.setInt(1, limit);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -309,12 +326,7 @@ public class DatabaseManager {
     }
 
     public boolean isHealthy() {
-        try {
-            return connection != null && !connection.isClosed() && connection.isValid(2);
-        } catch (SQLException e) {
-            logSql(e);
-            return false;
-        }
+        return dataSource != null && !dataSource.isClosed();
     }
 
     /** 新增IP封禁记录 */
@@ -341,7 +353,7 @@ public class DatabaseManager {
     }
 
     public BanIpEntry getIpBan(String ip) {
-        try (PreparedStatement ps = connection.prepareStatement("SELECT ip, staff, end_time, reason, is_auto, active FROM ip_bans WHERE ip = ? AND active = 1 ORDER BY end_time DESC LIMIT 1")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT ip, staff, end_time, reason, is_auto, active FROM ip_bans WHERE ip = ? AND active = 1 ORDER BY end_time DESC LIMIT 1")) {
             ps.setString(1, ip);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? readIpBan(rs) : null;
@@ -354,7 +366,7 @@ public class DatabaseManager {
 
     public List<BanIpEntry> getIpBans() {
         List<BanIpEntry> entries = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT ip, staff, end_time, reason, is_auto, active FROM ip_bans WHERE active = 1 AND end_time > ? ORDER BY ip")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT ip, staff, end_time, reason, is_auto, active FROM ip_bans WHERE active = 1 AND end_time > ? ORDER BY ip")) {
             ps.setLong(1, System.currentTimeMillis());
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -369,7 +381,7 @@ public class DatabaseManager {
 
     public List<BanIpEntry> getIpBansByIp(String ip) {
         List<BanIpEntry> entries = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT ip, staff, end_time, reason, is_auto, active FROM ip_bans WHERE ip = ? ORDER BY end_time DESC")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT ip, staff, end_time, reason, is_auto, active FROM ip_bans WHERE ip = ? ORDER BY end_time DESC")) {
             ps.setString(1, ip);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -391,7 +403,7 @@ public class DatabaseManager {
     }
 
     public MuteEntry getMute(String target) {
-        try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason FROM mutes WHERE target = ?")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason FROM mutes WHERE target = ?")) {
             ps.setString(1, target);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? readMute(rs) : null;
@@ -404,9 +416,13 @@ public class DatabaseManager {
 
     public List<MuteEntry> getMutes() {
         List<MuteEntry> entries = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason FROM mutes ORDER BY target"); ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                entries.add(readMute(rs));
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason FROM mutes WHERE end_time = ? OR end_time > ? ORDER BY target")) {
+            ps.setLong(1, Long.MAX_VALUE);
+            ps.setLong(2, System.currentTimeMillis());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(readMute(rs));
+                }
             }
         } catch (SQLException e) {
             logSql(e);
@@ -416,7 +432,7 @@ public class DatabaseManager {
 
     public List<MuteEntry> getMutesByPlayer(String player) {
         List<MuteEntry> entries = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason FROM mutes WHERE LOWER(target) = LOWER(?) ORDER BY end_time DESC")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason FROM mutes WHERE LOWER(target) = LOWER(?) ORDER BY end_time DESC")) {
             ps.setString(1, player);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -440,7 +456,7 @@ public class DatabaseManager {
     public List<WarnEntry> getWarnings(String player, boolean activeOnly) {
         List<WarnEntry> entries = new ArrayList<>();
         String sql = "SELECT id, player, staff, warn_time, reason, revoked FROM warnings WHERE LOWER(player) = LOWER(?)" + (activeOnly ? " AND revoked = 0" : "") + " ORDER BY warn_time ASC, id ASC";
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, player);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -455,7 +471,7 @@ public class DatabaseManager {
 
     public List<String> getWarnedPlayers() {
         List<String> players = new ArrayList<>();
-        try (Statement st = connection.createStatement();
+        try (Connection connection = getConnection(); Statement st = connection.createStatement();
              ResultSet rs = st.executeQuery("SELECT DISTINCT player FROM warnings")) {
             while (rs.next()) {
                 players.add(rs.getString("player"));
@@ -475,7 +491,7 @@ public class DatabaseManager {
     }
 
     public ReportEntry getReport(String id) {
-        try (PreparedStatement ps = connection.prepareStatement("SELECT id, target, reporter, reason, status, timestamp FROM reports WHERE id = ?")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT id, target, reporter, reason, status, timestamp FROM reports WHERE id = ?")) {
             ps.setString(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? readReport(rs) : null;
@@ -488,7 +504,7 @@ public class DatabaseManager {
 
     public List<ReportEntry> getPendingReports() {
         List<ReportEntry> entries = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT id, target, reporter, reason, status, timestamp FROM reports WHERE status IS NULL OR status <> ? ORDER BY timestamp ASC")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT id, target, reporter, reason, status, timestamp FROM reports WHERE status IS NULL OR status <> ? ORDER BY timestamp ASC")) {
             ps.setString(1, "已关闭");
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -511,7 +527,7 @@ public class DatabaseManager {
 
     public List<ReportEntry> getReportsByReporterAndTarget(String reporter, String target) {
         List<ReportEntry> entries = new ArrayList<>();
-        try (PreparedStatement ps = connection.prepareStatement("SELECT id, target, reporter, reason, status, timestamp FROM reports WHERE reporter = ? AND target = ? ORDER BY timestamp DESC")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT id, target, reporter, reason, status, timestamp FROM reports WHERE reporter = ? AND target = ? ORDER BY timestamp DESC")) {
             ps.setString(1, reporter);
             ps.setString(2, target);
             try (ResultSet rs = ps.executeQuery()) {
@@ -526,7 +542,7 @@ public class DatabaseManager {
     }
 
     public String getMeta(String key) {
-        try (PreparedStatement ps = connection.prepareStatement("SELECT meta_value FROM schema_meta WHERE meta_key = ?")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT meta_value FROM schema_meta WHERE meta_key = ?")) {
             ps.setString(1, key);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? rs.getString("meta_value") : null;
@@ -604,7 +620,7 @@ public class DatabaseManager {
     }
 
     private void executeUpdate(String sql, Object... values) {
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
             setValues(ps, values);
             ps.executeUpdate();
         } catch (SQLException e) {
@@ -613,7 +629,7 @@ public class DatabaseManager {
     }
 
     private boolean exists(String sql, Object... values) {
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
             setValues(ps, values);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next();
@@ -625,7 +641,7 @@ public class DatabaseManager {
     }
 
     private int count(String sql, Object... values) {
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
             setValues(ps, values);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? rs.getInt(1) : 0;
@@ -654,12 +670,14 @@ public class DatabaseManager {
     }
 
     private boolean columnExists(String table, String column) throws SQLException {
-        DatabaseMetaData metaData = connection.getMetaData();
-        try (ResultSet rs = metaData.getColumns(null, null, table, column)) {
-            if (rs.next()) return true;
-        }
-        try (ResultSet rs = metaData.getColumns(null, null, table.toUpperCase(), column.toUpperCase())) {
-            return rs.next();
+        try (Connection connection = getConnection()) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            try (ResultSet rs = metaData.getColumns(null, null, table, column)) {
+                if (rs.next()) return true;
+            }
+            try (ResultSet rs = metaData.getColumns(null, null, table.toUpperCase(), column.toUpperCase())) {
+                return rs.next();
+            }
         }
     }
 
@@ -670,18 +688,20 @@ public class DatabaseManager {
     }
 
     private boolean indexExists(String table, String index) throws SQLException {
-        DatabaseMetaData metaData = connection.getMetaData();
-        try (ResultSet rs = metaData.getIndexInfo(null, null, table, false, false)) {
-            while (rs.next()) {
-                String name = rs.getString("INDEX_NAME");
-                if (index.equalsIgnoreCase(name)) return true;
+        try (Connection connection = getConnection()) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            try (ResultSet rs = metaData.getIndexInfo(null, null, table, false, false)) {
+                while (rs.next()) {
+                    String name = rs.getString("INDEX_NAME");
+                    if (index.equalsIgnoreCase(name)) return true;
+                }
             }
         }
         return false;
     }
 
     private void execute(String sql) throws SQLException {
-        try (Statement statement = connection.createStatement()) {
+        try (Connection connection = getConnection(); Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
     }

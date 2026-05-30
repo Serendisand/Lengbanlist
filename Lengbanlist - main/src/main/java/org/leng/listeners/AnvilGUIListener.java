@@ -93,7 +93,7 @@ public class AnvilGUIListener implements Listener {
         } else if (currentStep.equals("reason")) {
             String playerID = player.getMetadata("lengbanlist-playerID").get(0).asString();
             String time = player.getMetadata("lengbanlist-time").get(0).asString();
-            long banTimestamp = TimeUtils.parseTime(time);
+            long banTimestamp = TimeUtils.calculateEndTime(TimeUtils.parseTime(time));
 
             if (playerID.contains(".")) {
                 // 封禁 IP
@@ -143,15 +143,24 @@ public class AnvilGUIListener implements Listener {
 
         if (currentStep.equals("playerID")) {
             player.setMetadata("lengbanlist-playerID", new FixedMetadataValue(plugin, input));
+            openAnvilForMute(player, "time");
+        } else if (currentStep.equals("time")) {
+            if (!TimeUtils.isValidTime(input) || input.equalsIgnoreCase("auto")) {
+                Utils.sendMessage(player, "§c时间格式无效，请使用以下格式：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever");
+                return;
+            }
+            player.setMetadata("lengbanlist-time", new FixedMetadataValue(plugin, input));
             openAnvilForMute(player, "reason");
         } else if (currentStep.equals("reason")) {
             String playerID = player.getMetadata("lengbanlist-playerID").get(0).asString();
-            MuteEntry muteEntry = new MuteEntry(playerID, player.getName(), System.currentTimeMillis(), input);
+            String time = player.getMetadata("lengbanlist-time").get(0).asString();
+            MuteEntry muteEntry = new MuteEntry(playerID, player.getName(), TimeUtils.calculateEndTime(TimeUtils.parseTime(time)), input);
             plugin.getMuteManager().mutePlayer(muteEntry);
-            Utils.sendMessage(player, "§a成功禁言玩家：" + playerID + "，原因：" + input);
+            Utils.sendMessage(player, "§a成功禁言玩家：" + playerID + "，时长：" + time + "，原因：" + input);
             player.removeMetadata("lengbanlist-action", plugin);
             player.removeMetadata("lengbanlist-step", plugin);
             player.removeMetadata("lengbanlist-playerID", plugin);
+            player.removeMetadata("lengbanlist-time", plugin);
         }
     }
 
@@ -190,7 +199,7 @@ public class AnvilGUIListener implements Listener {
         } else if (currentStep.equals("reason")) {
             String ip = player.getMetadata("lengbanlist-ip").get(0).asString();
             String time = player.getMetadata("lengbanlist-time").get(0).asString();
-            long banTimestamp = TimeUtils.parseTime(time);
+            long banTimestamp = TimeUtils.calculateEndTime(TimeUtils.parseTime(time));
 
             plugin.getBanManager().banIp(new BanIpEntry(ip, player.getName(), banTimestamp, input, false));
             Utils.sendMessage(player, "§a成功封禁IP：" + ip + "，时长：" + time + "，原因：" + input);
@@ -215,7 +224,7 @@ public class AnvilGUIListener implements Listener {
     }
 
     private void openAnvilForMute(Player player, String step) {
-        Inventory anvil = Bukkit.createInventory(player, 9, "§b禁言玩家 - 输入" + (step.equals("playerID") ? "玩家ID" : "原因"));
+        Inventory anvil = Bukkit.createInventory(player, 9, "§b禁言玩家 - 输入" + (step.equals("playerID") ? "玩家ID" : (step.equals("time") ? "时间" : "原因")));
         ItemStack item = new ItemStack(org.bukkit.Material.PAPER);
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName("§a输入内容");

@@ -77,7 +77,7 @@ public class GetIPCommand implements CommandExecutor {
     }
 
     private String getIPLocation(String ip) {
-        String apiUrl = "http://ip-api.com/json/" + ip + "?lang=zh-CN";
+        String apiUrl = "https://ip-api.com/json/" + ip + "?lang=zh-CN";
         try {
             URL url = new URL(apiUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();

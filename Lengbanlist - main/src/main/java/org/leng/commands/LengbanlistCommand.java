@@ -152,15 +152,15 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 }
                 try {
                     long durationLong = TimeUtils.parseTime(args[2]);
-                    if (durationLong > Integer.MAX_VALUE) {
-                        throw new IllegalArgumentException("§c封禁时间过长，最大支持 " + Integer.MAX_VALUE + " 毫秒（约24.8天）");
+                    if (durationLong <= 0) {
+                        throw new IllegalArgumentException("§c时间格式无效，请使用：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever, auto");
                     }
-                    int duration = (int) durationLong;
+                    long endTime = TimeUtils.calculateEndTime(durationLong);
 
                     if (args[1].contains(".")) {
-                        plugin.getBanManager().banIp(new BanIpEntry(args[1], sender.getName(), duration, args[3], false));
+                        plugin.getBanManager().banIp(new BanIpEntry(args[1], sender.getName(), endTime, args[3], false));
                     } else {
-                        plugin.getBanManager().banPlayer(new BanEntry(args[1], sender.getName(), duration, args[3], false));
+                        plugin.getBanManager().banPlayer(new BanEntry(args[1], sender.getName(), endTime, args[3], false));
                     }
                 } catch (IllegalArgumentException e) {
                     Utils.sendMessage(sender, plugin.prefix() + e.getMessage());
@@ -222,7 +222,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     plugin.sendFeatureDisabled(sender);
                     return true;
                 }
-                if (!sender.hasPermission("lengbanlist.getIP")) {
+                if (!sender.hasPermission("lengbanlist.getip")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
                 }
@@ -293,14 +293,19 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
                 }
-                if (args.length < 3) {
-                    Utils.sendMessage(sender, plugin.prefix() + "§c§l错误的命令格式，正确格式 /lban mute <玩家名> <原因>");
+                if (args.length < 4) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c§l错误的命令格式，正确格式 /lban mute <玩家名> <时间/forever> <原因>");
                     return true;
                 }
                 String muteTarget = args[1];
-                String muteReason = args[2];
+                long muteDuration = TimeUtils.parseDurationToMillis(args[2]);
+                if (muteDuration <= 0) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c时间格式错误，请使用 10s, 5m, 2h, 7d, 1w, 1M, 1y 或 forever。");
+                    return true;
+                }
+                String muteReason = String.join(" ", Arrays.copyOfRange(args, 3, args.length));
                 try {
-                    MuteEntry muteEntry = new MuteEntry(muteTarget, sender.getName(), System.currentTimeMillis(), muteReason);
+                    MuteEntry muteEntry = new MuteEntry(muteTarget, sender.getName(), TimeUtils.calculateEndTime(muteDuration), muteReason);
                     plugin.getMuteManager().mutePlayer(muteEntry);
                     Bukkit.broadcastMessage(currentModel.addMute(muteTarget, muteReason));
                 } catch (Exception e) {
@@ -551,7 +556,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
     private void showMuteList(CommandSender sender) {
         Utils.sendMessage(sender, "§7--§bLengbanlist 禁言名单§7--");
         for (MuteEntry entry : plugin.getMuteManager().getMuteList()) {
-            Utils.sendMessage(sender, "§c被禁言者：§f" + entry.getTarget() + " §e处理人：§f" + entry.getStaff() + " §e禁言原因：§f" + entry.getReason() + " §f禁言时间：" + TimeUtils.timestampToReadable(entry.getTime()));
+            Utils.sendMessage(sender, "§c被禁言者：§f" + entry.getTarget() + " §e处理人：§f" + entry.getStaff() + " §e禁言原因：§f" + entry.getReason() + " §f解禁时间：" + TimeUtils.timestampToReadable(entry.getTime()));
         }
     }
 
@@ -906,7 +911,7 @@ private void handleBanWizard(Player player, String input) {
             Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效。");
             return;
         }
-        long endTime = System.currentTimeMillis() + duration;
+        long endTime = TimeUtils.calculateEndTime(duration);
         if (playerID.contains(".")) {
             if (!plugin.isFeatureEnabled("ban-ip")) {
                 plugin.sendFeatureDisabled(player);
@@ -925,11 +930,20 @@ private void handleMuteWizard(Player player, String input) {
     String step = player.getMetadata("lengbanlist-step").get(0).asString();
     if (step.equals("playerID")) {
         player.setMetadata("lengbanlist-playerID", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
+        player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "time"));
+        Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f禁言时间§e（如：10m, 1d, forever）：");
+    } else if (step.equals("time")) {
+        if (!TimeUtils.isValidTime(input) || input.equalsIgnoreCase("auto")) {
+            Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效，请使用：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever");
+            return;
+        }
+        player.setMetadata("lengbanlist-time", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
         player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "reason"));
         Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f禁言原因§e：");
     } else if (step.equals("reason")) {
         String playerID = player.getMetadata("lengbanlist-playerID").get(0).asString();
-        MuteEntry entry = new MuteEntry(playerID, player.getName(), System.currentTimeMillis(), input);
+        long duration = TimeUtils.parseTime(player.getMetadata("lengbanlist-time").get(0).asString());
+        MuteEntry entry = new MuteEntry(playerID, player.getName(), TimeUtils.calculateEndTime(duration), input);
         plugin.getMuteManager().mutePlayer(entry);
         Bukkit.broadcastMessage(ModelManager.getInstance().getCurrentModel().addMute(playerID, input));
         clearWizard(player);

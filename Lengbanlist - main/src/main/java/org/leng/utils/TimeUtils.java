@@ -145,6 +145,13 @@ public class TimeUtils {
         if (durationMillis == Long.MAX_VALUE) {
             return Long.MAX_VALUE;
         }
-        return System.currentTimeMillis() + durationMillis;
+        if (durationMillis <= 0) {
+            return System.currentTimeMillis();
+        }
+        long now = System.currentTimeMillis();
+        if (Long.MAX_VALUE - now < durationMillis) {
+            return Long.MAX_VALUE;
+        }
+        return now + durationMillis;
     }
 }

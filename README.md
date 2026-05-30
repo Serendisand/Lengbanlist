@@ -3,11 +3,11 @@
     <img width="200" src="/Photos/Lengbanlist-icon.png">
 </p>
 
- *简体中文 | [English](README_en.md)* 
+ *简体中文 | [English](docs/README_en.md)* 
 
- **[多平台链接](readme-website.md)** |
- **[开发须知](PullRequest_zh.md)** |
- *[许可证提示](Mustn't_zh.md)* |
+ **[多平台链接](docs/readme-website.md)** |
+ **[开发须知](docs/PullRequest_zh.md)** |
+ *[许可证提示](docs/Mustn't_zh.md)* |
  **[Discord](https://discord.gg/aeWjf7vD)**
 </div>
 
@@ -33,10 +33,10 @@ Lengbanlist 是一款专为高版本 Minecraft 服务器设计的插件，它在
 4. 重新加载插件或重启服务器，使配置生效。
 
 ## 命令帮助
-详细命令使用说明请参考：[Lengbanlist 命令帮助](LengbanlistCommandHelp.md)
+详细命令使用说明请参考：[Lengbanlist 命令帮助](docs/LengbanlistCommandHelp.md)
 
 ## 插件展示
-查看插件的实际效果和展示图片，请点击：[Lengbanlist 插件展示图片](Lengbanlist_Images.md)
+查看插件的实际效果和展示图片，请点击：[Lengbanlist 插件展示图片](docs/Lengbanlist_Images.md)
 
 ## 欢迎支持我的项目！❤️
 

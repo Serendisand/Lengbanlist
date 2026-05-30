@@ -12,14 +12,14 @@ import org.leng.object.MuteEntry;
 import org.leng.utils.SchedulerUtils;
 import org.leng.utils.Utils;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** 聊天事件监听，处理聊天向导、禁言检查、违禁词过滤、管理员审查。 */
 public class ChatListener implements Listener {
     private final Lengbanlist plugin;
-    private final Map<String, Integer> badWordCount = new HashMap<>();
+    private final Map<String, Integer> badWordCount = new ConcurrentHashMap<>();
 
     public ChatListener(Lengbanlist plugin) {
         this.plugin = plugin;
@@ -70,7 +70,7 @@ public class ChatListener implements Listener {
 
             if (badWordCount.get(player.getName()) >= muteThreshold) {
                 String reason = "多次使用违禁词";
-                plugin.getMuteManager().mutePlayer(new MuteEntry(player.getName(), "System", System.currentTimeMillis(), reason));
+                plugin.getMuteManager().mutePlayer(new MuteEntry(player.getName(), "System", Long.MAX_VALUE, reason));
                 player.sendMessage(plugin.prefix() + "§c你因多次使用违禁词被自动禁言！");
                 badWordCount.remove(player.getName());
             }

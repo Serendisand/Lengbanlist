@@ -38,6 +38,10 @@ public class ReportCommand implements CommandExecutor {
 
         switch (args[0].toLowerCase()) {
             case "accept":
+                if (!player.hasPermission("lengbanlist.admin")) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c你没有权限处理举报。");
+                    return true;
+                }
                 if (args.length < 2) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c用法错误: /report accept <举报编号>");
                     return true;
@@ -45,6 +49,10 @@ public class ReportCommand implements CommandExecutor {
                 handleAccept(player, args[1]);
                 break;
             case "close":
+                if (!player.hasPermission("lengbanlist.admin")) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c你没有权限处理举报。");
+                    return true;
+                }
                 if (args.length < 2) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c用法错误: /report close <举报编号>");
                     return true;
@@ -107,6 +115,10 @@ public class ReportCommand implements CommandExecutor {
     private void handleAck(Player player, String reportId) {
         ReportEntry report = plugin.getReportManager().getReport(reportId);
         if (report == null) return;
+        if (!report.getReporter().equalsIgnoreCase(player.getName())) {
+            Utils.sendMessage(player, plugin.prefix() + "§c你只能确认自己提交的举报。");
+            return;
+        }
         report.setStatus("已读");
         plugin.getReportManager().updateReport(report);
         Utils.sendMessage(player, plugin.prefix() + "§a已标记举报 " + reportId + " 为已读。");

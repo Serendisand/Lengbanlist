@@ -25,7 +25,6 @@ import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
@@ -33,7 +32,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class WebServer {
     private final Lengbanlist plugin;
@@ -54,6 +56,9 @@ public class WebServer {
             String secret = plugin.getConfig().getString("web.jwt-secret", "change-this-to-a-random-secret-key");
             String username = plugin.getConfig().getString("web.admin-username", "admin");
             String password = plugin.getConfig().getString("web.admin-password", "admin123");
+            if (!validateWebCredentials(secret, password)) {
+                return false;
+            }
 
             authManager = new AuthManager(secret, username, password);
             server = HttpServer.create(new InetSocketAddress(host, port), 0);
@@ -97,6 +102,20 @@ public class WebServer {
             running = false;
             plugin.getLogger().info("Web管理面板已关闭");
         }
+    }
+
+    private boolean validateWebCredentials(String secret, String password) {
+        boolean defaultSecret = "change-this-to-a-random-secret-key".equals(secret);
+        boolean defaultPassword = "lban123".equals(password) || "admin123".equals(password);
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32 || defaultSecret) {
+            plugin.getLogger().severe("Web管理面板启动失败：web.jwt-secret 必须改为至少 32 字节的随机密钥。");
+            return false;
+        }
+        if (password == null || password.trim().isEmpty() || defaultPassword) {
+            plugin.getLogger().severe("Web管理面板启动失败：web.admin-password 不能使用默认密码。");
+            return false;
+        }
+        return true;
     }
 
     public boolean isRunning() {
@@ -225,7 +244,7 @@ public class WebServer {
     private boolean checkRateLimit(HttpExchange exchange) {
         String ip = exchange.getRemoteAddress().getAddress().getHostAddress();
         if (rateLimiter.isRateLimited(ip)) {
-            sendJson(exchange, 429, "{\"error\":\"请求过于频繁，请稍后再试\"}");
+            sendError(exchange, 429, "请求过于频繁，请稍后再试");
             return false;
         }
         return true;
@@ -239,14 +258,57 @@ public class WebServer {
         return null;
     }
 
+    private boolean requireFeature(HttpExchange exchange, String feature) {
+        if (!plugin.isFeatureEnabled(feature)) {
+            sendError(exchange, 403, "此功能已被管理员禁用");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean runSync(HttpExchange exchange, Runnable task) {
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Throwable> error = new AtomicReference<>();
+        org.leng.utils.SchedulerUtils.runTask(plugin, () -> {
+            try {
+                task.run();
+            } catch (Throwable t) {
+                error.set(t);
+            } finally {
+                latch.countDown();
+            }
+        });
+        try {
+            if (!latch.await(5, TimeUnit.SECONDS)) {
+                sendError(exchange, 504, "操作超时");
+                return false;
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            sendError(exchange, 500, "操作被中断");
+            return false;
+        }
+        if (error.get() != null) {
+            sendError(exchange, 500, "操作失败");
+            return false;
+        }
+        return true;
+    }
+
     private boolean requireAuth(HttpExchange exchange) {
         if (!checkRateLimit(exchange)) return false;
         String token = extractToken(exchange);
         if (token == null || !authManager.validateToken(token)) {
-            sendJson(exchange, 401, "{\"error\":\"未授权\"}");
+            sendError(exchange, 401, "未授权");
             return false;
         }
         return true;
+    }
+
+    private void sendError(HttpExchange exchange, int status, String message) {
+        JsonObject error = new JsonObject();
+        error.addProperty("error", message);
+        sendJson(exchange, status, error.toString());
     }
 
     private void sendJson(HttpExchange exchange, int status, String json) {
@@ -279,8 +341,19 @@ public class WebServer {
     }
 
     private String readBody(HttpExchange exchange) throws IOException {
-        try (InputStream is = exchange.getRequestBody()) {
-            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        int maxBytes = 1024 * 1024;
+        try (InputStream is = exchange.getRequestBody(); java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int total = 0;
+            int read;
+            while ((read = is.read(buffer)) != -1) {
+                total += read;
+                if (total > maxBytes) {
+                    throw new IOException("请求体超过 1MB 限制");
+                }
+                out.write(buffer, 0, read);
+            }
+            return new String(out.toByteArray(), StandardCharsets.UTF_8);
         }
     }
 
@@ -304,7 +377,7 @@ public class WebServer {
     private void handleLogin(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
         if (!"POST".equals(exchange.getRequestMethod())) {
-            sendJson(exchange, 405, "{\"error\":\"仅支持 POST\"}");
+            sendError(exchange, 405, "仅支持 POST");
             return;
         }
         if (!checkRateLimit(exchange)) return;
@@ -312,12 +385,24 @@ public class WebServer {
             JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
             String token = authManager.login(json.get("username").getAsString(), json.get("password").getAsString());
             if (token == null) {
-                sendJson(exchange, 401, "{\"error\":\"用户名或密码错误\"}");
+                sendError(exchange, 401, "用户名或密码错误");
                 return;
             }
-            sendJson(exchange, 200, "{\"token\":\"" + token + "\",\"username\":\"" + json.get("username").getAsString() + "\"}");
+            sendJson(exchange, 200, gson.toJson(new LoginResponse(token, json.get("username").getAsString())));
+        } catch (IOException e) {
+            sendError(exchange, 413, e.getMessage());
         } catch (Exception e) {
-            sendJson(exchange, 400, "{\"error\":\"请求格式错误\"}");
+            sendError(exchange, 400, "请求格式错误");
+        }
+    }
+
+    private static class LoginResponse {
+        private final String token;
+        private final String username;
+
+        LoginResponse(String token, String username) {
+            this.token = token;
+            this.username = username;
         }
     }
 
@@ -328,7 +413,7 @@ public class WebServer {
         Map<String, String> params = parseQuery(exchange.getRequestURI().getQuery());
         String q = params.get("q");
         if (q == null || q.isEmpty()) {
-            sendJson(exchange, 400, "{\"error\":\"缺少查询参数 q\"}");
+            sendError(exchange, 400, "缺少查询参数 q");
             return;
         }
 
@@ -360,7 +445,7 @@ public class WebServer {
             }
             sendJson(exchange, 200, result.toString());
         } catch (Exception e) {
-            sendJson(exchange, 500, "{\"error\":\"查询失败\"}");
+            sendError(exchange, 500, "查询失败");
         }
     }
 
@@ -371,7 +456,7 @@ public class WebServer {
         Map<String, String> params = parseQuery(exchange.getRequestURI().getQuery());
         String player = params.get("player");
         if (player == null || player.isEmpty()) {
-            sendJson(exchange, 400, "{\"error\":\"缺少参数 player\"}");
+            sendError(exchange, 400, "缺少参数 player");
             return;
         }
 
@@ -415,14 +500,14 @@ public class WebServer {
 
             sendJson(exchange, 200, result.toString());
         } catch (Exception e) {
-            sendJson(exchange, 500, "{\"error\":\"查询历史失败\"}");
+            sendError(exchange, 500, "查询历史失败");
         }
     }
 
     private void handleBan(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
         if (!"POST".equals(exchange.getRequestMethod())) {
-            sendJson(exchange, 405, "{\"error\":\"仅支持 POST\"}");
+            sendError(exchange, 405, "仅支持 POST");
             return;
         }
         if (!requireAuth(exchange)) return;
@@ -435,50 +520,64 @@ public class WebServer {
 
             String staff = authManager.getUsernameFromToken(extractToken(exchange));
             if (staff == null) staff = "WebAdmin";
+            final String finalStaff = staff;
 
             long durationMs = TimeUtils.parseTime(duration);
             if (durationMs <= 0) durationMs = TimeUtils.daysToMillis(7);
-            long endTime = System.currentTimeMillis() + durationMs;
+            long endTime = TimeUtils.calculateEndTime(durationMs);
 
-            if (target.contains(".")) {
-                plugin.getBanManager().banIp(new BanIpEntry(target, staff, endTime, reason, false));
-            } else {
-                plugin.getBanManager().banPlayer(new BanEntry(target, staff, endTime, reason, false));
-            }
+            String feature = target.contains(".") ? "ban-ip" : "ban";
+            if (!requireFeature(exchange, feature)) return;
+
+            boolean completed = runSync(exchange, () -> {
+                if (target.contains(".")) {
+                    plugin.getBanManager().banIp(new BanIpEntry(target, finalStaff, endTime, reason, false));
+                } else {
+                    plugin.getBanManager().banPlayer(new BanEntry(target, finalStaff, endTime, reason, false));
+                }
+            });
+            if (!completed) return;
 
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
             result.addProperty("message", target + " 已被封禁，时长: " + TimeUtils.formatDuration(durationMs));
             sendJson(exchange, 200, result.toString());
+        } catch (IOException e) {
+            sendError(exchange, 413, e.getMessage());
         } catch (Exception e) {
-            sendJson(exchange, 400, "{\"error\":\"封禁失败: " + e.getMessage() + "\"}");
+            sendError(exchange, 400, "封禁失败: " + e.getMessage());
         }
     }
 
     private void handleUnban(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
         if (!"POST".equals(exchange.getRequestMethod())) {
-            sendJson(exchange, 405, "{\"error\":\"仅支持 POST\"}");
+            sendError(exchange, 405, "仅支持 POST");
             return;
         }
-        if (!requireAuth(exchange)) return;
+        if (!requireAuth(exchange) || !requireFeature(exchange, "unban")) return;
 
         try {
             JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
             String target = json.get("target").getAsString();
 
-            if (target.contains(".")) {
-                plugin.getBanManager().unbanIp(target);
-            } else {
-                plugin.getBanManager().unbanPlayer(target);
-            }
+            boolean completed = runSync(exchange, () -> {
+                if (target.contains(".")) {
+                    plugin.getBanManager().unbanIp(target);
+                } else {
+                    plugin.getBanManager().unbanPlayer(target);
+                }
+            });
+            if (!completed) return;
 
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
             result.addProperty("message", target + " 已被解封");
             sendJson(exchange, 200, result.toString());
+        } catch (IOException e) {
+            sendError(exchange, 413, e.getMessage());
         } catch (Exception e) {
-            sendJson(exchange, 400, "{\"error\":\"解封失败: " + e.getMessage() + "\"}");
+            sendError(exchange, 400, "解封失败: " + e.getMessage());
         }
     }
 
@@ -519,14 +618,7 @@ public class WebServer {
     }
 
     private String getDatabaseType() {
-        try {
-            Connection connection = plugin.getDatabaseManager().getConnection();
-            if (connection != null && !connection.isClosed()) {
-                return connection.getMetaData().getDatabaseProductName();
-            }
-        } catch (Exception ignored) {
-        }
-        return plugin.getDatabaseManager().isMySql() ? "MySQL" : "SQLite";
+        return plugin.getDatabaseManager().getDatabaseProductName();
     }
 
     private void handleBanList(HttpExchange exchange) {
@@ -614,59 +706,70 @@ public class WebServer {
     private void handleMute(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
         if (!"POST".equals(exchange.getRequestMethod())) {
-            sendJson(exchange, 405, "{\"error\":\"仅支持 POST\"}");
+            sendError(exchange, 405, "仅支持 POST");
             return;
         }
-        if (!requireAuth(exchange)) return;
+        if (!requireAuth(exchange) || !requireFeature(exchange, "mute")) return;
 
         try {
             JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
             String target = json.get("target").getAsString();
+            String duration = json.has("duration") ? json.get("duration").getAsString() : "7d";
             String reason = json.has("reason") ? json.get("reason").getAsString() : "管理员操作";
             String staff = authManager.getUsernameFromToken(extractToken(exchange));
             if (staff == null) staff = "WebAdmin";
+            final String finalStaff = staff;
 
-            MuteEntry entry = new MuteEntry(target, staff, System.currentTimeMillis(), reason);
-            plugin.getMuteManager().mutePlayer(entry);
+            long durationMs = TimeUtils.parseTime(duration);
+            if (durationMs <= 0) durationMs = TimeUtils.daysToMillis(7);
+            long endTime = TimeUtils.calculateEndTime(durationMs);
+
+            boolean completed = runSync(exchange, () -> plugin.getMuteManager().mutePlayer(new MuteEntry(target, finalStaff, endTime, reason)));
+            if (!completed) return;
 
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
-            result.addProperty("message", target + " 已被禁言");
+            result.addProperty("message", target + " 已被禁言，时长: " + TimeUtils.formatDuration(durationMs));
             sendJson(exchange, 200, result.toString());
+        } catch (IOException e) {
+            sendError(exchange, 413, e.getMessage());
         } catch (Exception e) {
-            sendJson(exchange, 400, "{\"error\":\"禁言失败: " + e.getMessage() + "\"}");
+            sendError(exchange, 400, "禁言失败: " + e.getMessage());
         }
     }
 
     private void handleUnmute(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
         if (!"POST".equals(exchange.getRequestMethod())) {
-            sendJson(exchange, 405, "{\"error\":\"仅支持 POST\"}");
+            sendError(exchange, 405, "仅支持 POST");
             return;
         }
-        if (!requireAuth(exchange)) return;
+        if (!requireAuth(exchange) || !requireFeature(exchange, "mute")) return;
 
         try {
             JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
             String target = json.get("target").getAsString();
-            plugin.getMuteManager().unmutePlayer(target);
+            boolean completed = runSync(exchange, () -> plugin.getMuteManager().unmutePlayer(target));
+            if (!completed) return;
 
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
             result.addProperty("message", target + " 已被解除禁言");
             sendJson(exchange, 200, result.toString());
+        } catch (IOException e) {
+            sendError(exchange, 413, e.getMessage());
         } catch (Exception e) {
-            sendJson(exchange, 400, "{\"error\":\"解除禁言失败: " + e.getMessage() + "\"}");
+            sendError(exchange, 400, "解除禁言失败: " + e.getMessage());
         }
     }
 
     private void handleWarn(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
         if (!"POST".equals(exchange.getRequestMethod())) {
-            sendJson(exchange, 405, "{\"error\":\"仅支持 POST\"}");
+            sendError(exchange, 405, "仅支持 POST");
             return;
         }
-        if (!requireAuth(exchange)) return;
+        if (!requireAuth(exchange) || !requireFeature(exchange, "warn")) return;
 
         try {
             JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
@@ -674,25 +777,29 @@ public class WebServer {
             String reason = json.has("reason") ? json.get("reason").getAsString() : "管理员操作";
             String staff = authManager.getUsernameFromToken(extractToken(exchange));
             if (staff == null) staff = "WebAdmin";
+            final String finalStaff = staff;
 
-            plugin.getWarnManager().warnPlayer(target, staff, reason);
+            boolean completed = runSync(exchange, () -> plugin.getWarnManager().warnPlayer(target, finalStaff, reason));
+            if (!completed) return;
 
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
             result.addProperty("message", target + " 已被警告");
             sendJson(exchange, 200, result.toString());
+        } catch (IOException e) {
+            sendError(exchange, 413, e.getMessage());
         } catch (Exception e) {
-            sendJson(exchange, 400, "{\"error\":\"警告失败: " + e.getMessage() + "\"}");
+            sendError(exchange, 400, "警告失败: " + e.getMessage());
         }
     }
 
     private void handleReportAction(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
         if (!"POST".equals(exchange.getRequestMethod())) {
-            sendJson(exchange, 405, "{\"error\":\"仅支持 POST\"}");
+            sendError(exchange, 405, "仅支持 POST");
             return;
         }
-        if (!requireAuth(exchange)) return;
+        if (!requireAuth(exchange) || !requireFeature(exchange, "admin")) return;
 
         try {
             JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
@@ -701,7 +808,7 @@ public class WebServer {
 
             ReportEntry report = plugin.getReportManager().getReport(id);
             if (report == null) {
-                sendJson(exchange, 404, "{\"error\":\"举报不存在\"}");
+                sendError(exchange, 404, "举报不存在");
                 return;
             }
 
@@ -713,23 +820,25 @@ public class WebServer {
                 result.addProperty("message", "举报 " + id + " 已关闭");
                 sendJson(exchange, 200, result.toString());
             } else {
-                sendJson(exchange, 400, "{\"error\":\"未知操作: " + action + "\"}");
+                sendError(exchange, 400, "未知操作: " + action);
             }
+        } catch (IOException e) {
+            sendError(exchange, 413, e.getMessage());
         } catch (Exception e) {
-            sendJson(exchange, 400, "{\"error\":\"操作失败: " + e.getMessage() + "\"}");
+            sendError(exchange, 400, "操作失败: " + e.getMessage());
         }
     }
 
     private void handleReload(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
         if (!"POST".equals(exchange.getRequestMethod())) {
-            sendJson(exchange, 405, "{\"error\":\"仅支持 POST\"}");
+            sendError(exchange, 405, "仅支持 POST");
             return;
         }
-        if (!requireAuth(exchange)) return;
+        if (!requireAuth(exchange) || !requireFeature(exchange, "reload")) return;
 
         try {
-            plugin.reloadConfig();
+            boolean completed = runSync(exchange, () -> {
             ModelManager.getInstance().reloadModel();
 
             File broadcastFile = new File(plugin.getDataFolder(), "broadcast.yml");
@@ -748,13 +857,15 @@ public class WebServer {
                     plugin.getLogger().warning("重载chatconfig.yml失败: " + e.getMessage());
                 }
             }
+            });
+            if (!completed) return;
 
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
             result.addProperty("message", "配置已重新加载");
             sendJson(exchange, 200, result.toString());
         } catch (Exception e) {
-            sendJson(exchange, 500, "{\"error\":\"重载失败: " + e.getMessage() + "\"}");
+            sendError(exchange, 500, "重载失败: " + e.getMessage());
             return;
         }
         try {
@@ -766,10 +877,10 @@ public class WebServer {
     private void handleBroadcast(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
         if (!"POST".equals(exchange.getRequestMethod())) {
-            sendJson(exchange, 405, "{\"error\":\"仅支持 POST\"}");
+            sendError(exchange, 405, "仅支持 POST");
             return;
         }
-        if (!requireAuth(exchange)) return;
+        if (!requireAuth(exchange) || !requireFeature(exchange, "broadcast")) return;
 
         try {
             String defaultMessage = plugin.getBroadcastFC().getString("default-message");
@@ -782,14 +893,16 @@ public class WebServer {
                     .replace("%i", String.valueOf(banIpCount))
                     .replace("%t", String.valueOf(totalBans));
 
-            plugin.getServer().broadcastMessage(defaultMessage);
+            String message = defaultMessage;
+            boolean completed = runSync(exchange, () -> plugin.getServer().broadcastMessage(message));
+            if (!completed) return;
 
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
             result.addProperty("message", "已广播封禁人数");
             sendJson(exchange, 200, result.toString());
         } catch (Exception e) {
-            sendJson(exchange, 500, "{\"error\":\"广播失败: " + e.getMessage() + "\"}");
+            sendError(exchange, 500, "广播失败: " + e.getMessage());
         }
     }
 
@@ -802,7 +915,7 @@ public class WebServer {
             String resourcePath = "web" + path;
             java.io.InputStream stream = plugin.getResource(resourcePath);
             if (stream != null) {
-                byte[] bytes = stream.readAllBytes();
+                byte[] bytes = readAllBytes(stream);
                 exchange.getResponseHeaders().set("Content-Type", getMimeType(path));
                 exchange.sendResponseHeaders(200, bytes.length);
                 exchange.getResponseBody().write(bytes);
@@ -811,12 +924,28 @@ public class WebServer {
             }
 
             if (path.equals("/index.html")) {
-                sendJson(exchange, 200, "{\"name\":\"Lengbanlist Web API\",\"version\":\"" + plugin.getPluginVersion() + "\",\"login\":\"POST /api/login 获取token\",\"usage\":\"在请求头加 Authorization: Bearer <token> 调用其他接口\"}");
+                JsonObject info = new JsonObject();
+                info.addProperty("name", "Lengbanlist Web API");
+                info.addProperty("version", plugin.getPluginVersion());
+                info.addProperty("login", "POST /api/login 获取token");
+                info.addProperty("usage", "在请求头加 Authorization: Bearer <token> 调用其他接口");
+                sendJson(exchange, 200, info.toString());
                 return;
             }
         } catch (IOException e) {
         }
-        sendJson(exchange, 404, "{\"error\":\"Not Found\"}");
+        sendError(exchange, 404, "Not Found");
+    }
+
+    private byte[] readAllBytes(InputStream stream) throws IOException {
+        try (InputStream input = stream; java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+            return out.toByteArray();
+        }
     }
 
     private String getMimeType(String path) {

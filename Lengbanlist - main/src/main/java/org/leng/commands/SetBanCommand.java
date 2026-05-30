@@ -84,7 +84,7 @@ public class SetBanCommand implements CommandExecutor {
                 Utils.sendMessage(sender, plugin.prefix() + "§cIP " + target + " 未被封禁，无法设置封禁时间。");
                 return true;
             }
-            existingBanIp.setEndTime(banDuration == Long.MAX_VALUE ? Long.MAX_VALUE : System.currentTimeMillis() + banDuration);
+            existingBanIp.setEndTime(TimeUtils.calculateEndTime(banDuration));
             existingBanIp.setReason(reason);
             existingBanIp.setAuto(isAuto);
             banManager.updateIpBan(existingBanIp);
@@ -95,7 +95,7 @@ public class SetBanCommand implements CommandExecutor {
                 Utils.sendMessage(sender, plugin.prefix() + "§c玩家 " + target + " 未被封禁，无法设置封禁时间。");
                 return true;
             }
-            existingBan.setEndTime(banDuration == Long.MAX_VALUE ? Long.MAX_VALUE : System.currentTimeMillis() + banDuration);
+            existingBan.setEndTime(TimeUtils.calculateEndTime(banDuration));
             existingBan.setReason(reason);
             existingBan.setAuto(isAuto);
             banManager.updateBan(existingBan);

@@ -71,7 +71,7 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
             }
         }
 
-        long banEndTime = System.currentTimeMillis() + banDuration;
+        long banEndTime = TimeUtils.calculateEndTime(banDuration);
         String rawReason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
         String reason = resolvePresetReason(rawReason);
 
