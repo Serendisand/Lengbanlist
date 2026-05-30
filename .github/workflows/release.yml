@@ -220,7 +220,7 @@ jobs:
           echo "| 类型 | 数量 |" >> release_body.md
           echo "|------|------|" >> release_body.md
           echo "| 🎯 已解决的 Issue | ${ISSUES_COUNT} |" >> release_body.md
-          echo "| 🔀 已合并的 PR | ${PRS_COUNT} |" >> release_body.md
+          echo "| 🔀 已处理的 PR | ${PRS_COUNT} |" >> release_body.md
           
           if [ "$ISSUES_COUNT" -gt 0 ]; then
             echo "" >> release_body.md
