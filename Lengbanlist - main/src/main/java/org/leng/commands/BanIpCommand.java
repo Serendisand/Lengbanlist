@@ -3,14 +3,17 @@ package org.leng.commands;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
 
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 
-public class BanIpCommand extends Command implements CommandExecutor {
+public class BanIpCommand extends Command implements CommandExecutor, TabCompleter {
     private final Lengbanlist plugin;
 
     public BanIpCommand(Lengbanlist plugin) {
@@ -69,7 +72,8 @@ public class BanIpCommand extends Command implements CommandExecutor {
         }
 
         long banEndTime = System.currentTimeMillis() + banDuration;
-        String reason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
+        String rawReason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
+        String reason = resolvePresetReason(rawReason);
 
         // 执行封禁
         plugin.getBanManager().banIp(
@@ -110,6 +114,23 @@ public class BanIpCommand extends Command implements CommandExecutor {
         }
     }
 
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (args.length == 3) {
+            String prefix = args[2].toLowerCase();
+            List<String> presets = new ArrayList<>();
+            if (plugin.getConfig().isConfigurationSection("preset-reasons")) {
+                presets.addAll(plugin.getConfig().getConfigurationSection("preset-reasons").getKeys(false));
+            }
+            List<String> completions = new ArrayList<>();
+            for (String key : presets) {
+                if (key.toLowerCase().startsWith(prefix)) completions.add(key);
+            }
+            return completions;
+        }
+        return null;
+    }
+
     private void showTimeFormatError(CommandSender sender) {
         Utils.sendMessage(sender, "§c时间格式错误，请使用以下格式:");
         Utils.sendMessage(sender, "§c - 10s: 秒 (10 秒)");
@@ -125,5 +146,11 @@ public class BanIpCommand extends Command implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         return execute(sender, label, args);
+    }
+
+    private String resolvePresetReason(String input) {
+        if (input == null || !plugin.getConfig().isConfigurationSection("preset-reasons")) return input;
+        String value = plugin.getConfig().getString("preset-reasons." + input.toLowerCase());
+        return value != null ? value : input;
     }
 }

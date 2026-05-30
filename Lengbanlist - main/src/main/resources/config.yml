@@ -33,6 +33,14 @@ features:
   update-check: true  # 检查插件更新
   auto-update: false   # 自动下载更新
 
+# 预设封禁/警告原因
+preset-reasons:
+  normal: "违规建筑/破坏服务器"
+  cheat: "使用外挂/作弊"
+  abuse: "言语辱骂/人身攻击"
+  spam: "广告/刷屏"        
+  grief: "恶意破坏"       
+
 # 历史记录保留天数
 history-retention-days: 7
 

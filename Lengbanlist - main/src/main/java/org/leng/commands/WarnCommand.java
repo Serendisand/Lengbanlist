@@ -3,6 +3,7 @@ package org.leng.commands;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.manager.ModelManager;
@@ -10,8 +11,10 @@ import org.leng.manager.WarnManager;
 import org.leng.utils.Utils;
 
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 
-public class WarnCommand extends Command implements CommandExecutor {
+public class WarnCommand extends Command implements CommandExecutor, TabCompleter {
     private final Lengbanlist plugin;
 
     public WarnCommand(Lengbanlist plugin) {
@@ -42,7 +45,8 @@ public class WarnCommand extends Command implements CommandExecutor {
         }
 
         String target = args[0];
-        String reason = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+        String rawReason = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+        String reason = resolvePresetReason(rawReason);
         WarnManager warnManager = plugin.getWarnManager();
 
         // 检查是否是 IP
@@ -68,7 +72,30 @@ public class WarnCommand extends Command implements CommandExecutor {
     }
 
     @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (args.length == 2) {
+            String prefix = args[1].toLowerCase();
+            List<String> presets = new ArrayList<>();
+            if (plugin.getConfig().isConfigurationSection("preset-reasons")) {
+                presets.addAll(plugin.getConfig().getConfigurationSection("preset-reasons").getKeys(false));
+            }
+            List<String> completions = new ArrayList<>();
+            for (String key : presets) {
+                if (key.toLowerCase().startsWith(prefix)) completions.add(key);
+            }
+            return completions;
+        }
+        return null;
+    }
+
+    @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         return execute(sender, label, args);
+    }
+
+    private String resolvePresetReason(String input) {
+        if (input == null || !plugin.getConfig().isConfigurationSection("preset-reasons")) return input;
+        String value = plugin.getConfig().getString("preset-reasons." + input.toLowerCase());
+        return value != null ? value : input;
     }
 }

@@ -3,15 +3,18 @@ package org.leng.commands;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.object.BanEntry;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
 
-import java.util.Arrays; 
+import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 
-public class BanCommand implements CommandExecutor {
+public class BanCommand implements CommandExecutor, TabCompleter {
     private final Lengbanlist plugin;
 
     public BanCommand(Lengbanlist plugin) {
@@ -42,7 +45,8 @@ public class BanCommand implements CommandExecutor {
 
         String target = args[0];
         String timeArg = args[1];
-        String reason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
+        String rawReason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
+        String reason = resolvePresetReason(rawReason);
 
         // 检查是否已封禁
         if (plugin.getBanManager().isPlayerBanned(target)) {
@@ -101,6 +105,24 @@ public class BanCommand implements CommandExecutor {
         Utils.sendMessage(sender, "§c使用 auto 自动计算封禁时间（基于警告次数）");
     }
 
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (args.length == 3) {
+            String prefix = args[2].toLowerCase();
+            List<String> presets = plugin.getConfig().getStringList("preset-reasons");
+            // 如果是旧的 Map 格式，转为 List
+            if (presets.isEmpty() && plugin.getConfig().isConfigurationSection("preset-reasons")) {
+                presets = new ArrayList<>(plugin.getConfig().getConfigurationSection("preset-reasons").getKeys(false));
+            }
+            List<String> completions = new ArrayList<>();
+            for (String key : presets) {
+                if (key.toLowerCase().startsWith(prefix)) completions.add(key);
+            }
+            return completions;
+        }
+        return null;
+    }
+
     private void showTimeFormatError(CommandSender sender) {
         Utils.sendMessage(sender, "§c时间格式错误，请使用以下格式:");
         Utils.sendMessage(sender, "§c - 10s: 秒 (10 秒)");
@@ -112,5 +134,11 @@ public class BanCommand implements CommandExecutor {
         Utils.sendMessage(sender, "§c - 1y: 年 (1 年，按 365 天计算)");
         Utils.sendMessage(sender, "§c - forever: 永久封禁");
         Utils.sendMessage(sender, "§c - auto: 自动计算封禁时间");
+    }
+
+    private String resolvePresetReason(String input) {
+        if (input == null || !plugin.getConfig().isConfigurationSection("preset-reasons")) return input;
+        String value = plugin.getConfig().getString("preset-reasons." + input.toLowerCase());
+        return value != null ? value : input;
     }
 }

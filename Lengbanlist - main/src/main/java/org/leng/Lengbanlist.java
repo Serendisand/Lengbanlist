@@ -148,10 +148,16 @@ public void onEnable() {
     getServer().getPluginManager().registerEvents(modelChoiceListener, Lengbanlist.this);
 
     getCommand("lban").setExecutor(new LengbanlistCommand("lban", Lengbanlist.this));
-    getCommand("ban").setExecutor(new BanCommand(Lengbanlist.this));
-    getCommand("ban-ip").setExecutor(new BanIpCommand(Lengbanlist.this));
+    BanCommand banCmd = new BanCommand(Lengbanlist.this);
+    getCommand("ban").setExecutor(banCmd);
+    getCommand("ban").setTabCompleter(banCmd);
+    BanIpCommand banIpCmd = new BanIpCommand(Lengbanlist.this);
+    getCommand("ban-ip").setExecutor(banIpCmd);
+    getCommand("ban-ip").setTabCompleter(banIpCmd);
     getCommand("unban").setExecutor(new UnbanCommand(Lengbanlist.this));
-    getCommand("warn").setExecutor(new WarnCommand(Lengbanlist.this));
+    WarnCommand warnCmd = new WarnCommand(Lengbanlist.this);
+    getCommand("warn").setExecutor(warnCmd);
+    getCommand("warn").setTabCompleter(warnCmd);
     getCommand("unwarn").setExecutor(new UnwarnCommand(Lengbanlist.this));
     getCommand("check").setExecutor(new CheckCommand(Lengbanlist.this));
     getCommand("report").setExecutor(new ReportCommand(Lengbanlist.this));
