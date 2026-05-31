@@ -8,7 +8,7 @@ Model: "Default" #当前模型
 
 # 功能开关
 features:
-  ban: false           
+  ban: true        
   ban-ip: true      
   unban: true       
   warn: true      
