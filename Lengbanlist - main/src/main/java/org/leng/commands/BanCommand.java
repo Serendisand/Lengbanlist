@@ -100,9 +100,9 @@ public class BanCommand implements CommandExecutor, TabCompleter {
     }
 
     private void sendUsage(CommandSender sender) {
-        Utils.sendMessage(sender, "§c用法错误: /ban <玩家> <时间/auto> <原因>");
-        Utils.sendMessage(sender, "§c时间单位: s(秒), m(分), h(时), d(天), w(周), M(月), y(年)");
-        Utils.sendMessage(sender, "§c使用 auto 自动计算封禁时间（基于警告次数）");
+        Utils.sendMessage(sender, "§c用法错误喵: /ban <玩家> <时间/auto> <原因>");
+        Utils.sendMessage(sender, "§c时间单位喵: s(秒), m(分), h(时), d(天), w(周), M(月), y(年)");
+        Utils.sendMessage(sender, "§c使用 auto 自动计算封禁时间喵（基于警告次数）");
     }
 
     @Override
@@ -124,7 +124,7 @@ public class BanCommand implements CommandExecutor, TabCompleter {
     }
 
     private void showTimeFormatError(CommandSender sender) {
-        Utils.sendMessage(sender, "§c时间格式错误，请使用以下格式:");
+        Utils.sendMessage(sender, "§c时间格式错误喵，请使用以下格式:");
         Utils.sendMessage(sender, "§c - 10s: 秒 (10 秒)");
         Utils.sendMessage(sender, "§c - 5m: 分钟 (5 分钟)");
         Utils.sendMessage(sender, "§c - 2h: 小时 (2 小时)");

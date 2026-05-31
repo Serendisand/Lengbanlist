@@ -40,7 +40,7 @@ public class WarnCommand extends Command implements CommandExecutor, TabComplete
 
 
         if (args.length < 2) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c用法错误: /lban warn <玩家名/IP> <原因>");
+            Utils.sendMessage(sender, plugin.prefix() + "§c用法错误喵: /lban warn <玩家名/IP> <原因>");
             return false;
         }
 

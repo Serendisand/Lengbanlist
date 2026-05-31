@@ -28,7 +28,7 @@ public class StaffChatCommand implements CommandExecutor {
         }
 
         if (args.length < 1) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c用法: /sc <内容>");
+            Utils.sendMessage(sender, plugin.prefix() + "§c用法喵: /sc <内容>");
             return true;
         }
 

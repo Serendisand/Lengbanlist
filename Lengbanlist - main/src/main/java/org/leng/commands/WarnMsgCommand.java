@@ -28,7 +28,7 @@ public class WarnMsgCommand implements CommandExecutor {
         }
 
         if (args.length < 1) {
-            sender.sendMessage(plugin.prefix() + "§c用法错误: /warnmsg <玩家名>");
+            sender.sendMessage(plugin.prefix() + "§c用法错误喵: /warnmsg <玩家名>");
             return true;
         }
 

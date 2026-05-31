@@ -72,7 +72,7 @@ commands:
     permission: lengbanlist.history
   mute:
     description: 禁言玩家
-    usage: /<command> <玩家名> <原因>
+    usage: /<command> <玩家名> <时间/auto> <原因>
     permission: lengbanlist.mute
   unmute:
     description: 解除禁言

@@ -8,7 +8,7 @@ Model: "Default" #当前模型
 
 # 功能开关
 features:
-  ban: true            
+  ban: false           
   ban-ip: true      
   unban: true       
   warn: true      
@@ -29,7 +29,6 @@ features:
   chest-ui: true       
   ip-association: true # IP关联检测
   vpn-detection: true  # VPN/代理检测
-  web: true            # Web管理面板
   update-check: true  # 检查插件更新
   auto-update: false   # 自动下载更新
   staffchat: true   

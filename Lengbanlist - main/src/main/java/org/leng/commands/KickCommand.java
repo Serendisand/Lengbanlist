@@ -32,7 +32,7 @@ public class KickCommand implements CommandExecutor {
 
 
         if (args.length < 2) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c用法: /kick <玩家> <原因>");
+            Utils.sendMessage(sender, plugin.prefix() + "§c用法喵: /kick <玩家> <原因>");
             return true;
         }
 

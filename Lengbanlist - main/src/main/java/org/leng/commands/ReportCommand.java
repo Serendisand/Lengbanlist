@@ -32,7 +32,7 @@ public class ReportCommand implements CommandExecutor {
         Player player = (Player) sender;
 
         if (args.length < 1) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c用法错误: /report <玩家名> <原因> 或 /report accept/close <举报编号>");
+            Utils.sendMessage(sender, plugin.prefix() + "§c用法错误喵: /report <玩家名> <原因> 或 /report accept/close <举报编号>");
             return true;
         }
 
@@ -43,7 +43,7 @@ public class ReportCommand implements CommandExecutor {
                     return true;
                 }
                 if (args.length < 2) {
-                    Utils.sendMessage(sender, plugin.prefix() + "§c用法错误: /report accept <举报编号>");
+                    Utils.sendMessage(sender, plugin.prefix() + "§c用法错误喵: /report accept <举报编号>");
                     return true;
                 }
                 handleAccept(player, args[1]);
@@ -54,7 +54,7 @@ public class ReportCommand implements CommandExecutor {
                     return true;
                 }
                 if (args.length < 2) {
-                    Utils.sendMessage(sender, plugin.prefix() + "§c用法错误: /report close <举报编号>");
+                    Utils.sendMessage(sender, plugin.prefix() + "§c用法错误喵: /report close <举报编号>");
                     return true;
                 }
                 handleClose(player, args[1]);
@@ -67,7 +67,7 @@ public class ReportCommand implements CommandExecutor {
                 break;
             default:
                 if (args.length < 2) {
-                    Utils.sendMessage(sender, plugin.prefix() + "§c用法错误: /report <玩家名> <原因>");
+                    Utils.sendMessage(sender, plugin.prefix() + "§c用法错误喵: /report <玩家名> <原因>");
                     return true;
                 }
                 String target = args[0];

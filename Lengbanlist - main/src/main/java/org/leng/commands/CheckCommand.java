@@ -38,7 +38,7 @@ public class CheckCommand extends Command implements CommandExecutor {
         }
 
         if (args.length < 1) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c§l错误的命令格式，正确格式：/check <玩家名/IP>");
+            Utils.sendMessage(sender, plugin.prefix() + "§c§l命令格式不对喵，正确格式：/check <玩家名/IP>");
             return true;
         }
 

@@ -28,7 +28,7 @@ public class AllowMsgCommand implements CommandExecutor {
         }
 
         if (args.length < 1) {
-            sender.sendMessage(plugin.prefix() + "§c用法错误: /allowmsg <玩家名>");
+            sender.sendMessage(plugin.prefix() + "§c用法错误喵: /allowmsg <玩家名>");
             return true;
         }
 

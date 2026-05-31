@@ -198,6 +198,10 @@ tr:hover td { background: var(--bg-hover); }
 .context-menu-item.danger:hover { background: #e5554e; color: #fff; }
 td.context-row { cursor: context-menu; }
 
+.pagination { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 12px; color: var(--text-secondary); font-size: 12px; }
+.pagination .page-info { min-width: 110px; text-align: center; }
+.pagination .btn[disabled] { opacity: .45; cursor: not-allowed; transform: none; }
+
 /* EULA overlay */
 .eula-overlay {
   position: fixed; inset: 0; background: var(--bg-overlay-eula);
@@ -454,6 +458,8 @@ var token = localStorage.getItem('lengbanlist_token') || '';
 var currentUser = '';
 var refreshTimer = null;
 var refreshTab = 'dashboard';
+var PAGE_SIZE = 5;
+var pageState = { bans: 1, ipbans: 1, mutes: 1, reports: 1 };
 
 function jwtDecode(t) {
   try { return JSON.parse(atob(t.split('.')[1])); } catch(e) { return {}; }
@@ -559,6 +565,31 @@ function getDuration() {
     return document.getElementById('banDurationInput').value.trim() || '7d';
   }
   return sel.value;
+}
+
+function renderPagination(key, total) {
+  var totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (pageState[key] > totalPages) pageState[key] = totalPages;
+  var prevDisabled = pageState[key] <= 1 ? ' disabled' : '';
+  var nextDisabled = pageState[key] >= totalPages ? ' disabled' : '';
+  return '<div class="pagination"><button class="btn btn-link btn-sm" onclick="changePage(\'' + key + '\', -1)"' + prevDisabled + '>上一页</button>' +
+    '<span class="page-info">第 ' + pageState[key] + ' / ' + totalPages + ' 页</span>' +
+    '<button class="btn btn-link btn-sm" onclick="changePage(\'' + key + '\', 1)"' + nextDisabled + '>下一页</button></div>';
+}
+
+function paginate(key, items) {
+  items = items || [];
+  var totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  if (pageState[key] > totalPages) pageState[key] = totalPages;
+  var start = (pageState[key] - 1) * PAGE_SIZE;
+  return items.slice(start, start + PAGE_SIZE);
+}
+
+function changePage(key, delta) {
+  pageState[key] = Math.max(1, pageState[key] + delta);
+  if (key === 'bans' || key === 'ipbans') loadBanLists();
+  else if (key === 'mutes') loadMuteList();
+  else if (key === 'reports') loadReports();
 }
 
 async function loadDashboard() {
@@ -676,12 +707,13 @@ async function loadBanLists() {
     var d = bansRes.data;
     var html = '<div class="action-bar" style="margin-bottom:12px">共 <strong>' + d.total + '</strong> 条</div>';
     if (d.bans && d.bans.length > 0) {
+      var pageItems = paginate('bans', d.bans);
       html += '<div class="table-wrap"><table><tr><th>玩家</th><th>处理人</th><th>原因</th><th>到期时间</th><th>剩余</th><th>类型</th></tr>';
-      for (var i = 0; i < d.bans.length; i++) {
-        var b = d.bans[i];
+      for (var i = 0; i < pageItems.length; i++) {
+        var b = pageItems[i];
         html += '<tr oncontextmenu="showContextMenu(event,\'ban\',\'' + escapeHtml(b.target) + '\')"><td>' + escapeHtml(b.target) + '</td><td>' + escapeHtml(b.staff) + '</td><td>' + escapeHtml(b.reason) + '</td><td>' + escapeHtml(b.end_time) + '</td><td>' + escapeHtml(b.remaining) + '</td><td>' + (b.auto?'<span class="badge badge-yellow">自动</span>':'<span class="badge badge-red">手动</span>') + '</td></tr>';
       }
-      html += '</table></div>';
+      html += '</table></div>' + renderPagination('bans', d.bans.length);
     } else {
       html += '<div class="empty-state">暂无封禁记录</div>';
     }
@@ -695,12 +727,13 @@ async function loadBanLists() {
     var d = ipRes.data;
     var html = '<div class="action-bar" style="margin-bottom:12px">共 <strong>' + d.total + '</strong> 条</div>';
     if (d.bans && d.bans.length > 0) {
+      var pageItems = paginate('ipbans', d.bans);
       html += '<div class="table-wrap"><table><tr><th>IP</th><th>处理人</th><th>原因</th><th>到期时间</th><th>剩余</th></tr>';
-      for (var i = 0; i < d.bans.length; i++) {
-        var b = d.bans[i];
+      for (var i = 0; i < pageItems.length; i++) {
+        var b = pageItems[i];
         html += '<tr oncontextmenu="showContextMenu(event,\'ipban\',\'' + escapeHtml(b.ip) + '\')"><td>' + escapeHtml(b.ip) + '</td><td>' + escapeHtml(b.staff) + '</td><td>' + escapeHtml(b.reason) + '</td><td>' + escapeHtml(b.end_time) + '</td><td>' + escapeHtml(b.remaining) + '</td></tr>';
       }
-      html += '</table></div>';
+      html += '</table></div>' + renderPagination('ipbans', d.bans.length);
     } else {
       html += '<div class="empty-state">暂无 IP 封禁记录</div>';
     }
@@ -718,12 +751,13 @@ async function loadMuteList() {
     var d = res.data;
     var html = '<div class="action-bar" style="margin-bottom:12px">共 <strong>' + d.total + '</strong> 条</div>';
     if (d.mutes && d.mutes.length > 0) {
+      var pageItems = paginate('mutes', d.mutes);
       html += '<div class="table-wrap"><table><tr><th>玩家</th><th>处理人</th><th>原因</th><th>禁言时间</th></tr>';
-      for (var i = 0; i < d.mutes.length; i++) {
-        var m = d.mutes[i];
+      for (var i = 0; i < pageItems.length; i++) {
+        var m = pageItems[i];
         html += '<tr oncontextmenu="showContextMenu(event,\'mute\',\'' + escapeHtml(m.target) + '\')"><td>' + escapeHtml(m.target) + '</td><td>' + escapeHtml(m.staff) + '</td><td>' + escapeHtml(m.reason) + '</td><td>' + escapeHtml(m.time) + '</td></tr>';
       }
-      html += '</table></div>';
+      html += '</table></div>' + renderPagination('mutes', d.mutes.length);
     } else {
       html += '<div class="empty-state">暂无禁言记录</div>';
     }
@@ -771,14 +805,15 @@ async function loadReports() {
   if (res.ok) {
     var d = res.data;
     if (d.reports && d.reports.length > 0) {
+      var pageItems = paginate('reports', d.reports);
       var html = '<div class="action-bar" style="margin-bottom:12px">共 <strong>' + d.total + '</strong> 条待处理</div>';
       html += '<div class="table-wrap"><table><tr><th>编号</th><th>被举报人</th><th>举报人</th><th>原因</th><th>时间</th><th>操作</th></tr>';
-      for (var i = 0; i < d.reports.length; i++) {
-        var r = d.reports[i];
+      for (var i = 0; i < pageItems.length; i++) {
+        var r = pageItems[i];
         html += '<tr oncontextmenu="showContextMenu(event,\'report\',\'' + escapeHtml(r.id) + '\')"><td>' + escapeHtml(r.id) + '</td><td>' + escapeHtml(r.target) + '</td><td>' + escapeHtml(r.reporter) + '</td><td>' + escapeHtml(r.reason) + '</td><td>' + escapeHtml(r.timestamp) + '</td>' +
           '<td><button class="btn btn-success btn-sm" onclick="closeReport(\'' + r.id + '\')">关闭</button></td></tr>';
       }
-      html += '</table></div>';
+      html += '</table></div>' + renderPagination('reports', d.reports.length);
       document.getElementById('reportsResult').innerHTML = html;
     } else {
       document.getElementById('reportsResult').innerHTML = '<div class="empty-state">暂无待处理举报</div>';

@@ -2,9 +2,11 @@ package org.leng;
 
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandMap;
+import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.command.CommandMap;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.leng.commands.*;
 import org.leng.listeners.*;
@@ -156,32 +158,32 @@ public void onEnable() {
 
     getCommand("lban").setExecutor(new LengbanlistCommand("lban", Lengbanlist.this));
     BanCommand banCmd = new BanCommand(Lengbanlist.this);
-    getCommand("ban").setExecutor(banCmd);
+    setFeatureExecutor("ban", "ban", banCmd);
     getCommand("ban").setTabCompleter(banCmd);
     BanIpCommand banIpCmd = new BanIpCommand(Lengbanlist.this);
-    getCommand("ban-ip").setExecutor(banIpCmd);
+    setFeatureExecutor("ban-ip", "ban-ip", banIpCmd);
     getCommand("ban-ip").setTabCompleter(banIpCmd);
-    getCommand("unban").setExecutor(new UnbanCommand(Lengbanlist.this));
+    setFeatureExecutor("unban", "unban", new UnbanCommand(Lengbanlist.this));
     WarnCommand warnCmd = new WarnCommand(Lengbanlist.this);
-    getCommand("warn").setExecutor(warnCmd);
+    setFeatureExecutor("warn", "warn", warnCmd);
     getCommand("warn").setTabCompleter(warnCmd);
-    getCommand("unwarn").setExecutor(new UnwarnCommand(Lengbanlist.this));
-    getCommand("check").setExecutor(new CheckCommand(Lengbanlist.this));
-    getCommand("report").setExecutor(new ReportCommand(Lengbanlist.this));
-    getCommand("admin").setExecutor(new AdminReportCommand(Lengbanlist.this));
-    getCommand("kick").setExecutor(new KickCommand(Lengbanlist.this));
-    getCommand("info").setExecutor(new InfoCommand(Lengbanlist.this));
-    getCommand("allowmsg").setExecutor(new AllowMsgCommand(Lengbanlist.this));
-    getCommand("warnmsg").setExecutor(new WarnMsgCommand(Lengbanlist.this));
-    getCommand("setban").setExecutor(new SetBanCommand(Lengbanlist.this));
+    setFeatureExecutor("unwarn", "unwarn", new UnwarnCommand(Lengbanlist.this));
+    setFeatureExecutor("check", "check", new CheckCommand(Lengbanlist.this));
+    setFeatureExecutor("report", "report", new ReportCommand(Lengbanlist.this));
+    setFeatureExecutor("admin", "admin", new AdminReportCommand(Lengbanlist.this));
+    setFeatureExecutor("kick", "kick", new KickCommand(Lengbanlist.this));
+    setFeatureExecutor("info", "info", new InfoCommand(Lengbanlist.this));
+    setFeatureExecutor("chat-filter", "allowmsg", new AllowMsgCommand(Lengbanlist.this));
+    setFeatureExecutor("warn", "warnmsg", new WarnMsgCommand(Lengbanlist.this));
+    setFeatureExecutor("setban", "setban", new SetBanCommand(Lengbanlist.this));
     HistoryCommand historyCmd = new HistoryCommand(Lengbanlist.this);
-    getCommand("history").setExecutor(historyCmd);
+    setFeatureExecutor("history", "history", historyCmd);
     getCommand("history").setTabCompleter(historyCmd);
-    getCommand("mute").setExecutor(new MuteCommand(Lengbanlist.this));
-    getCommand("unmute").setExecutor(new UnmuteCommand(Lengbanlist.this));
-    getCommand("listmute").setExecutor(new ListMuteCommand(Lengbanlist.this));
-    getCommand("getip").setExecutor(new GetIPCommand(Lengbanlist.this));
-    getCommand("sc").setExecutor(new StaffChatCommand(Lengbanlist.this));
+    setFeatureExecutor("mute", "mute", new MuteCommand(Lengbanlist.this));
+    setFeatureExecutor("mute", "unmute", new UnmuteCommand(Lengbanlist.this));
+    setFeatureExecutor("mute", "listmute", new ListMuteCommand(Lengbanlist.this));
+    setFeatureExecutor("getip", "getip", new GetIPCommand(Lengbanlist.this));
+    setFeatureExecutor("staffchat", "sc", new StaffChatCommand(Lengbanlist.this));
 
     getServer().getConsoleSender().sendMessage("§b  _                      ____              _      _     _   ");
     getServer().getConsoleSender().sendMessage("§6 | |                    |  _ \\            | |    (_)   | |  ");
@@ -207,7 +209,7 @@ public void onEnable() {
         startBroadcastTask();
     }
 
-    if (isFeatureEnabled("web") && getConfig().getBoolean("web.enabled", false)) {
+    if (getConfig().getBoolean("web.enabled", false)) {
         webServer.start();
     }
 
@@ -215,7 +217,7 @@ public void onEnable() {
 }
 
 public void reloadWebServer() {
-    boolean enabled = isFeatureEnabled("web") && getConfig().getBoolean("web.enabled", false);
+    boolean enabled = getConfig().getBoolean("web.enabled", false);
     if (enabled && !webServer.isRunning()) {
         webServer.start();
     } else if (!enabled && webServer.isRunning()) {
@@ -287,8 +289,22 @@ public void onDisable() {
         return getConfig().getBoolean("features." + feature, true);
     }
 
+    private void setFeatureExecutor(String feature, String commandName, CommandExecutor executor) {
+        PluginCommand command = getCommand(commandName);
+        if (command == null) {
+            return;
+        }
+        command.setExecutor((sender, cmd, label, args) -> {
+            if (!isFeatureEnabled(feature)) {
+                sendFeatureDisabled(sender);
+                return true;
+            }
+            return executor.onCommand(sender, cmd, label, args);
+        });
+    }
+
     public void sendFeatureDisabled(CommandSender sender) {
-        Utils.sendMessage(sender, prefix() + "§c此功能已被管理员禁用。");
+        Utils.sendMessage(sender, prefix() + "§c这个功能已被管理员禁言喵。");
     }
 
     public void setBroadcastEnabled(boolean broadcastEnabled) {

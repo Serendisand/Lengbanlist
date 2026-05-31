@@ -129,13 +129,13 @@ public class SetBanCommand implements CommandExecutor {
     }
 
     private void sendUsage(CommandSender sender) {
-        Utils.sendMessage(sender, plugin.prefix() + "§c用法错误: /setban <玩家名/IP> <时间/forever/auto> <理由>");
-        Utils.sendMessage(sender, plugin.prefix() + "§c时间单位: s(秒), m(分钟), h(小时), d(天), w(周), M(月), y(年)");
-        Utils.sendMessage(sender, plugin.prefix() + "§c使用 'forever' 表示永久封禁，使用 'auto' 自动计算封禁时间（基于警告次数）");
+        Utils.sendMessage(sender, plugin.prefix() + "§c用法错误喵: /setban <玩家名/IP> <时间/forever/auto> <理由>");
+        Utils.sendMessage(sender, plugin.prefix() + "§c时间单位喵: s(秒), m(分钟), h(小时), d(天), w(周), M(月), y(年)");
+        Utils.sendMessage(sender, plugin.prefix() + "§c使用 'forever' 表示永久封禁，使用 'auto' 自动计算封禁时间喵（基于警告次数）");
     }
 
     private void showTimeFormatError(CommandSender sender) {
-        Utils.sendMessage(sender, plugin.prefix() + "§c时间格式错误，请使用以下格式:");
+        Utils.sendMessage(sender, plugin.prefix() + "§c时间格式错误喵，请使用以下格式:");
         Utils.sendMessage(sender, plugin.prefix() + "§c - 10s: 秒 (10 秒)");
         Utils.sendMessage(sender, plugin.prefix() + "§c - 5m: 分钟 (5 分钟)");
         Utils.sendMessage(sender, plugin.prefix() + "§c - 2h: 小时 (2 小时)");

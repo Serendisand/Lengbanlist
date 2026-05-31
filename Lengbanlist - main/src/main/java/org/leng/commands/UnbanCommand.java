@@ -33,7 +33,7 @@ public class UnbanCommand extends Command implements CommandExecutor {
 
 
         if (args.length < 1) {
-            Utils.sendMessage(sender, "§c用法错误: /unban <玩家名/IP>");
+            Utils.sendMessage(sender, "§c用法错误喵: /unban <玩家名/IP>");
             return false;
         }
 

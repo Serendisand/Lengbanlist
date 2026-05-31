@@ -37,7 +37,7 @@ public class UnwarnCommand extends Command implements CommandExecutor {
 
 
         if (args.length < 1) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c用法错误: /lban unwarn <玩家名/IP> [警告ID]");
+            Utils.sendMessage(sender, plugin.prefix() + "§c用法错误喵: /lban unwarn <玩家名/IP> [警告ID]");
             return false;
         }
 

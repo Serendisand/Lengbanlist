@@ -59,14 +59,19 @@ public class TimeUtils {
             char unit = timeStr.charAt(timeStr.length() - 1);
             long amount = Long.parseLong(timeStr.substring(0, timeStr.length() - 1));
 
-            switch (Character.toLowerCase(unit)) {
-                case 's': return secondsToMillis(amount);
+            switch (unit) {
+                case 's':
+                case 'S': return secondsToMillis(amount);
                 case 'm': return minutesToMillis(amount);
-                case 'h': return hoursToMillis(amount);
-                case 'd': return daysToMillis(amount);
-                case 'w': return weeksToMillis(amount);
+                case 'h':
+                case 'H': return hoursToMillis(amount);
+                case 'd':
+                case 'D': return daysToMillis(amount);
+                case 'w':
+                case 'W': return weeksToMillis(amount);
                 case 'M': return monthsToMillis(amount);
-                case 'y': return yearsToMillis(amount);
+                case 'y':
+                case 'Y': return yearsToMillis(amount);
                 default: return -1L;
             }
         } catch (NumberFormatException e) {
