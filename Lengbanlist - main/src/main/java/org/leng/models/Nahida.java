@@ -83,7 +83,7 @@ public class Nahida implements Model {
 
     @Override
     public String addBan(String player, int days, String reason) {
-        return "§b纳西妲说：§a" + player + " 已被封禁 " + days + " 天，原因是：" + reason + "。世界树已经记录下这片异常的叶子。";
+        return "§b纳西妲说：§a" + player + " 已被封禁 " + Model.formatBanDays(days) + "，原因是：" + reason + "。世界树已经记录下这片异常的叶子。";
     }
 
     @Override
@@ -103,7 +103,7 @@ public class Nahida implements Model {
 
     @Override
     public String addBanIp(String ip, int days, String reason) {
-        return "§b纳西妲说：§aIP " + ip + " 已被封禁 " + days + " 天，原因是：" + reason + "。异常的信息流已经被暂时阻断。";
+        return "§b纳西妲说：§aIP " + ip + " 已被封禁 " + Model.formatBanDays(days) + "，原因是：" + reason + "。异常的信息流已经被暂时阻断。";
     }
 
     @Override

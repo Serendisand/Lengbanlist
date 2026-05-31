@@ -89,7 +89,7 @@ public class YaeMiko implements Model {
 
     @Override
     public String addBan(String player, int days, String reason) {
-        return "§d八重神子说：§a" + player + " 已被封禁 " + days + " 天，原因是：" + reason + "。真是让人忍不住想写进轻小说呢。";
+        return "§d八重神子说：§a" + player + " 已被封禁 " + Model.formatBanDays(days) + "，原因是：" + reason + "。真是让人忍不住想写进轻小说呢。";
     }
 
     @Override
@@ -109,7 +109,7 @@ public class YaeMiko implements Model {
 
     @Override
     public String addBanIp(String ip, int days, String reason) {
-        return "§d八重神子说：§aIP " + ip + " 已被封禁 " + days + " 天，原因是：" + reason + "。小狐狸的眼睛可是很尖的哦。";
+        return "§d八重神子说：§aIP " + ip + " 已被封禁 " + Model.formatBanDays(days) + "，原因是：" + reason + "。小狐狸的眼睛可是很尖的哦。";
     }
 
     @Override

@@ -89,7 +89,7 @@ public class Klee implements Model {
 
     @Override
     public String addBan(String player, int days, String reason) {
-        return "§c可莉说：§a" + player + " 被关禁闭 " + days + " 天啦，原因是：" + reason + "。坏孩子要反省哦！";
+        return "§c可莉说：§a" + player + " 被关禁闭 " + Model.formatBanDays(days) + "啦，原因是：" + reason + "。坏孩子要反省哦！";
     }
 
     @Override
@@ -109,7 +109,7 @@ public class Klee implements Model {
 
     @Override
     public String addBanIp(String ip, int days, String reason) {
-        return "§c可莉说：§aIP " + ip + " 被封禁 " + days + " 天啦，原因是：" + reason + "。不许偷偷回来！";
+        return "§c可莉说：§aIP " + ip + " 被封禁 " + Model.formatBanDays(days) + "啦，原因是：" + reason + "。不许偷偷回来！";
     }
 
     @Override

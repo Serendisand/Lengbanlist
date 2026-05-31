@@ -21,8 +21,8 @@ public class BanManager {
     }
 
     public void banPlayer(BanEntry banEntry) {
-        long durationMillis = banEntry.getEndTime() - System.currentTimeMillis();
-        int durationDays = (int) Math.max(1, Math.round(durationMillis / (double)(1000 * 60 * 60 * 24)));
+        long durationMillis = banEntry.getEndTime() == Long.MAX_VALUE ? Long.MAX_VALUE : banEntry.getEndTime() - System.currentTimeMillis();
+        int durationDays = durationMillis == Long.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(1, Math.round(durationMillis / (double)(1000 * 60 * 60 * 24)));
 
         Model currentModel = plugin.getModelManager().getCurrentModel();
         String banResult = currentModel.addBan(banEntry.getTarget(), durationDays, banEntry.getReason());
@@ -51,8 +51,8 @@ public class BanManager {
     }
 
     public void banIp(BanIpEntry banIpEntry) {
-        long durationMillis = banIpEntry.getEndTime() - System.currentTimeMillis();
-        int durationDays = (int) Math.max(1, Math.round(durationMillis / (double)(1000 * 60 * 60 * 24)));
+        long durationMillis = banIpEntry.getEndTime() == Long.MAX_VALUE ? Long.MAX_VALUE : banIpEntry.getEndTime() - System.currentTimeMillis();
+        int durationDays = durationMillis == Long.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(1, Math.round(durationMillis / (double)(1000 * 60 * 60 * 24)));
 
         Model currentModel = plugin.getModelManager().getCurrentModel();
         String banIpResult = currentModel.addBanIp(banIpEntry.getIp(), durationDays, banIpEntry.getReason());

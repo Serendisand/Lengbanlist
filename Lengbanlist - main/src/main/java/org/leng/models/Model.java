@@ -5,6 +5,10 @@ import org.bukkit.command.CommandSender;
 import java.util.List;
 
 public interface Model {
+    static String formatBanDays(int days) {
+        return days == Integer.MAX_VALUE ? "永久" : days + " 天";
+    }
+
     String getName();
 
     void showHelp(CommandSender sender);

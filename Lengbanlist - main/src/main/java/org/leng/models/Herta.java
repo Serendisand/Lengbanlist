@@ -83,7 +83,7 @@ public void showHelp(CommandSender sender) {
 
     @Override
     public String addBan(String player, int days, String reason) {
-        return "§b希儿说：§a玩家 " + player + " 已被封禁 " + days + " 天，原因是：" + reason + "。正义不容挑战！";
+        return "§b希儿说：§a玩家 " + player + " 已被封禁 " + Model.formatBanDays(days) + "，原因是：" + reason + "。正义不容挑战！";
     }
 
     @Override
@@ -103,7 +103,7 @@ public void showHelp(CommandSender sender) {
 
     @Override
     public String addBanIp(String ip, int days, String reason) {
-        return "§b希儿说：§aIP " + ip + " 已被封禁 " + days + " 天，原因是：" + reason + "。正义不容挑战！";
+        return "§b希儿说：§aIP " + ip + " 已被封禁 " + Model.formatBanDays(days) + "，原因是：" + reason + "。正义不容挑战！";
     }
 
     @Override

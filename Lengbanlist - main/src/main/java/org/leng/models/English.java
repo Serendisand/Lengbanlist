@@ -83,7 +83,7 @@ public class English implements Model {
 
     @Override
     public String addBan(String player, int days, String reason) {
-        String durationText = (days == Integer.MAX_VALUE / (1000 * 60 * 60 * 24)) ? "permanently" : days + " days";
+        String durationText = days == Integer.MAX_VALUE ? "permanently" : days + " days";
         return "§bEnglish Model: §aPlayer " + player + " has been banned for " + durationText + ", reason: " + reason;
     }
 
@@ -104,7 +104,7 @@ public class English implements Model {
 
     @Override
     public String addBanIp(String ip, int days, String reason) {
-        String durationText = (days == Integer.MAX_VALUE / (1000 * 60 * 60 * 24)) ? "permanently" : days + " days";
+        String durationText = days == Integer.MAX_VALUE ? "permanently" : days + " days";
         return "§bEnglish Model: §aIP " + ip + " has been banned for " + durationText + ", reason: " + reason;
     }
 
