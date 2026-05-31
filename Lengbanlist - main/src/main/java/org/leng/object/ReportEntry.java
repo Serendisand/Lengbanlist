@@ -13,11 +13,11 @@ public class ReportEntry implements ConfigurationSerializable {
     private String reason;
     private String id;
     private String status;
-    private long timestamp; // 添加时间戳字段
+    private long timestamp;
 
     public ReportEntry() {}
 
-    // 保留原有的构造函数
+
     public ReportEntry(String target, String reporter, String reason, String id) {
         this.target = target;
         this.reporter = reporter;
@@ -25,7 +25,7 @@ public class ReportEntry implements ConfigurationSerializable {
         this.id = id;
     }
 
-    // 新增构造函数，支持时间戳
+
     public ReportEntry(String target, String reporter, String reason, String id, long timestamp, String status) {
         this.target = target;
         this.reporter = reporter;
@@ -59,7 +59,7 @@ public class ReportEntry implements ConfigurationSerializable {
         this.status = status;
     }
 
-    public long getTimestamp() { // 添加获取时间戳的方法
+    public long getTimestamp() {
         return timestamp;
     }
 
@@ -71,7 +71,7 @@ public class ReportEntry implements ConfigurationSerializable {
         map.put("reason", reason);
         map.put("id", id);
         map.put("status", status);
-        map.put("timestamp", timestamp); // 保存时间戳
+        map.put("timestamp", timestamp);
         return map;
     }
 

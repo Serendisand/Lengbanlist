@@ -8,17 +8,17 @@ import org.leng.Lengbanlist;
 import java.lang.reflect.Method;
 import java.util.function.Consumer;
 
-/** 统一调度器，兼容 Paper 和 Folia。Folia 反射在 init() 时缓存，避免每次调用的反射开销。 */
+
 public class SchedulerUtils {
 
     private static boolean folia;
     private static boolean initialized;
 
-    // Cached Folia scheduler instances
+
     private static Object globalRegionScheduler;
     private static Object asyncScheduler;
 
-    // Cached Folia methods
+
     private static Method globalRun;
     private static Method globalRunDelayed;
     private static Method globalRunAtFixedRate;
@@ -65,7 +65,6 @@ public class SchedulerUtils {
         return folia;
     }
 
-    // ─── Global (sync) task ───
 
     public static SchedulerTask runTask(Lengbanlist plugin, Runnable task) {
         if (folia) {
@@ -110,7 +109,6 @@ public class SchedulerUtils {
         return new SchedulerTask(bt);
     }
 
-    // ─── Async task ───
 
     public static void runAsync(Lengbanlist plugin, Runnable task) {
         if (folia) {
@@ -137,7 +135,6 @@ public class SchedulerUtils {
         }
     }
 
-    // ─── Async repeating task ───
 
     public static SchedulerTask runTaskTimerAsynchronously(Lengbanlist plugin, Runnable task, long delayTicks, long periodTicks) {
         if (folia) {
@@ -179,7 +176,6 @@ public class SchedulerUtils {
         }
     }
 
-    // ─── SchedulerTask wrapper ───
 
     public static class SchedulerTask {
         private final Object foliaTask;

@@ -22,7 +22,7 @@ public class UnbanCommand extends Command implements CommandExecutor {
             return true;
         }
 
-        // 检查权限
+
         if (sender instanceof Player) {
             Player player = (Player) sender;
             if (!sender.isOp() || !(player.hasPermission("lengbanlist.unban"))) {
@@ -31,22 +31,22 @@ public class UnbanCommand extends Command implements CommandExecutor {
             }
         }
 
-        // 检查参数长度
+
         if (args.length < 1) {
             Utils.sendMessage(sender, "§c用法错误: /unban <玩家名/IP>");
             return false;
         }
 
-        // 判断是解封玩家还是解封 IP
+
         if (args[0].contains(".")) {
-            // 解封 IP
+
             if (Lengbanlist.getInstance().banManager.isIpBanned(args[0])) {
                 Lengbanlist.getInstance().banManager.unbanIp(args[0]);
             } else {
                 Utils.sendMessage(sender, "§cIP " + args[0] + " 未被封禁或封禁已过期");
             }
         } else {
-            // 解封玩家
+
             if (Lengbanlist.getInstance().banManager.isPlayerBanned(args[0])) {
                 Lengbanlist.getInstance().banManager.unbanPlayer(args[0]);
             } else {

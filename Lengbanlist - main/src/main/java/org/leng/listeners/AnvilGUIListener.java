@@ -96,12 +96,12 @@ public class AnvilGUIListener implements Listener {
             long banTimestamp = TimeUtils.calculateEndTime(TimeUtils.parseTime(time));
 
             if (playerID.contains(".")) {
-                // 封禁 IP
+
                 plugin.getBanManager().banIp(new BanIpEntry(playerID, player.getName(), banTimestamp, input, false));
                 Utils.sendMessage(player, "§a成功封禁IP：" + playerID + "，时长：" + time + "，原因：" + input);
             } else {
-                // 封禁玩家
-                plugin.getBanManager().banPlayer(new BanEntry(playerID, player.getName(), banTimestamp, input, false)); // 添加 isAuto 参数
+
+                plugin.getBanManager().banPlayer(new BanEntry(playerID, player.getName(), banTimestamp, input, false));
                 Utils.sendMessage(player, "§a成功封禁玩家：" + playerID + "，时长：" + time + "，原因：" + input);
             }
 
@@ -121,11 +121,11 @@ public class AnvilGUIListener implements Listener {
         String playerID = item.getItemMeta().getDisplayName();
 
         if (playerID.contains(".")) {
-            // 解封 IP
+
             plugin.getBanManager().unbanIp(playerID);
             Utils.sendMessage(player, "§a成功解封IP：" + playerID);
         } else {
-            // 解封玩家
+
             plugin.getBanManager().unbanPlayer(playerID);
             Utils.sendMessage(player, "§a成功解封玩家：" + playerID);
         }

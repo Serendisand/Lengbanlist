@@ -28,7 +28,7 @@ public class BanCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // 权限检查
+
         if (sender instanceof Player) {
             Player player = (Player) sender;
             if (!sender.isOp() && !player.hasPermission("lengbanlist.ban")) {
@@ -37,7 +37,7 @@ public class BanCommand implements CommandExecutor, TabCompleter {
             }
         }
 
-        // 参数检查
+
         if (args.length < 3) {
             sendUsage(sender);
             return false;
@@ -48,7 +48,7 @@ public class BanCommand implements CommandExecutor, TabCompleter {
         String rawReason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
         String reason = resolvePresetReason(rawReason);
 
-        // 检查是否已封禁
+
         if (plugin.getBanManager().isPlayerBanned(target)) {
             Utils.sendMessage(sender, "§c玩家 " + target + " 已经被封禁");
             return false;
@@ -60,7 +60,7 @@ public class BanCommand implements CommandExecutor, TabCompleter {
         if (timeArg.equalsIgnoreCase("auto")) {
             isAuto = true;
             banDuration = calculateAutoBanTime(target);
-            // 仅对auto封禁确保最小1天
+
             banDuration = Math.max(banDuration, TimeUtils.daysToMillis(1));
         } else {
             banDuration = TimeUtils.parseDurationToMillis(timeArg);
@@ -68,11 +68,11 @@ public class BanCommand implements CommandExecutor, TabCompleter {
                 showTimeFormatError(sender);
                 return false;
             }
-            // 玩家手动设置的封禁时间不做限制
+
         }
 
         long banEndTime = TimeUtils.calculateEndTime(banDuration);
-        
+
         BanEntry entry = new BanEntry(
             target,
             sender.getName(),
@@ -80,22 +80,22 @@ public class BanCommand implements CommandExecutor, TabCompleter {
             reason,
             isAuto
         );
-        
+
         plugin.getBanManager().banPlayer(entry);
         return true;
     }
 
     private long calculateAutoBanTime(String playerName) {
         int warnCount = Math.max(0, plugin.getWarnManager().getActiveWarnings(playerName).size());
-        
-        // 自动封禁阶梯式时长
+
+
         switch (warnCount) {
-            case 0:  return TimeUtils.daysToMillis(1);  // 无警告记录也封1天
+            case 0:  return TimeUtils.daysToMillis(1);
             case 1:  return TimeUtils.daysToMillis(3);
             case 2:  return TimeUtils.daysToMillis(7);
             case 3:  return TimeUtils.daysToMillis(14);
             case 4:  return TimeUtils.daysToMillis(30);
-            default: return Long.MAX_VALUE; // 超过4次永久封禁
+            default: return Long.MAX_VALUE;
         }
     }
 
@@ -110,7 +110,7 @@ public class BanCommand implements CommandExecutor, TabCompleter {
         if (args.length == 3) {
             String prefix = args[2].toLowerCase();
             List<String> presets = plugin.getConfig().getStringList("preset-reasons");
-            // 如果是旧的 Map 格式，转为 List
+
             if (presets.isEmpty() && plugin.getConfig().isConfigurationSection("preset-reasons")) {
                 presets = new ArrayList<>(plugin.getConfig().getConfigurationSection("preset-reasons").getKeys(false));
             }

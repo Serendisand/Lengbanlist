@@ -13,7 +13,7 @@ public class MuteEntry {
         this.reason = reason;
     }
 
-    // Getters and toString method
+
     public String getTarget() {
         return target;
     }

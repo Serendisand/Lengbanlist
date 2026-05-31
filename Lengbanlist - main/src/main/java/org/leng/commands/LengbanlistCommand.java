@@ -374,7 +374,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 String unwarnTarget = args[1];
                 plugin.getWarnManager().getActiveWarnings(unwarnTarget).forEach(warn -> {
                     try {
-                        int warnId = Integer.parseInt(warn.getId()); // 字符串转整数
+                        int warnId = Integer.parseInt(warn.getId());
                         plugin.getWarnManager().unwarnPlayer(unwarnTarget, warnId);
                     } catch (NumberFormatException e) {
                         Utils.sendMessage(sender, plugin.prefix() + "§c警告ID格式错误: " + warn.getId());
@@ -391,7 +391,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 Utils.sendMessage(sender, plugin.prefix() + "§c此命令只能由玩家执行。");
                 return true;
             }
-            // 转发给ReportCommand处理，去掉"report"参数
+
             String[] reportArgs = Arrays.copyOfRange(args, 1, args.length);
             return new ReportCommand(plugin).onCommand(sender, this, label, reportArgs);
         case "tp":
@@ -581,44 +581,44 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 player
         );
         ItemStack broadcast = createItem(
-                "§a广播封禁人数", 
-                "§7/lban a", 
-                "§7广播当前封禁人数", 
+                "§a广播封禁人数",
+                "§7/lban a",
+                "§7广播当前封禁人数",
                 Sound.BLOCK_NOTE_BLOCK_PLING,
                 player
         );
         ItemStack list = createItem(
-                "§a查看封禁名单", 
-                "§7/lban list", 
-                "§7查看被封禁的玩家列表", 
+                "§a查看封禁名单",
+                "§7/lban list",
+                "§7查看被封禁的玩家列表",
                 Sound.BLOCK_NOTE_BLOCK_HARP,
                 player
         );
         ItemStack reload = createItem(
-                "§a重新加载配置", 
-                "§7/lban reload", 
-                "§7重新加载插件配置", 
+                "§a重新加载配置",
+                "§7/lban reload",
+                "§7重新加载插件配置",
                 Sound.BLOCK_NOTE_BLOCK_BELL,
                 player
         );
         ItemStack addBan = createItem(
-                "§a添加封禁", 
-                "§7/lban add", 
-                "§7添加一个玩家到封禁名单", 
+                "§a添加封禁",
+                "§7/lban add",
+                "§7添加一个玩家到封禁名单",
                 Sound.BLOCK_NOTE_BLOCK_BASS,
                 player
         );
         ItemStack removeBan = createItem(
-                "§a解除封禁", 
-                "§7/lban remove", 
-                "§7从封禁名单中移除一个玩家", 
+                "§a解除封禁",
+                "§7/lban remove",
+                "§7从封禁名单中移除一个玩家",
                 Sound.BLOCK_NOTE_BLOCK_SNARE,
                 player
         );
         ItemStack help = createItem(
-                "§a帮助信息", 
-                "§7/lban help", 
-                "§7显示帮助信息", 
+                "§a帮助信息",
+                "§7/lban help",
+                "§7显示帮助信息",
                 Sound.BLOCK_NOTE_BLOCK_FLUTE,
                 player
         );
@@ -630,30 +630,30 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 player
         );
         ItemStack sponsor = createItem(
-                "§6赞助作者", 
-                "§7点击打开赞助链接", 
+                "§6赞助作者",
+                "§7点击打开赞助链接",
                 "§7https://afdian.com/a/lengmc",
                 Sound.BLOCK_NOTE_BLOCK_PLING,
                 player
         );
         ItemStack mute = createItem(
-                "§a禁言玩家", 
-                "§7/lban mute", 
-                "§7禁言一个玩家", 
+                "§a禁言玩家",
+                "§7/lban mute",
+                "§7禁言一个玩家",
                 Sound.BLOCK_NOTE_BLOCK_BASS,
                 player
         );
         ItemStack unmute = createItem(
-                "§a解除禁言", 
-                "§7/lban unmute", 
-                "§7解除一个玩家的禁言", 
+                "§a解除禁言",
+                "§7/lban unmute",
+                "§7解除一个玩家的禁言",
                 Sound.BLOCK_NOTE_BLOCK_SNARE,
                 player
         );
         ItemStack listMute = createItem(
-                "§a查看禁言列表", 
-                "§7/lban list-mute", 
-                "§7查看被禁言的玩家列表", 
+                "§a查看禁言列表",
+                "§7/lban list-mute",
+                "§7查看被禁言的玩家列表",
                 Sound.BLOCK_NOTE_BLOCK_HARP,
                 player
         );
@@ -716,7 +716,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
             reader.close();
 
             JsonObject jsonObject = gson.fromJson(response.toString(), JsonObject.class);
-            
+
             if (jsonObject.has("error")) {
                 plugin.getLogger().warning("IP API返回错误: " + jsonObject.get("reason").getAsString());
                 return null;

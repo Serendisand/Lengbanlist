@@ -14,7 +14,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-/** 异步获取指定玩家的 IP 地理位置信息。网络请求在异步线程执行，结果回调在主线程。 */
+
 public class GetIPCommand implements CommandExecutor {
     private final Lengbanlist plugin;
 

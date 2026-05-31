@@ -44,10 +44,10 @@ public class CheckCommand extends Command implements CommandExecutor {
 
         String target = args[0];
         if (target.contains(".")) {
-            // 查询 IP 信息
+
             checkIpInfo(sender, target);
         } else {
-            // 查询玩家信息
+
             checkPlayerInfo(sender, target);
         }
         return true;
@@ -133,21 +133,21 @@ public class CheckCommand extends Command implements CommandExecutor {
         if (sender instanceof Player) {
             Player player = (Player) sender;
 
-            // 创建可点击的赞助按钮
+
             TextComponent sponsorButton = new TextComponent(plugin.prefix() + "§6支持作者，让他更有动力开发插件！§b[§a点击赞助§b]");
             sponsorButton.setHoverEvent(new HoverEvent(net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT,
                     new ComponentBuilder("§a点击支持作者§bawa").create()));
             sponsorButton.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, "https://afdian.com/a/lengmc"));
 
-            // 发送赞助按钮
+
             player.spigot().sendMessage(sponsorButton);
 
-            // 发送赞助方案描述信息
+
             Utils.sendMessage(player, plugin.prefix() + "§b请我喝杯奶茶：￥20.00 CNY/月 - 加入感谢名单，优先反馈");
             Utils.sendMessage(player, plugin.prefix() + "§bBETA权限组：￥50.00 CNY/月 - 解锁高级功能，优先支持");
             Utils.sendMessage(player, plugin.prefix() + "§b一次性打赏：任意金额 - 表达你的支持");
         } else {
-            // 如果不是玩家（例如控制台），发送普通消息
+
             Utils.sendMessage(sender, plugin.prefix() + "§6支持作者，让他更有动力开发插件！§b[§a点击赞助§b] §c(https://afdian.com/a/lengmc)");
             Utils.sendMessage(sender, plugin.prefix() + "§b请我喝杯奶茶：￥20.00 CNY/月 - 加入感谢名单，优先反馈");
             Utils.sendMessage(sender, plugin.prefix() + "§bBETA权限组：￥50.00 CNY/月 - 解锁高级功能，优先支持");

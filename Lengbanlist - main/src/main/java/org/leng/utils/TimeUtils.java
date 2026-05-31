@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit;
 public class TimeUtils {
     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
-    // 基础时间单位转换方法
+
     public static long secondsToMillis(long seconds) {
         return seconds * 1000L;
     }
@@ -36,7 +36,7 @@ public class TimeUtils {
         return years * 365L * 24 * 60 * 60 * 1000;
     }
 
-    // 时间字符串解析（兼容旧版和新版）
+
     public static long parseTime(String timeStr) {
         return parseDurationToMillis(timeStr);
     }
@@ -45,7 +45,7 @@ public class TimeUtils {
         return isValidTimeFormat(timeStr);
     }
 
-    // 增强版时间字符串解析
+
     public static long parseDurationToMillis(String timeStr) {
         if (timeStr == null || timeStr.isEmpty()) {
             return -1L;
@@ -58,7 +58,7 @@ public class TimeUtils {
         try {
             char unit = timeStr.charAt(timeStr.length() - 1);
             long amount = Long.parseLong(timeStr.substring(0, timeStr.length() - 1));
-            
+
             switch (Character.toLowerCase(unit)) {
                 case 's': return secondsToMillis(amount);
                 case 'm': return minutesToMillis(amount);
@@ -74,7 +74,7 @@ public class TimeUtils {
         }
     }
 
-    // 格式化时间为可读字符串
+
     public static String formatDuration(long millis) {
         if (millis == Long.MAX_VALUE) return "永久";
         if (millis <= 0) return "0秒";
@@ -101,46 +101,46 @@ public class TimeUtils {
         return years + "年";
     }
 
-    // 时间戳转可读日期
+
     public static String timestampToReadable(long timestamp) {
         if (timestamp == Long.MAX_VALUE) return "永久";
         return DATE_FORMAT.format(new Date(timestamp));
     }
 
-    // 计算剩余时间
+
     public static String getRemainingTime(long endTime) {
         if (endTime == Long.MAX_VALUE) return "永久";
-        
+
         long remaining = endTime - System.currentTimeMillis();
         if (remaining <= 0) return "已过期";
 
         return formatDuration(remaining);
     }
 
-    // 验证时间格式
+
     public static boolean isValidTimeFormat(String timeStr) {
         if (timeStr == null || timeStr.isEmpty()) return false;
 
-        // 永久封禁关键词
+
         if (timeStr.equalsIgnoreCase("forever") ||
             timeStr.equalsIgnoreCase("perm") ||
             timeStr.equalsIgnoreCase("permanent")) {
             return true;
         }
 
-        // 自动计算
+
         if (timeStr.equalsIgnoreCase("auto")) return true;
 
-        // 数字+单位格式
+
         return timeStr.matches("^\\d+[smhdwMy]$");
     }
 
-    // 获取当前时间戳（毫秒）
+
     public static long currentTime() {
         return System.currentTimeMillis();
     }
 
-    // 计算封禁结束时间
+
     public static long calculateEndTime(long durationMillis) {
         if (durationMillis == Long.MAX_VALUE) {
             return Long.MAX_VALUE;

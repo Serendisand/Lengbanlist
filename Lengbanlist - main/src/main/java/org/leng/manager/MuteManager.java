@@ -5,7 +5,7 @@ import org.leng.object.MuteEntry;
 
 import java.util.List;
 
-/** 禁言管理，处理玩家禁言/解禁及状态查询。 */
+
 public class MuteManager {
     private final Lengbanlist plugin;
     private final DatabaseManager db;

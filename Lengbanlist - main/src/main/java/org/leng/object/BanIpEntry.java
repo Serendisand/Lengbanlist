@@ -21,7 +21,7 @@ public class BanIpEntry {
         this.active = active;
     }
 
-    // Getters and setters
+
     public String getIp() {
         return ip;
     }
@@ -42,7 +42,7 @@ public class BanIpEntry {
         return time;
     }
 
-    // 添加 getEndTime() 方法
+
     public long getEndTime() {
         return time;
     }
@@ -51,7 +51,7 @@ public class BanIpEntry {
         this.time = time;
     }
 
-    // 添加 setEndTime() 方法
+
     public void setEndTime(long time) {
         this.time = time;
     }
@@ -80,12 +80,12 @@ public class BanIpEntry {
         this.active = active;
     }
 
-    // 计算剩余封禁时间
+
     public long getRemainingTime() {
         return Math.max(0, time - System.currentTimeMillis());
     }
 
-    // 检查是否已过期
+
     public boolean isExpired() {
         return System.currentTimeMillis() > time;
     }

@@ -122,7 +122,6 @@ public class WebServer {
         return running;
     }
 
-    // ======== Auth ========
 
     private static class AuthManager {
         private final String secret;
@@ -214,7 +213,6 @@ public class WebServer {
         }
     }
 
-    // ======== Rate Limiter ========
 
     private static class RateLimiter {
         private final ConcurrentHashMap<String, long[]> requests = new ConcurrentHashMap<>();
@@ -250,7 +248,6 @@ public class WebServer {
         return true;
     }
 
-    // ======== HTTP Helpers ========
 
     private String extractToken(HttpExchange exchange) {
         String auth = exchange.getRequestHeaders().getFirst("Authorization");
@@ -334,7 +331,7 @@ public class WebServer {
         try {
             exchange.sendResponseHeaders(204, -1);
         } catch (IOException e) {
-            // ignore
+
         } finally {
             exchange.close();
         }
@@ -366,13 +363,12 @@ public class WebServer {
                 params.put(URLDecoder.decode(pair[0], "UTF-8"),
                         pair.length > 1 ? URLDecoder.decode(pair[1], "UTF-8") : "");
             } catch (UnsupportedEncodingException e) {
-                // ignore
+
             }
         }
         return params;
     }
 
-    // ======== API Handlers ========
 
     private void handleLogin(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }

@@ -78,7 +78,7 @@ public class InfoCommand implements CommandExecutor {
 
     private double getSystemCpuLoad() {
         try {
-            com.sun.management.OperatingSystemMXBean osBean = 
+            com.sun.management.OperatingSystemMXBean osBean =
                 (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
             return osBean.getSystemCpuLoad() * 100;
         } catch (Exception e) {

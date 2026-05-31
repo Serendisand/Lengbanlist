@@ -3,7 +3,7 @@ package org.leng.object;
 import java.util.UUID;
 
 public class WarnEntry {
-    private final String id; // 添加一个唯一的标识符
+    private final String id;
     private final String player;
     private final String staff;
     private final long time;

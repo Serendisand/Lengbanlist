@@ -23,7 +23,7 @@ public class BanEntry {
         this.active = active;
     }
 
-    // Getters
+
     public String getTarget() {
         return target;
     }
@@ -36,7 +36,7 @@ public class BanEntry {
         return time;
     }
 
-    // 添加 getEndTime() 方法作为 getTime() 的别名
+
     public long getEndTime() {
         return time;
     }
@@ -57,7 +57,7 @@ public class BanEntry {
         this.active = active;
     }
 
-    // Setters
+
     public void setTarget(String target) {
         this.target = target;
     }
@@ -70,7 +70,7 @@ public class BanEntry {
         this.time = time;
     }
 
-    // 添加 setEndTime() 方法作为 setTime() 的别名
+
     public void setEndTime(long time) {
         this.time = time;
     }
@@ -83,12 +83,12 @@ public class BanEntry {
         this.isAuto = isAuto;
     }
 
-    // 计算剩余封禁时间（毫秒）
+
     public long getRemainingTime() {
         return Math.max(0, time - System.currentTimeMillis());
     }
 
-    // 检查是否已过期
+
     public boolean isExpired() {
         return System.currentTimeMillis() > time;
     }

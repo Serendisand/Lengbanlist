@@ -196,7 +196,7 @@ public class DatabaseManager {
         return players;
     }
 
-    /** 记录玩家IP到历史表（如果已存在则更新最后 seen 时间） */
+
     public void recordPlayerIp(String playerName, String ip, long timestamp) {
         if (mysql) {
             executeUpdate(
@@ -213,7 +213,7 @@ public class DatabaseManager {
         }
     }
 
-    /** 获取玩家所有历史 IP 及首次/最后使用时间 */
+
     public List<String[]> getPlayerIpHistory(String playerName) {
         List<String[]> history = new ArrayList<>();
         try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT ip, first_seen, last_seen FROM player_ip_history WHERE player_name = ? ORDER BY last_seen DESC")) {
@@ -229,7 +229,7 @@ public class DatabaseManager {
         return history;
     }
 
-    /** 从历史表中查询使用过该 IP 的所有玩家 */
+
     public List<String> getPlayersByIpFromHistory(String ip) {
         List<String> players = new ArrayList<>();
         try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT DISTINCT player_name FROM player_ip_history WHERE ip = ? ORDER BY player_name")) {
@@ -245,13 +245,13 @@ public class DatabaseManager {
         return players;
     }
 
-    /** 新增封禁记录（先停用旧记录，再插入新行，保留历史） */
+
     public void addBan(BanEntry entry) {
         deactivateBan(entry.getTarget());
         executeUpdate("INSERT INTO bans (target, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)", entry.getTarget(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive());
     }
 
-    /** 兼容旧调用：直接写库（不再使用 upsert） */
+
     public void upsertBan(BanEntry entry) {
         addBan(entry);
     }
@@ -329,13 +329,13 @@ public class DatabaseManager {
         return dataSource != null && !dataSource.isClosed();
     }
 
-    /** 新增IP封禁记录 */
+
     public void addIpBan(BanIpEntry entry) {
         deactivateIpBan(entry.getIp());
         executeUpdate("INSERT INTO ip_bans (ip, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)", entry.getIp(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive());
     }
 
-    /** 兼容旧调用 */
+
     public void upsertIpBan(BanIpEntry entry) {
         addIpBan(entry);
     }
@@ -565,14 +565,14 @@ public class DatabaseManager {
         return new BanIpEntry(value(rs, "ip"), value(rs, "staff"), rs.getLong("end_time"), value(rs, "reason"), rs.getBoolean("is_auto"), rs.getBoolean("active"));
     }
 
-    /** 清理超过保留天数的已失效封禁记录 */
+
     public void cleanupOldBans(int retentionDays) {
         long cutoff = System.currentTimeMillis() - (retentionDays * 86400000L);
         executeUpdate("DELETE FROM bans WHERE active = 0 AND end_time < ?", cutoff);
         executeUpdate("DELETE FROM ip_bans WHERE active = 0 AND end_time < ?", cutoff);
     }
 
-    /** 将自然过期的活跃封禁标记为 inactive */
+
     public void deactivateExpiredBans() {
         long now = System.currentTimeMillis();
         executeUpdate("UPDATE bans SET active = 0 WHERE active = 1 AND end_time <= ? AND end_time != " + Long.MAX_VALUE, now);

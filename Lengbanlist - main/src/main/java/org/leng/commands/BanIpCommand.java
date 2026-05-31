@@ -28,7 +28,7 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
             return true;
         }
 
-        // 检查权限
+
         if (sender instanceof Player) {
             Player player = (Player) sender;
             if (!sender.isOp() && !player.hasPermission("lengbanlist.banip")) {
@@ -37,7 +37,7 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
             }
         }
 
-        // 检查参数长度
+
         if (args.length < 3) {
             Utils.sendMessage(sender, "§c用法错误: /ban-ip <IP> <时间/auto> <原因>");
             Utils.sendMessage(sender, "§c时间单位: s(秒), m(分), h(时), d(天), w(周), M(月), y(年)");
@@ -45,22 +45,22 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
             return false;
         }
 
-        // 检查 IP 有效性
+
         if (!isValidIp(args[0])) {
             Utils.sendMessage(sender, "§c无效的IP地址或不允许封禁此IP");
             return false;
         }
 
-        // 检查 IP 是否已经被封禁
+
         if (plugin.getBanManager().isIpBanned(args[0])) {
             Utils.sendMessage(sender, "§cIP " + args[0] + " 已经被封禁");
             return false;
         }
 
-        // 解析封禁时间
+
         boolean isAuto = args[1].equalsIgnoreCase("auto");
         long banDuration;
-        
+
         if (isAuto) {
             banDuration = calculateAutoBanTime(args[0]);
         } else {
@@ -75,7 +75,7 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
         String rawReason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
         String reason = resolvePresetReason(rawReason);
 
-        // 执行封禁
+
         plugin.getBanManager().banIp(
             new org.leng.object.BanIpEntry(args[0], sender.getName(), banEndTime, reason, isAuto)
         );
@@ -84,10 +84,10 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
 
     private boolean isValidIp(String ip) {
         if (ip.equalsIgnoreCase("127.0.0.1")) return false;
-        
+
         String[] parts = ip.split("\\.");
         if (parts.length != 4) return false;
-        
+
         try {
             for (String part : parts) {
                 int num = Integer.parseInt(part);
@@ -100,10 +100,10 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
     }
 
     private long calculateAutoBanTime(String ip) {
-        // 根据IP的警告次数计算封禁时间
+
         int warnCount = plugin.getWarnManager().getActiveWarnings(ip).size();
-        
-        // 自动封禁阶梯式时长
+
+
         switch (warnCount) {
             case 0:  return TimeUtils.daysToMillis(1);
             case 1:  return TimeUtils.daysToMillis(3);

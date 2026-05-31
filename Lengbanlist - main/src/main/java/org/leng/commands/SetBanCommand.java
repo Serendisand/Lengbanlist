@@ -27,7 +27,7 @@ public class SetBanCommand implements CommandExecutor {
             return true;
         }
 
-        // 检查权限
+
         if (!(sender instanceof Player) || !sender.isOp()) {
             if (!sender.hasPermission("lengbanlist.setban")) {
                 Utils.sendMessage(sender, plugin.prefix() + "§c你没有权限使用此命令。");
@@ -35,38 +35,38 @@ public class SetBanCommand implements CommandExecutor {
             }
         }
 
-        // 检查参数长度
+
         if (args.length < 3) {
             sendUsage(sender);
             return true;
         }
 
-        // 获取目标（玩家名或 IP）
+
         String target = args[0];
         String timeArg = args[1];
         String reason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
 
         BanManager banManager = plugin.getBanManager();
 
-        // 检查目标是否是 IP
+
         boolean isIp = banManager.isValidIp(target);
 
-        // 检查目标是否存在
+
         if (!isIp && !banManager.isPlayerBanned(target) && !banManager.isIpBanned(target)) {
             Utils.sendMessage(sender, plugin.prefix() + "§c目标 " + target + " 未被封禁，无法设置封禁时间。");
             return true;
         }
 
-        // 解析封禁时间
+
         long banDuration;
         boolean isAuto = false;
 
         if (timeArg.equalsIgnoreCase("forever")) {
-            banDuration = Long.MAX_VALUE; // 永久封禁
+            banDuration = Long.MAX_VALUE;
         } else if (timeArg.equalsIgnoreCase("auto")) {
             isAuto = true;
             banDuration = calculateAutoBanTime(target);
-            // 仅对auto封禁确保最小1天
+
             banDuration = Math.max(banDuration, TimeUtils.daysToMillis(1));
         } else {
             banDuration = TimeUtils.parseDurationToMillis(timeArg);
@@ -76,9 +76,9 @@ public class SetBanCommand implements CommandExecutor {
             }
         }
 
-        // 更新封禁信息
+
         if (isIp) {
-            // 更新 IP 封禁
+
             BanIpEntry existingBanIp = banManager.getBanIpEntry(target);
             if (existingBanIp == null) {
                 Utils.sendMessage(sender, plugin.prefix() + "§cIP " + target + " 未被封禁，无法设置封禁时间。");
@@ -89,7 +89,7 @@ public class SetBanCommand implements CommandExecutor {
             existingBanIp.setAuto(isAuto);
             banManager.updateIpBan(existingBanIp);
         } else {
-            // 更新玩家封禁
+
             BanEntry existingBan = banManager.getBanEntry(target);
             if (existingBan == null) {
                 Utils.sendMessage(sender, plugin.prefix() + "§c玩家 " + target + " 未被封禁，无法设置封禁时间。");
@@ -101,7 +101,7 @@ public class SetBanCommand implements CommandExecutor {
             banManager.updateBan(existingBan);
         }
 
-        // 发送结果消息
+
         String durationStr;
         if (banDuration == Long.MAX_VALUE) {
             durationStr = "永久";
@@ -117,14 +117,14 @@ public class SetBanCommand implements CommandExecutor {
     private long calculateAutoBanTime(String target) {
         int warnCount = Math.max(0, plugin.getWarnManager().getActiveWarnings(target).size());
 
-        // 自动封禁阶梯式时长
+
         switch (warnCount) {
-            case 0:  return TimeUtils.daysToMillis(1);  // 无警告记录也封1天
+            case 0:  return TimeUtils.daysToMillis(1);
             case 1:  return TimeUtils.daysToMillis(3);
             case 2:  return TimeUtils.daysToMillis(7);
             case 3:  return TimeUtils.daysToMillis(14);
             case 4:  return TimeUtils.daysToMillis(30);
-            default: return Long.MAX_VALUE; // 超过4次永久封禁
+            default: return Long.MAX_VALUE;
         }
     }
 

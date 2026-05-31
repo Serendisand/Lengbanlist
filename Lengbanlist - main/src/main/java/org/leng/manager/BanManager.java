@@ -10,7 +10,7 @@ import org.leng.utils.TimeUtils;
 
 import java.util.List;
 
-/** 封禁管理，统一处理玩家封禁、IP 封禁、解封、加入检查。通过 plugin 引用获取数据库和模型管理器。 */
+
 public class BanManager {
     private final Lengbanlist plugin;
     private final DatabaseManager db;

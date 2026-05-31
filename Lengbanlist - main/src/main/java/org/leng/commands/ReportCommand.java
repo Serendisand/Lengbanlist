@@ -125,7 +125,7 @@ public class ReportCommand implements CommandExecutor {
     }
 
     private void handleReportSubmit(Player reporter, String target, String reason) {
-        // 检查24小时内是否已举报过同一目标且案件未结束
+
         long oneDayAgo = System.currentTimeMillis() - 24L * 60 * 60 * 1000;
         java.util.List<ReportEntry> recentReports = plugin.getReportManager().getReportsByReporterAndTarget(reporter.getName(), target);
         for (ReportEntry r : recentReports) {
@@ -140,7 +140,7 @@ public class ReportCommand implements CommandExecutor {
         plugin.getReportManager().addReport(report);
         Utils.sendMessage(reporter, plugin.prefix() + "§a举报已提交: " + target + " - " + reason + "，举报编号：" + reportId);
 
-        // 通知在线OP
+
         for (org.bukkit.entity.Player op : org.bukkit.Bukkit.getOnlinePlayers()) {
             if (op.isOp()) {
                 org.bukkit.entity.Player targetPlayer = org.bukkit.Bukkit.getPlayer(target);

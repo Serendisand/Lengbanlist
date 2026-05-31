@@ -29,7 +29,7 @@ public class WarnCommand extends Command implements CommandExecutor, TabComplete
             return true;
         }
 
-        // 检查权限
+
         if (sender instanceof Player) {
             Player player = (Player) sender;
             if (!sender.isOp() && !player.hasPermission("lengbanlist.warn")) {
@@ -38,7 +38,7 @@ public class WarnCommand extends Command implements CommandExecutor, TabComplete
             }
         }
 
-        // 检查参数长度
+
         if (args.length < 2) {
             Utils.sendMessage(sender, plugin.prefix() + "§c用法错误: /lban warn <玩家名/IP> <原因>");
             return false;
@@ -49,22 +49,22 @@ public class WarnCommand extends Command implements CommandExecutor, TabComplete
         String reason = resolvePresetReason(rawReason);
         WarnManager warnManager = plugin.getWarnManager();
 
-        // 检查是否是 IP
+
         boolean isIp = target.contains(".");
 
-        // 检查是否是 IP 地址
+
         if (isIp) {
             if (!plugin.getBanManager().isValidIp(target)) {
                 Utils.sendMessage(sender, plugin.prefix() + "§c无效的IP地址");
                 return false;
             }
-            // IP警告逻辑
+
             warnManager.warnPlayer(target, sender.getName(), reason);
             Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addWarn(target, reason));
             return true;
         }
 
-        // 玩家警告逻辑 - 允许超过3次警告，警告将在1天后自动过期
+
         warnManager.warnPlayer(target, sender.getName(), reason);
         Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addWarn(target, reason));
 

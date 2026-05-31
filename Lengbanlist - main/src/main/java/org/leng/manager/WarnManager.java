@@ -8,7 +8,7 @@ import org.leng.utils.TimeUtils;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/** 警告管理，处理警告记录、LBAC 自动封禁/解封逻辑。 */
+
 public class WarnManager {
     private final Lengbanlist plugin;
     private final DatabaseManager db;

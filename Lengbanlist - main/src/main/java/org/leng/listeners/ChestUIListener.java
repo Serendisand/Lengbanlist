@@ -137,10 +137,10 @@ public class ChestUIListener implements Listener {
 
     @EventHandler
     public void onAnvilPrepare(PrepareAnvilEvent event) {
-        if (!event.getView().getTitle().contains("封禁玩家") && 
-            !event.getView().getTitle().contains("解封玩家") && 
-            !event.getView().getTitle().contains("禁言玩家") && 
-            !event.getView().getTitle().contains("解除禁言") && 
+        if (!event.getView().getTitle().contains("封禁玩家") &&
+            !event.getView().getTitle().contains("解封玩家") &&
+            !event.getView().getTitle().contains("禁言玩家") &&
+            !event.getView().getTitle().contains("解除禁言") &&
             !event.getView().getTitle().contains("封禁IP")) {
             return;
         }
@@ -160,10 +160,10 @@ public class ChestUIListener implements Listener {
 
     @EventHandler
     public void onAnvilClick(InventoryClickEvent event) {
-        if (!event.getView().getTitle().contains("封禁玩家") && 
-            !event.getView().getTitle().contains("解封玩家") && 
-            !event.getView().getTitle().contains("禁言玩家") && 
-            !event.getView().getTitle().contains("解除禁言") && 
+        if (!event.getView().getTitle().contains("封禁玩家") &&
+            !event.getView().getTitle().contains("解封玩家") &&
+            !event.getView().getTitle().contains("禁言玩家") &&
+            !event.getView().getTitle().contains("解除禁言") &&
             !event.getView().getTitle().contains("封禁IP")) {
             return;
         }

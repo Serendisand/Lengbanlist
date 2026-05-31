@@ -26,7 +26,7 @@ public class UnwarnCommand extends Command implements CommandExecutor {
             return true;
         }
 
-        // 检查权限
+
         if (sender instanceof Player) {
             Player player = (Player) sender;
             if (!sender.isOp() && !player.hasPermission("lengbanlist.unwarn")) {
@@ -35,7 +35,7 @@ public class UnwarnCommand extends Command implements CommandExecutor {
             }
         }
 
-        // 检查参数长度
+
         if (args.length < 1) {
             Utils.sendMessage(sender, plugin.prefix() + "§c用法错误: /lban unwarn <玩家名/IP> [警告ID]");
             return false;
@@ -44,7 +44,7 @@ public class UnwarnCommand extends Command implements CommandExecutor {
         String target = args[0];
         WarnManager warnManager = plugin.getWarnManager();
 
-        // 获取所有警告记录（包括已撤销的）
+
         List<WarnEntry> allWarnings = warnManager.getAllWarnings(target);
         if (allWarnings.isEmpty()) {
             Utils.sendMessage(sender, plugin.prefix() + "§c玩家 " + target + " 没有警告记录。");
@@ -52,7 +52,7 @@ public class UnwarnCommand extends Command implements CommandExecutor {
         }
 
         try {
-            // 如果有警告ID，移除特定警告
+
             if (args.length > 1) {
                 int warnId = parseWarnId(args[1], allWarnings);
                 if (warnId != -1) {
@@ -61,7 +61,7 @@ public class UnwarnCommand extends Command implements CommandExecutor {
                         entry.revoke();
                         Utils.sendMessage(sender, plugin.prefix() + "§a警告 #" + warnId + " 已移除");
 
-                        // 检查是否需要解封
+
                         warnManager.checkUnbanIfNecessary(target);
                     } else {
                         Utils.sendMessage(sender, plugin.prefix() + "§c警告 #" + warnId + " 已经被移除");
@@ -70,7 +70,7 @@ public class UnwarnCommand extends Command implements CommandExecutor {
                     Utils.sendMessage(sender, plugin.prefix() + "§c警告ID无效");
                 }
             } else {
-                // 移除所有未撤销的警告
+
                 for (WarnEntry warning : allWarnings) {
                     if (!warning.isRevoked()) {
                         warning.revoke();
@@ -78,7 +78,7 @@ public class UnwarnCommand extends Command implements CommandExecutor {
                 }
                 Utils.sendMessage(sender, plugin.prefix() + "§a已移除玩家 " + target + " 的所有警告");
 
-                // 检查是否需要解封
+
                 warnManager.checkUnbanIfNecessary(target);
             }
         } catch (Exception e) {
@@ -96,7 +96,7 @@ public class UnwarnCommand extends Command implements CommandExecutor {
                 return id;
             }
         } catch (NumberFormatException e) {
-            // 如果不是数字，返回-1
+
         }
         return -1;
     }

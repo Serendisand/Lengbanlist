@@ -21,7 +21,7 @@ public class AllowMsgCommand implements CommandExecutor {
             return true;
         }
 
-        // 检查是否为OP
+
         if (!(sender instanceof Player) || !sender.isOp()) {
             sender.sendMessage(plugin.prefix() + "§c只有管理员可以使用此命令。");
             return true;
@@ -38,7 +38,7 @@ public class AllowMsgCommand implements CommandExecutor {
             return true;
         }
 
-        // 允许发送消息
+
         target.sendMessage(plugin.prefix() + "§a你的消息已被管理员允许发送。");
         sender.sendMessage(plugin.prefix() + "§a已允许玩家 " + target.getName() + " 发送消息。");
         return true;

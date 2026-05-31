@@ -21,7 +21,7 @@ public class WarnMsgCommand implements CommandExecutor {
             return true;
         }
 
-        // 检查是否为OP
+
         if (!(sender instanceof Player) || !sender.isOp()) {
             sender.sendMessage(plugin.prefix() + "§c只有管理员可以使用此命令。");
             return true;
@@ -38,7 +38,7 @@ public class WarnMsgCommand implements CommandExecutor {
             return true;
         }
 
-        // 警告玩家
+
         plugin.getWarnManager().warnPlayer(target.getName(), sender.getName(), "消息违规");
         target.sendMessage(plugin.prefix() + "§c你因消息违规被警告一次。");
         sender.sendMessage(plugin.prefix() + "§a已警告玩家 " + target.getName() + "。");

@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** 聊天事件监听，处理聊天向导、禁言检查、违禁词过滤、管理员审查。 */
+
 public class ChatListener implements Listener {
     private final Lengbanlist plugin;
     private final Map<String, Integer> badWordCount = new ConcurrentHashMap<>();
