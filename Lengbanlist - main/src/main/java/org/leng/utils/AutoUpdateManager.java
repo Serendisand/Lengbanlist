@@ -1,18 +1,14 @@
 package org.leng.utils;
 
-import org.bukkit.Bukkit;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.leng.Lengbanlist;
 
 import java.io.*;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
-import java.util.List;
 import java.util.logging.Logger;
 
 public class AutoUpdateManager {
@@ -114,9 +110,6 @@ public class AutoUpdateManager {
         logger.info("新版本已下载到临时文件: " + tempFile.getName() + 
                    " (" + tempFile.length() + " bytes)");
 
-        // 禁用当前插件
-        disableAndRemoveCurrentPlugin();
-
         // 最终的新插件文件
         File newPluginFile = new File(currentPluginFile.getParentFile(), newFileName);
         
@@ -143,8 +136,18 @@ public class AutoUpdateManager {
             tempFile.delete();
         }
 
-        // 加载新版本
-        reloadPlugin(newPluginFile);
+        // 删除旧插件文件，避免重启后同时加载两个版本
+        if (!currentPluginFile.equals(newPluginFile) && currentPluginFile.exists()) {
+            logger.info("删除旧插件文件: " + currentPluginFile.getName());
+            if (currentPluginFile.delete()) {
+                logger.info("旧插件文件已删除");
+            } else {
+                currentPluginFile.deleteOnExit();
+                logger.warning("无法立即删除旧插件文件，将在服务器退出时删除: " + currentPluginFile.getName());
+            }
+        }
+
+        installUpdate(newPluginFile);
     }
 
     /**
@@ -161,86 +164,8 @@ public class AutoUpdateManager {
         }
     }
 
-    private void disableAndRemoveCurrentPlugin() {
-        if (currentPluginFile == null) {
-            logger.warning("无法找到当前插件文件");
-            return;
-        }
-
-        Plugin[] plugins = Bukkit.getPluginManager().getPlugins();
-        for (Plugin p : plugins) {
-            if (p instanceof JavaPlugin && 
-                p.getDescription().getName().equals(Lengbanlist.getInstance().getDescription().getName())) {
-                
-                try {
-                    logger.info("正在禁用插件: " + p.getName());
-                    
-                    // 使用反射调用 setEnabled(false)
-                    Method setEnabledMethod = JavaPlugin.class.getDeclaredMethod("setEnabled", boolean.class);
-                    setEnabledMethod.setAccessible(true);
-                    setEnabledMethod.invoke(p, false);
-
-                    // 等待一小段时间确保插件完全禁用
-                    Thread.sleep(1000);
-
-                    // 删除旧文件
-                    if (currentPluginFile.exists()) {
-                        logger.info("删除旧插件文件: " + currentPluginFile.getName());
-                        if (currentPluginFile.delete()) {
-                            logger.info("旧插件文件已删除");
-                        } else {
-                            logger.warning("无法删除旧插件文件，将在退出时删除");
-                            currentPluginFile.deleteOnExit();
-                        }
-                    }
-                } catch (Exception e) {
-                    logger.warning("禁用和移除插件时出错: " + e.getMessage());
-                    e.printStackTrace();
-                }
-                break;
-            }
-        }
-    }
-
-    private void reloadPlugin(File newPluginFile) {
-        try {
-            logger.info("正在加载新插件文件: " + newPluginFile.getName());
-            
-            Field field = Bukkit.class.getDeclaredField("pluginManager");
-            field.setAccessible(true);
-            Object pluginManager = field.get(Bukkit.getServer());
-
-            Field pluginsField = pluginManager.getClass().getDeclaredField("plugins");
-            pluginsField.setAccessible(true);
-            List<?> plugins = (List<?>) pluginsField.get(pluginManager);
-
-            // 找到当前插件并卸载
-            for (Object p : plugins) {
-                if (p instanceof JavaPlugin && 
-                    ((JavaPlugin) p).getDescription().getName().equals(this.plugin.getDescription().getName())) {
-                    logger.info("从插件列表中移除旧插件实例");
-                    ((JavaPlugin) p).onDisable();
-                    plugins.remove(p);
-                    break;
-                }
-            }
-
-            // 加载新版本
-            Plugin loadedPlugin = (Plugin) pluginManager.getClass()
-                .getMethod("loadPlugin", File.class)
-                .invoke(pluginManager, newPluginFile);
-            
-            if (loadedPlugin != null) {
-                // 启用新插件
-                loadedPlugin.onEnable();
-                logger.info("新版本插件已成功加载并启用: " + loadedPlugin.getDescription().getVersion());
-            } else {
-                logger.warning("加载新插件失败");
-            }
-            
-        } catch (Exception e) {
-            logger.warning("重新加载插件时出错: " + e.getMessage());
-            e.printStackTrace();
-        }
+    private void installUpdate(File newPluginFile) {
+        logger.info("新版本插件文件已安装: " + newPluginFile.getName());
+        logger.info("请重启服务器以加载新版本。Paper 不支持安全地运行时替换并重载插件。");
     }
 }

@@ -130,14 +130,20 @@ public void onEnable() {
         return;
     }
 
-    SchedulerUtils.runAsync(this, () -> {
-        hitokoto = getHitokoto();
-    });
-
     getServer().getConsoleSender().sendMessage(prefix() + "§f原神§2正在加载");
-    if (hitokoto != null) {
-        getServer().getConsoleSender().sendMessage(prefix() + ModelManager.getInstance().getCurrentModelName() + "§6偷偷告诉你: §e" + hitokoto);
-    }
+    SchedulerUtils.runAsync(this, () -> {
+        String fetchedHitokoto = getHitokoto();
+        if (!Lengbanlist.this.isEnabled()) {
+            return;
+        }
+        SchedulerUtils.runTask(this, () -> {
+            if (!Lengbanlist.this.isEnabled()) {
+                return;
+            }
+            hitokoto = fetchedHitokoto;
+            getServer().getConsoleSender().sendMessage(prefix() + ModelManager.getInstance().getCurrentModelName() + "§6偷偷告诉你: §e" + hitokoto);
+        });
+    });
     getServer().getConsoleSender().sendMessage(prefix() + "§f哇！传送锚点已解锁，当前Model: " + ModelManager.getInstance().getCurrentModelName());
 
     getServer().getPluginManager().registerEvents(new PlayerJoinListener(Lengbanlist.this), Lengbanlist.this);
