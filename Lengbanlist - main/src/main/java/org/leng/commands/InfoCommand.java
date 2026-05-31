@@ -27,7 +27,6 @@ public class InfoCommand implements CommandExecutor {
             return true;
         }
 
-        // 获取服务器信息
         String serverVersion = plugin.getServer().getVersion();
         String serverCore = getServerCoreName();
         long usedMemory = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
@@ -35,7 +34,6 @@ public class InfoCommand implements CommandExecutor {
         int onlinePlayers = plugin.getServer().getOnlinePlayers().size();
         double cpuLoad = getSystemCpuLoad();
 
-        // 构建信息字符串
         StringBuilder infoMessage = new StringBuilder();
         infoMessage.append("§b§lLengbanlist 插件信息 §b§l").append(plugin.getDescription().getVersion()).append("\n");
         infoMessage.append("§7当前运行在：§b").append(serverVersion).append("\n");
@@ -44,7 +42,6 @@ public class InfoCommand implements CommandExecutor {
         infoMessage.append("§7当前在线玩家：§b").append(onlinePlayers).append("\n");
         infoMessage.append("§7当前CPU占用：§b").append(String.format("%.2f", cpuLoad)).append("%\n");
 
-        // 异步检查更新
         if (!plugin.getConfig().getBoolean("disable-update-check", false)) {
             GitHubUpdateChecker.getLatestReleaseVersionAsync(plugin).thenAccept(latestVersion -> {
                 String message;
@@ -52,7 +49,7 @@ public class InfoCommand implements CommandExecutor {
                     message = "§c检查更新失败，请检查网络连接或稍后再试。\n";
                 } else if (GitHubUpdateChecker.compareVersions(plugin.getDescription().getVersion(), latestVersion) < 0) {
                     message = "§a发现新版本：§e" + latestVersion + "§a，当前版本：§e" + plugin.getDescription().getVersion() + "\n" +
-                             "§b更新地址：§ehttps://github.com/Ukiyograin/Lengbanlist/releases\n";
+                             "§b更新地址：§e" + GitHubUpdateChecker.RELEASES_URL + "\n";
                 } else {
                     message = "§a你正在使用最新版本：§e" + plugin.getDescription().getVersion() + "\n";
                 }

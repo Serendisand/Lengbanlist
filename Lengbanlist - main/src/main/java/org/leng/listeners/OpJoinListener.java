@@ -16,7 +16,6 @@ import net.md_5.bungee.api.chat.ComponentBuilder;
 
 import java.util.Calendar;
 
-/** OP 加入时显示版本更新提示和待处理举报数量。更新检查改为异步避免阻塞主线程。 */
 public class OpJoinListener implements Listener {
     private final Lengbanlist plugin;
 
@@ -57,7 +56,7 @@ public class OpJoinListener implements Listener {
     private void checkUpdateAndNotify(Player player) {
         try {
             String pluginVersion = plugin.getDescription().getVersion();
-            String updateUrl = "https://github.com/LengMC/Lengbanlist/releases/latest";
+            String updateUrl = GitHubUpdateChecker.RELEASES_URL;
             String latestVersion = GitHubUpdateChecker.getLatestReleaseVersion();
 
             if (GitHubUpdateChecker.isUpdateAvailable(pluginVersion)) {
