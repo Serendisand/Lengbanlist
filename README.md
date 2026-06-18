@@ -1,6 +1,6 @@
 <div align="center">
 <p>
-    <img width="200" src="/Photos/Lengbanlist-icon.png">
+    <img width="200" src="/Photos/Lengbanlist_NEW.png">
 </p>
 
  *简体中文 | [English](docs/README_en.md)* 
