@@ -29,10 +29,6 @@ public class ChatListener implements Listener {
     public void onPlayerChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
 
-        if (!plugin.isFeatureEnabled("chat-filter")) {
-            return;
-        }
-
         if (player.hasMetadata("lengbanlist-action")) {
             event.setCancelled(true);
             String wizardMessage = event.getMessage();
@@ -42,6 +38,10 @@ public class ChatListener implements Listener {
                     ((LengbanlistCommand) executor).handleChatWizard(player, wizardMessage);
                 }
             });
+            return;
+        }
+
+        if (!plugin.isFeatureEnabled("chat-filter")) {
             return;
         }
 

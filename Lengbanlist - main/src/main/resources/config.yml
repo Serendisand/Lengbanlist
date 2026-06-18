@@ -5,6 +5,33 @@ opensendtime: true #开启循环播报封禁人数
 sendtime: 5 #以分钟为单位
 # 模型
 Model: "Default" #当前模型
+models:
+  default:
+    material: PAPER
+  english:
+    material: BOOK
+  hutao:
+    material: RED_TULIP
+  furina:
+    material: WATER_BUCKET
+  zhongli:
+    material: DEEPSLATE
+  keqing:
+    material: AMETHYST_SHARD
+  xiao:
+    material: FEATHER
+  ayaka:
+    material: SNOWBALL
+  zero:
+    material: REDSTONE
+  herta:
+    material: KNOWLEDGE_BOOK
+  nahida:
+    material: OAK_SAPLING
+  klee:
+    material: TNT
+  yaemiko:
+    material: PINK_DYE
 
 # 功能开关
 features:

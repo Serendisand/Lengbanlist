@@ -67,12 +67,13 @@ public class PlayerJoinListener implements Listener {
                     .collect(Collectors.toList());
 
             if (!reports.isEmpty()) {
-                player.sendMessage("——————————");
-                player.sendMessage(plugin.prefix() + "你的举报已被处理。");
+                player.sendMessage(plugin.prefix() + "§7——————————");
+                player.sendMessage(plugin.prefix() + "§a你的举报已被处理。");
                 player.spigot().sendMessage(
+                    new net.md_5.bungee.api.chat.TextComponent(plugin.prefix() + " "),
                     org.leng.utils.Utils.clickableText("§a【我已阅读】", "/report ack " + reports.get(0).getId())
                 );
-                player.sendMessage("——————————");
+                player.sendMessage(plugin.prefix() + "§7——————————");
             }
         }
     }

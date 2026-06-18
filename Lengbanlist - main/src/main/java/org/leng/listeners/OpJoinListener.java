@@ -37,19 +37,17 @@ public class OpJoinListener implements Listener {
             int pendingReports = reportManager.getPendingReportCount();
 
             String greeting = getGreetingMessage();
-            BaseComponent[] adminMessage = TextComponent.fromLegacyText("——————————\n" +
-                    plugin.prefix() + "\n" +
-                    "尊敬的Admin：" + player.getName() + "\n" +
-                    greeting + "，来杯咖啡，开始今天的工作吧\n" +
-                    "您有" + pendingReports + "个举报没处理\n" +
-                    "——————————\n");
+            BaseComponent[] adminMessage = TextComponent.fromLegacyText(
+                    plugin.prefix() + "§e尊敬的Admin：§f" + player.getName() + "\n" +
+                    plugin.prefix() + "§e" + greeting + "，来杯咖啡，开始今天的工作吧\n" +
+                    plugin.prefix() + "§e您有§c" + pendingReports + "§e个举报没处理");
 
             TextComponent clickableAdminLink = new TextComponent("§a【点击前往】");
             clickableAdminLink.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/lban admin"));
             clickableAdminLink.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("§a点击前往举报管理界面").create()));
 
             player.spigot().sendMessage(adminMessage);
-            player.spigot().sendMessage(clickableAdminLink);
+            player.spigot().sendMessage(new TextComponent(plugin.prefix() + " "), clickableAdminLink);
         }
     }
 

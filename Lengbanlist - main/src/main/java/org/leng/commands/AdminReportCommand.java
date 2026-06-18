@@ -47,17 +47,13 @@ public class AdminReportCommand implements CommandExecutor {
         int pendingReports = reportManager.getPendingReportCount();
         int onlineAdmins = (int) Bukkit.getOnlinePlayers().stream().filter(p -> p.isOp()).count();
 
-        String adminUI = "§7————————————————\n" +
-                "§bLengbanlist Report Admin\n" +
-                "§e当前待处理举报数：§c" + pendingReports + "\n" +
-                "§e当前在线管理员：§c" + onlineAdmins + "\n" +
-                "§7————————————————\n";
-
-        player.sendMessage(adminUI);
+        Utils.sendMessage(player, plugin.prefix() + "§bLengbanlist Report Admin");
+        Utils.sendMessage(player, plugin.prefix() + "§e当前待处理举报数：§c" + pendingReports);
+        Utils.sendMessage(player, plugin.prefix() + "§e当前在线管理员：§c" + onlineAdmins);
 
         List<ReportEntry> reports = reportManager.getPendingReports();
         if (reports.isEmpty()) {
-            player.sendMessage("§a暂无待处理的举报！");
+            Utils.sendMessage(player, plugin.prefix() + "§a暂无待处理的举报！");
             return;
         }
 
@@ -84,25 +80,26 @@ public class AdminReportCommand implements CommandExecutor {
             }
 
             String status = report.getStatus() == null ? "" : "§a【当前状态：" + report.getStatus() + "】";
-            player.sendMessage("§7————————————————");
-            player.sendMessage("§e举报编号：§f" + report.getId() + " " + status);
-            player.sendMessage("§e举报原因：§f" + report.getReason());
+            Utils.sendMessage(player, plugin.prefix() + "§7————————————————");
+            Utils.sendMessage(player, plugin.prefix() + "§e举报编号：§f" + report.getId() + " " + status);
+            Utils.sendMessage(player, plugin.prefix() + "§e举报原因：§f" + report.getReason());
 
             player.spigot().sendMessage(
-                new net.md_5.bungee.api.chat.TextComponent("§e被举报人："),
+                new net.md_5.bungee.api.chat.TextComponent(plugin.prefix() + "§e被举报人："),
                 targetComponent,
                 new net.md_5.bungee.api.chat.TextComponent(" §e举报人："),
                 reporterComponent
             );
 
             player.spigot().sendMessage(
+                new net.md_5.bungee.api.chat.TextComponent(plugin.prefix() + " "),
                 Utils.clickableText("§a【点击受理】", "/report accept " + report.getId()),
                 new net.md_5.bungee.api.chat.TextComponent(" "),
                 Utils.clickableText("§b【点击关闭】", "/report close " + report.getId()),
                 new net.md_5.bungee.api.chat.TextComponent(" "),
                 Utils.clickableText("§c【点击封禁】", "/ban " + report.getTarget() + " auto unfair advantage")
             );
-            player.sendMessage("§7————————————————");
+            Utils.sendMessage(player, plugin.prefix() + "§7————————————————");
         }
     }
 }

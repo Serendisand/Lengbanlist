@@ -151,8 +151,6 @@ public void onEnable() {
     getServer().getPluginManager().registerEvents(new PlayerJoinListener(Lengbanlist.this), Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new ChatListener(Lengbanlist.this), Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new OpJoinListener(Lengbanlist.this), Lengbanlist.this);
-    getServer().getPluginManager().registerEvents(new ChestUIListener(Lengbanlist.this), Lengbanlist.this);
-    getServer().getPluginManager().registerEvents(new AnvilGUIListener(Lengbanlist.this), Lengbanlist.this);
     modelChoiceListener = new ModelChoiceListener(Lengbanlist.this);
     getServer().getPluginManager().registerEvents(modelChoiceListener, Lengbanlist.this);
 

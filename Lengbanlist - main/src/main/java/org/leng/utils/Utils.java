@@ -17,4 +17,10 @@ public class Utils {
         component.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, command));
         return component;
     }
+
+    public static TextComponent clickableUrl(String text, String url) {
+        TextComponent component = new TextComponent(ChatColor.translateAlternateColorCodes('&', text));
+        component.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url));
+        return component;
+    }
 }

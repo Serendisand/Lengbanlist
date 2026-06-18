@@ -586,6 +586,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
         }
 
         ItemStack toggleBroadcast = createItem(
+                Material.LEVER,
                 "§a切换自动广播 (" + (plugin.isBroadcastEnabled() ? "开启" : "关闭") + ")",
                 "§7/lban toggle",
                 "§7开启或关闭自动广播",
@@ -593,6 +594,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 player
         );
         ItemStack broadcast = createItem(
+                Material.NOTE_BLOCK,
                 "§a广播封禁人数",
                 "§7/lban a",
                 "§7广播当前封禁人数",
@@ -600,6 +602,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 player
         );
         ItemStack list = createItem(
+                Material.WRITABLE_BOOK,
                 "§a查看封禁名单",
                 "§7/lban list",
                 "§7查看被封禁的玩家列表",
@@ -607,6 +610,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 player
         );
         ItemStack reload = createItem(
+                Material.COMPARATOR,
                 "§a重新加载配置",
                 "§7/lban reload",
                 "§7重新加载插件配置",
@@ -614,6 +618,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 player
         );
         ItemStack addBan = createItem(
+                Material.REDSTONE_BLOCK,
                 "§a添加封禁",
                 "§7/lban add",
                 "§7添加一个玩家到封禁名单",
@@ -621,6 +626,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 player
         );
         ItemStack removeBan = createItem(
+                Material.EMERALD_BLOCK,
                 "§a解除封禁",
                 "§7/lban remove",
                 "§7从封禁名单中移除一个玩家",
@@ -628,6 +634,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 player
         );
         ItemStack help = createItem(
+                Material.BOOK,
                 "§a帮助信息",
                 "§7/lban help",
                 "§7显示帮助信息",
@@ -635,6 +642,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 player
         );
         ItemStack model = createItem(
+                Material.NAME_TAG,
                 "§a切换模型 (" + ModelManager.getInstance().getCurrentModelName() + ")",
                 "§7/lban model",
                 "§7当前模型: " + ModelManager.getInstance().getCurrentModelName(),
@@ -642,13 +650,15 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 player
         );
         ItemStack sponsor = createItem(
+                Material.GOLD_INGOT,
                 "§6赞助作者",
-                "§7点击打开赞助链接",
-                "§7https://afdian.com/a/lengmc",
+                "§7ACTION_SPONSOR",
+                "§7点击获取赞助链接：https://afdian.com/a/lengmc",
                 Sound.BLOCK_NOTE_BLOCK_PLING,
                 player
         );
         ItemStack mute = createItem(
+                Material.BARRIER,
                 "§a禁言玩家",
                 "§7/lban mute",
                 "§7禁言一个玩家",
@@ -656,6 +666,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 player
         );
         ItemStack unmute = createItem(
+                Material.MILK_BUCKET,
                 "§a解除禁言",
                 "§7/lban unmute",
                 "§7解除一个玩家的禁言",
@@ -663,6 +674,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 player
         );
         ItemStack listMute = createItem(
+                Material.BOOKSHELF,
                 "§a查看禁言列表",
                 "§7/lban list-mute",
                 "§7查看被禁言的玩家列表",
@@ -686,8 +698,8 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
         player.openInventory(chest);
     }
 
-    private ItemStack createItem(String displayName, String command, String description, Sound sound, Player player) {
-        ItemStack item = new ItemStack(Material.PAPER);
+    private ItemStack createItem(Material material, String displayName, String command, String description, Sound sound, Player player) {
+        ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName(displayName);
         List<String> lore = new ArrayList<>();
@@ -779,7 +791,7 @@ public void onInventoryClick(InventoryClickEvent event) {
             case "/lban reload":
             case "/lban help":
             case "/lban list-mute":
-                player.performCommand(command);
+                player.performCommand(command.startsWith("/") ? command.substring(1) : command);
                 break;
             case "/lban add":
                 startChatWizard(player, "ban");
@@ -789,6 +801,12 @@ public void onInventoryClick(InventoryClickEvent event) {
                 break;
             case "/lban model":
                 ModelManager.getInstance().openModelSelectionUI(player);
+                break;
+            case "ACTION_SPONSOR":
+                player.spigot().sendMessage(
+                        new net.md_5.bungee.api.chat.TextComponent(plugin.prefix() + "§6赞助作者："),
+                        Utils.clickableUrl("§e【点击打开爱发电】", "https://afdian.com/a/lengmc")
+                );
                 break;
             case "/lban mute":
                 startChatWizard(player, "mute");

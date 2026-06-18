@@ -91,9 +91,18 @@ public class ModelChoiceListener implements Listener {
             return;
         }
 
-        String modelName = meta.getDisplayName().replace("§a", "");
+        String displayName = meta.getDisplayName();
+        if (!displayName.startsWith("§a")) {
+            return;
+        }
+
+        String modelName = displayName.replace("§a", "");
+        if (!ModelManager.getInstance().getModels().containsKey(modelName.toLowerCase())) {
+            return;
+        }
+
         ModelManager.getInstance().switchModel(modelName);
-        Utils.sendMessage(player, "§a已切换到模型: " + modelName);
+        Utils.sendMessage(player, plugin.prefix() + "§a已切换到模型: " + modelName);
 
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.0f);
         player.closeInventory();
