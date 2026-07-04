@@ -1,127 +1,92 @@
-# Lengbanlist 开发说明
+[![Minecraft Version](https://img.shields.io/badge/Minecraft-1.21.x-brightgreen)](https://www.minecraft.net)
+[![License](https://img.shields.io/badge/License-MPL2.0-blue)](LICENSE)
 
-Lengbanlist 是一个面向高版本 Bukkit / Paper / Folia 服务端的轻量处罚与管理插件。当前代码以 `org.leng.Lengbanlist` 为插件入口，在生命周期中初始化配置、数据库、业务管理器、事件监听器、命令、Web 管理面板、统计和更新检查。
+<div align="center">
+<p>
+    <img width="200" src="/Photos/Lengbanlist-icon.png">
+</p>
 
-## 项目结构
+ *简体中文 | [English](docs/README_en.md)* 
 
-```text
-src/main/java/org/leng/
-├── Lengbanlist.java                 # 插件主类，负责生命周期、配置加载、命令注册、监听器注册和任务启动
-├── BroadCastBanCountMessage.java    # 自动广播当前封禁统计
-├── Metrics.java                     # bStats 统计上报
-├── commands/                        # Bukkit 命令实现
-├── listeners/                       # 玩家、聊天、GUI、OP 入服等事件监听
-├── manager/                         # 封禁、禁言、警告、举报、数据库、模型等业务管理器
-├── models/                          # 不同角色模型的提示文本实现
-├── object/                          # 封禁、禁言、警告、举报等数据对象
-├── utils/                           # 时间、调度器、更新检查、IP 保存等工具类
-└── web/                             # Web 管理面板 HTTP API
-```
+ **[多平台链接](docs/readme-website.md)** |
+ **[开发须知](docs/PullRequest_zh.md)** |
+ *[许可证提示](docs/Mustn't_zh.md)* |
+ **[Discord](https://discord.gg/aeWjf7vD)**
+</div>
 
-资源文件位于 `src/main/resources/`：
+![Lengbanlist](https://github.com/LengMC/Lengbanlist/blob/main/Photos/Lengbanlist.png)
+![Lengbanlist](https://bstats.org/signatures/bukkit/Lengbanlist.svg)
 
-- `plugin.yml`：命令、权限、插件版本占位符和 Folia 支持声明。
-- `config.yml`：功能开关、数据库、Web、广播、更新检查等主配置。
-- `broadcast.yml`：自动广播文本配置。
-- `chatconfig.yml`：聊天过滤和审核相关配置。
-- `eula.yml`：插件启用前的 EULA 确认文件。
+## 这个插件是干什么的
 
-## 启动流程
+Lengbanlist 最早只是个封禁广播插件，现在已经长成一套完整的服务器管理工具了：封禁、警告、禁言、举报、聊天过滤、IP 关联检测、VPN 检测、Web 管理面板…… 日常服务器管理用得上的东西基本都在里面。
 
-1. `Lengbanlist.onLoad()` 初始化 `SchedulerUtils`，检查 EULA，加载默认配置。
-2. 数据库通过 `DatabaseManager` 初始化，旧版 YAML 数据由 `StorageMigrationManager` 迁移。
-3. 创建 `BanManager`、`MuteManager`、`WarnManager`、`ReportManager`、`IpAssociationManager` 和 `WebServer`。
-4. `Lengbanlist.onEnable()` 注册事件监听器和命令执行器。
-5. 根据配置启动自动广播、Web 管理面板、历史封禁清理、更新检查和 bStats。
-6. `onDisable()` 取消任务、停止 Web 服务、保存广播配置并关闭数据库连接。
+所有功能都可以在配置文件里单独开关，不需要的关掉就行，不会拖累服务器。
 
-## commands 包职责
+## 功能一览
 
-`commands` 包内每个类都负责一个 Bukkit 命令或一组主命令子命令。命令类通常只做权限检查、参数解析、功能开关检查和用户反馈，核心业务交给 `manager` 包处理。
+**封禁相关的 —— `/ban` `/ban-ip` `/unban` `/setban`**
+封禁玩家或者 IP，时长可以写秒/分/时/天/周/月/年，也可以直接 `forever` 永久封，或者 `auto` 让插件根据警告次数自动算。封完了想改时长和原因也行。
 
-| 类 | 命令 | 实现内容 |
-| --- | --- | --- |
-| `LengbanlistCommand` | `/lban` | 主命令入口，处理广播开关、手动广播、封禁列表、配置重载、封禁/解封、帮助、GUI、IP 查询、模型切换、LBAC、Web 面板配置、赞助入口等子命令。 |
-| `BanCommand` | `/ban` | 封禁玩家，解析时长与原因，调用 `BanManager.banPlayer()`。 |
-| `BanIpCommand` | `/ban-ip` | 封禁 IP，解析时长与原因，调用 `BanManager.banIp()`。 |
-| `SetBanCommand` | `/setban` | 修改玩家或 IP 的封禁时间与原因，支持永久和自动时长。 |
-| `UnbanCommand` | `/unban` | 根据参数判断玩家名或 IP，并执行对应解封。 |
-| `WarnCommand` | `/warn` | 给玩家添加警告，触发警告管理器的自动处罚逻辑。 |
-| `UnwarnCommand` | `/unwarn` | 移除玩家指定警告或全部有效警告，并按需解除自动封禁。 |
-| `WarnMsgCommand` | `/warnmsg` | 管理员对违规聊天进行警告处理。 |
-| `AllowMsgCommand` | `/allowmsg` | 放行被聊天审核拦截的玩家消息。 |
-| `MuteCommand` | `/mute` | 禁言玩家，写入禁言记录。 |
-| `UnmuteCommand` | `/unmute` | 解除玩家禁言。 |
-| `ListMuteCommand` | `/listmute` | 输出当前禁言列表。 |
-| `CheckCommand` | `/check` | 查询玩家或 IP 的处罚状态、历史、关联信息和赞助提示。 |
-| `HistoryCommand` | `/history` | 查询玩家处罚历史记录，提供补全。 |
-| `ReportCommand` | `/report` | 玩家提交举报。 |
-| `AdminReportCommand` | `/admin` | 管理员查看、处理和关闭举报。 |
-| `KickCommand` | `/kick` | 踢出在线玩家并发送原因。 |
-| `InfoCommand` | `/info` | 输出插件版本、服务端核心、内存、CPU、在线人数和更新状态。 |
-| `GetIPCommand` | `/getip` | 查询玩家 IP 和地理位置。 |
-| `StaffChatCommand` | `/sc` | 管理员工作频道聊天。 |
+**警告系统 —— `/warn` `/unwarn`**
+给玩家记警告。内置了个自动封禁逻辑（LBAC）：30 天内累计 3 次警告自动封禁，封禁时长会随着触发次数递增。如果你撤销警告减到阈值以下，封禁也会自动解除，不用管理员手动处理。
 
-## listeners 包职责
+**禁言 —— `/mute` `/unmute` `/listmute`**
+禁言玩家一段时间或永久，禁言期间发不出消息。可以随时解禁，也能查看当前禁言列表。
 
-- `PlayerJoinListener`：玩家入服时检查封禁、IP 封禁、IP 关联、VPN 检测和待处理举报提示。
-- `ChatListener`：处理禁言、聊天过滤、聊天审核和管理员放行流程。
-- `OpJoinListener`：OP 入服后异步检查更新，并提示待处理举报。
-- `ChestUIListener`：处理封禁列表等箱子 GUI 点击事件。
-- `AnvilGUIListener`：处理铁砧输入界面中的封禁、解封和原因输入。
-- `ModelChoiceListener`：处理模型选择 GUI 和当前模型切换。
+**聊天过滤**
+配置文件里自己定敏感词列表，触发了自动替换成"喵"。触发次数多了会自动禁言。可疑消息会带按钮通知管理员，点一下就能放行或警告。
 
-## manager 包职责
+**IP 关联 & VPN 检测**
+自动记下每个玩家的登录 IP，发现不同玩家用了同一个 IP 时提醒管理员。玩家进服时还会检测是不是 VPN 或代理，可以设置只警告、踢出去、或者直接封掉。
 
-- `DatabaseManager`：统一管理 SQLite / MySQL 连接、建表、读写、历史记录和过期数据维护。
-- `BanManager`：封禁、IP 封禁、解封、封禁查询和入服拦截判断。
-- `MuteManager`：禁言、解禁和禁言状态查询。
-- `WarnManager`：警告记录、撤销警告、LBAC 自动封禁与自动解除。
-- `ReportManager`：举报创建、查询、处理和待处理数量统计。
-- `IpAssociationManager`：记录玩家历史 IP、查询同 IP 玩家、检测代理/VPN。
-- `ModelManager`：注册角色模型、读取配置中的当前模型并提供切换能力。
-- `StorageMigrationManager`：把旧版 YAML 数据迁移到数据库存储。
+**举报系统 —— `/report` `/admin`**
+玩家可以直接举报违规行为，管理员处理后举报人会收到处理通知。
 
-## object 和 models
+**封禁广播**
+定时在聊天栏广播当前的封禁统计数字，消息内容和格式完全自己改。也可以手动触发广播，随时开关。
 
-`object` 包是数据层对象，主要承载数据库与业务逻辑之间传递的数据：
+**角色模型**
+内置了 12 种角色风格——胡桃、芙宁娜、钟离、刻晴、纳西妲、可莉、八重神子什么的。切换之后所有提示消息的措辞和语气都跟着变，算是个有意思的小功能。
 
-- `BanEntry` / `BanIpEntry`：玩家封禁和 IP 封禁记录。
-- `MuteEntry`：禁言记录。
-- `WarnEntry`：警告记录。
-- `ReportEntry`：举报记录。
+**图形界面 —— `/lban open`**
+一个 54 格的箱子界面，封禁、解禁、禁言、重载、切模型这些操作点一点就行。封禁和解禁还有聊天向导，一步步引导你输入，不用记命令格式。
 
-`models` 包实现不同角色模型的提示语。新增模型时需要实现 `Model` 接口，并在 `ModelManager` 中注册。
+**Web 管理面板**
+内置了一个 HTTP 管理页面，浏览器打开就能用。做了 JWT 鉴权和限流。封禁、解禁、禁言、警告、查记录、重载配置，页面上都能操作。
 
-## utils 包职责
+**查询工具 —— `/check` `/history` `/getip`**
+查玩家或 IP 的当前处罚状态、历史记录、关联信息、IP 归属地。
 
-- `AutoUpdateManager`：下载 GitHub Release 中的新版本 jar，替换本地插件文件并提示重启加载。
-- `GitHubUpdateChecker`：集中维护 GitHub Release 链接、获取最新版本、比较版本号、生成下载文件名。
-- `SchedulerUtils`：封装 Bukkit / Folia 的同步、异步和循环任务调度。
-- `TimeUtils`：解析处罚时长、计算结束时间、格式化剩余时间。
-- `SaveIP`：保存和读取玩家 IP。
-- `Utils`：统一消息发送等通用辅助方法。
+**管理员频道 —— `/sc`**
+管理员之间聊天的专用频道，普通玩家看不到。
 
-## Web 管理面板
+**其他**
+插件版本、内存、CPU、在线人数这些信息用 `/info` 就能看。支持 SQLite 和 MySQL，从旧版 YAML 存储也能自动迁移。有 bStats 统计和自动更新。
 
-`web/WebServer.java` 使用 JDK `HttpServer` 实现 REST API，并通过 JWT 做管理端鉴权。Web 功能受 `features.web` 和 `web.enabled` 同时控制。涉及请求处理、认证、限流、JSON 响应和管理接口时，应优先在该类内保持现有结构，不要把 Bukkit 主线程敏感操作直接放进 HTTP 处理线程。
+## 使用说明
 
-## 开发事项
+1. 把插件 jar 扔进服务端的 `plugins` 目录。
+2. 重启服务器，插件会自动生成配置文件。
+3. 按需改 `config.yml` 和其他配置。
+4. `/lban reload` 重载配置，或者重启服务器。
 
-- 新增功能时先在 `config.yml` 的 `features.*` 中提供开关，并在命令或监听器入口调用 `plugin.isFeatureEnabled()`。
-- 命令类只负责入口逻辑，持久化和核心规则应放到对应 `manager`。
-- 数据库字段变更需要同时考虑 SQLite 和 MySQL，优先在 `DatabaseManager` 中集中处理。
-- Bukkit API 主线程敏感操作要通过 `SchedulerUtils.runTask()` 回到主线程；耗时网络和数据库查询优先异步执行。
-- 更新链接、下载文件名和版本比较统一放在 `GitHubUpdateChecker`，不要在命令或监听器里硬编码 GitHub 地址。
-- 自动更新只负责安装新 jar 并提示重启，不做运行时热重载。
-- 新命令需要同时更新 `plugin.yml` 的 commands 和 permissions，并在 `Lengbanlist.onEnable()` 注册执行器。
-- 新增角色模型需要实现 `Model`，注册到 `ModelManager`，并确认模型切换 GUI 能显示。
-- 修改处罚逻辑后至少验证封禁、解封、警告、禁言和历史查询的主路径。
+## 命令帮助
 
-## 构建
+完整命令列表和用法见： [Lengbanlist 命令帮助](docs/LengbanlistCommandHelp.md)
 
-```bash
-mvn clean package
-```
+## 插件展示
 
-构建产物位于 `target/Lengbanlist - <version>.jar`。当前版本号由 `pom.xml` 控制，并会写入 `plugin.yml` 的 `${project.version}`。
+[点这里看插件截图和实际效果](docs/Lengbanlist_Images.md)
+
+---
+
+## 欢迎支持我的项目！❤️
+
+如果你觉得这插件有用，或者喜欢我做的这些东西，欢迎赞助支持一下。你的支持能让我继续开发和维护，也让我有动力做更多好玩的东西。
+
+## 赞助方式
+
+[![爱发电 Sponsor](https://img.shields.io/badge/%E7%88%B1%E5%8F%91%E7%94%B5-%E6%94%AF%E6%8C%81%E6%88%91-orange)](https://afdian.com/a/lengmc)
+
+感谢你的支持！❤️
