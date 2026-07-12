@@ -10,8 +10,8 @@
 
 ## 报告漏洞
 
- - 如果是不直接威胁的问题，请提lssues！[https://github.com/Ukiyograin/Lengbanlist/issues]
- - 如果是直接构成威胁的，请联系开发者！[https://github.com/Ukiyograin]
+ - 如果是不直接威胁的问题，请提lssues！[https://github.com/Serendisand/Lengbanlist/issues]
+ - 如果是直接构成威胁的，请联系开发者！[https://github.com/Serendisand]
  - 如果是造成重大事故的，请使用邮箱联系！[mailto:leng@ipacel.cc]
 ---
 谢谢！
