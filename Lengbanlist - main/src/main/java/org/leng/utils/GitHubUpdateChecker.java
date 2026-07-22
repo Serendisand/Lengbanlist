@@ -21,10 +21,10 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
 public class GitHubUpdateChecker {
-    public static final String RELEASES_URL = "https://github.com/Serendisand/Lengbanlist/releases";
+    public static final String RELEASES_URL = "https://github.com/Ukiyograin/Lengbanlist/releases";
     public static final String LATEST_RELEASE_URL = RELEASES_URL + "/latest";
 
-    private static final String GITHUB_API_URL = "https://api.github.com/repos/Serendisand/Lengbanlist/releases/latest";
+    private static final String GITHUB_API_URL = "https://api.github.com/repos/Ukiyograin/Lengbanlist/releases/latest";
     private static final List<String> STATIC_API_URLS = Arrays.asList(GITHUB_API_URL);
     private static final int TIMEOUT = 3000;
     private static final int MAX_RETRIES = 3;

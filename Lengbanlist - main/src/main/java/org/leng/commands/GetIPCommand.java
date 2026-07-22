@@ -52,7 +52,7 @@ public class GetIPCommand implements CommandExecutor {
             sender.sendMessage(plugin.prefix() + "§e" + who + " 的 IP 为 " + ip + "（本地/局域网地址，无法查询地理位置）");
             return;
         }
-        getPlayerLocationAsync(ip, location -> {
+        getPlayerLocationAsync(ip, sender, location -> {
             if (location != null) {
                 sender.sendMessage(plugin.prefix() + "§a" + who + " 的 IP 地理位置为：§e" + location);
             } else {
@@ -69,10 +69,10 @@ public class GetIPCommand implements CommandExecutor {
         return false;
     }
 
-    private void getPlayerLocationAsync(String ip, LocationInfoCallback callback) {
+    private void getPlayerLocationAsync(String ip, CommandSender sender, LocationInfoCallback callback) {
         SchedulerUtils.runAsync(plugin, () -> {
             String locationInfo = getIPLocation(ip);
-            SchedulerUtils.runTask(plugin, () -> callback.onLocationInfoReceived(locationInfo));
+            SchedulerUtils.runTask(plugin, sender, () -> callback.onLocationInfoReceived(locationInfo));
         });
     }
 

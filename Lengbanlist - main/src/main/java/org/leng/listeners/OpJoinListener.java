@@ -64,13 +64,15 @@ public class OpJoinListener implements Listener {
                 clickableLink.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, updateUrl));
                 clickableLink.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("§a点击打开更新页面喵~").create()));
 
-                player.spigot().sendMessage(message);
-                player.spigot().sendMessage(clickableLink);
+                SchedulerUtils.runTask(plugin, player, () -> {
+                    player.spigot().sendMessage(message);
+                    player.spigot().sendMessage(clickableLink);
+                });
             } else {
-                player.sendMessage(plugin.prefix() + " §a喵喵发现现在是最新版本！");
+                SchedulerUtils.runTask(plugin, player, () -> player.sendMessage(plugin.prefix() + " §a喵喵发现现在是最新版本！"));
             }
         } catch (Exception e) {
-            player.sendMessage(plugin.prefix() + "§c无法获取最新版本信息，请检查网络连接！");
+            SchedulerUtils.runTask(plugin, player, () -> player.sendMessage(plugin.prefix() + "§c无法获取最新版本信息，请检查网络连接！"));
         }
     }
 

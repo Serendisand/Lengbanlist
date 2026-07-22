@@ -243,7 +243,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 } else {
                     SchedulerUtils.runAsync(plugin, () -> {
                         String location = getIPLocation(ip);
-                        SchedulerUtils.runTask(plugin, () -> {
+                        SchedulerUtils.runTask(plugin, sender, () -> {
                             if (location != null) {
                                 Utils.sendMessage(sender, plugin.prefix() + "§a查询到玩家 " + target + " 的 IP 地址为 " + ip + "，地理位置：" + location);
                             } else {
@@ -319,7 +319,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 try {
                     MuteEntry muteEntry = new MuteEntry(muteTarget, sender.getName(), TimeUtils.calculateEndTime(muteDuration), muteReason);
                     plugin.getMuteManager().mutePlayer(muteEntry);
-                    Bukkit.broadcastMessage(currentModel.addMute(muteTarget, muteReason));
+                    Utils.broadcast(currentModel.addMute(muteTarget, muteReason));
                 } catch (Exception e) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c禁言失败: " + e.getMessage());
                 }
@@ -339,7 +339,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 }
                 String unmuteTarget = args[1];
                 plugin.getMuteManager().unmutePlayer(unmuteTarget);
-                Bukkit.broadcastMessage(currentModel.removeMute(unmuteTarget));
+                Utils.broadcast(currentModel.removeMute(unmuteTarget));
                 break;
             case "list-mute":
                 if (!plugin.isFeatureEnabled("mute")) {
@@ -709,7 +709,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
         item.setItemMeta(meta);
 
         if (sound != null && player != null) {
-            SchedulerUtils.runTaskLater(plugin, () -> {
+            SchedulerUtils.runTaskLater(plugin, player, () -> {
                 player.playSound(player.getLocation(), sound, 1.0f, 1.0f);
             }, 1L);
         }
@@ -906,7 +906,7 @@ public void handleChatWizard(Player player, String input) {
                 return;
             }
             plugin.getMuteManager().unmutePlayer(input);
-            Bukkit.broadcastMessage(ModelManager.getInstance().getCurrentModel().removeMute(input));
+            Utils.broadcast(ModelManager.getInstance().getCurrentModel().removeMute(input));
             clearWizard(player);
             break;
     }
@@ -976,7 +976,7 @@ private void handleMuteWizard(Player player, String input) {
         long duration = time.equalsIgnoreCase("auto") ? calculateAutoBanTime(playerID) : TimeUtils.parseTime(time);
         MuteEntry entry = new MuteEntry(playerID, player.getName(), TimeUtils.calculateEndTime(duration), input);
         plugin.getMuteManager().mutePlayer(entry);
-        Bukkit.broadcastMessage(ModelManager.getInstance().getCurrentModel().addMute(playerID, input));
+        Utils.broadcast(ModelManager.getInstance().getCurrentModel().addMute(playerID, input));
         clearWizard(player);
     }
 }

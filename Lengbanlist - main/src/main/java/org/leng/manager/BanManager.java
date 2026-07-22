@@ -7,6 +7,8 @@ import org.leng.models.Model;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.utils.TimeUtils;
+import org.leng.utils.SchedulerUtils;
+import org.leng.utils.Utils;
 
 import java.util.List;
 
@@ -39,14 +41,14 @@ public class BanManager {
                     TimeUtils.formatDuration(durationMillis),
                     TimeUtils.timestampToReadable(banEntry.getEndTime())
             );
-            targetPlayer.kickPlayer(kickMessage);
+            SchedulerUtils.runTask(plugin, targetPlayer, () -> targetPlayer.kickPlayer(kickMessage));
         }
 
         if (banResult != null && !banResult.isEmpty()) {
-            Bukkit.broadcastMessage(banResult);
+            Utils.broadcast(banResult);
         } else {
             String defaultMessage = String.format("§c玩家 %s 已被封禁！原因：%s，时长：%s", banEntry.getTarget(), banEntry.getReason(), TimeUtils.formatDuration(durationMillis));
-            Bukkit.broadcastMessage(defaultMessage);
+            Utils.broadcast(defaultMessage);
         }
     }
 
@@ -59,10 +61,10 @@ public class BanManager {
         updateIpBan(banIpEntry);
 
         if (banIpResult != null && !banIpResult.isEmpty()) {
-            Bukkit.broadcastMessage(banIpResult);
+            Utils.broadcast(banIpResult);
         } else {
             String defaultMessage = String.format("§cIP %s 已被封禁！原因：%s，时长：%s", banIpEntry.getIp(), banIpEntry.getReason(), TimeUtils.formatDuration(durationMillis));
-            Bukkit.broadcastMessage(defaultMessage);
+            Utils.broadcast(defaultMessage);
         }
     }
 
@@ -74,9 +76,9 @@ public class BanManager {
 
         if (removed) {
             if (unbanResult != null && !unbanResult.isEmpty()) {
-                Bukkit.broadcastMessage(unbanResult);
+                Utils.broadcast(unbanResult);
             } else {
-                Bukkit.broadcastMessage(String.format("§a玩家 %s 已被解封", target));
+                Utils.broadcast(String.format("§a玩家 %s 已被解封", target));
             }
         }
     }
@@ -89,9 +91,9 @@ public class BanManager {
 
         if (removed) {
             if (unbanIpResult != null && !unbanIpResult.isEmpty()) {
-                Bukkit.broadcastMessage(unbanIpResult);
+                Utils.broadcast(unbanIpResult);
             } else {
-                Bukkit.broadcastMessage(String.format("§aIP %s 已被解封", ip));
+                Utils.broadcast(String.format("§aIP %s 已被解封", ip));
             }
         }
     }
@@ -120,7 +122,7 @@ public class BanManager {
                 if (ban.getTime() <= currentTime) {
                     unbanPlayer(player.getName());
                 } else {
-                    player.kickPlayer("您仍处于封禁状态，原因：" + ban.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(ban.getTime()));
+                    SchedulerUtils.runTask(plugin, player, () -> player.kickPlayer("您仍处于封禁状态，原因：" + ban.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(ban.getTime())));
                     return;
                 }
             }
@@ -134,7 +136,7 @@ public class BanManager {
                 if (banIp.getTime() <= currentTime) {
                     unbanIp(ip);
                 } else {
-                    player.kickPlayer("您的 IP 仍处于封禁状态，原因：" + banIp.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(banIp.getTime()));
+                    SchedulerUtils.runTask(plugin, player, () -> player.kickPlayer("您的 IP 仍处于封禁状态，原因：" + banIp.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(banIp.getTime())));
                 }
             }
         }

@@ -1,6 +1,5 @@
 package org.leng.commands;
 
-import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -48,7 +47,7 @@ public class MuteCommand implements CommandExecutor {
         }
         MuteEntry entry = new MuteEntry(target, sender.getName(), org.leng.utils.TimeUtils.calculateEndTime(duration), reason);
         plugin.getMuteManager().mutePlayer(entry);
-        Bukkit.broadcastMessage(ModelManager.getInstance().getCurrentModel().addMute(target, reason));
+        Utils.broadcast(ModelManager.getInstance().getCurrentModel().addMute(target, reason));
         return true;
     }
 

@@ -7,6 +7,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.models.Model;
+import org.leng.utils.SchedulerUtils;
 import org.leng.utils.Utils;
 import java.util.Arrays;
 
@@ -48,7 +49,7 @@ public class KickCommand implements CommandExecutor {
         Model model = plugin.getModelManager().getCurrentModel();
 
 
-        target.kickPlayer(model.getKickMessage(reason));
+        SchedulerUtils.runTask(plugin, target, () -> target.kickPlayer(model.getKickMessage(reason)));
         Utils.sendMessage(sender, plugin.prefix() + model.onKickSuccess(target.getName(), reason));
 
         return true;

@@ -32,7 +32,7 @@ public class ChatListener implements Listener {
         if (player.hasMetadata("lengbanlist-action")) {
             event.setCancelled(true);
             String wizardMessage = event.getMessage();
-            SchedulerUtils.runTask(plugin, () -> {
+            SchedulerUtils.runTask(plugin, player, () -> {
                 org.bukkit.command.CommandExecutor executor = plugin.getCommand("lban").getExecutor();
                 if (executor instanceof LengbanlistCommand) {
                     ((LengbanlistCommand) executor).handleChatWizard(player, wizardMessage);
@@ -76,7 +76,7 @@ public class ChatListener implements Listener {
             }
 
             player.sendMessage(plugin.prefix() + "§c警告：你的消息中包含违禁词，已被替换为「喵」。");
-            SchedulerUtils.runTask(plugin, () -> {
+            SchedulerUtils.runTask(plugin, player, () -> {
                 WarnCommand warnCommand = new WarnCommand(plugin);
                 warnCommand.onCommand(player, null, "warn", new String[]{player.getName(), "使用违禁词"});
             });
@@ -86,7 +86,7 @@ public class ChatListener implements Listener {
             String adminMessage = plugin.prefix() + "请检测该句是否违规：" + message + " 【正常】【违规】";
             for (Player admin : Bukkit.getOnlinePlayers()) {
                 if (admin.isOp()) {
-                    admin.spigot().sendMessage(
+                    org.leng.utils.Utils.sendMessage(admin,
                             Utils.clickableText("【正常】", "/allowmsg " + player.getName()),
                             Utils.clickableText("【违规】", "/warnmsg " + player.getName())
                     );

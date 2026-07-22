@@ -1,11 +1,14 @@
 package org.leng.utils;
 
 import org.bukkit.Bukkit;
-import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Entity;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.leng.Lengbanlist;
 
 import java.lang.reflect.Method;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 
@@ -24,6 +27,10 @@ public class SchedulerUtils {
     private static Method globalRunAtFixedRate;
     private static Method asyncRunNow;
     private static Method asyncRunDelayed;
+    private static Method asyncRunAtFixedRate;
+    private static Method entityGetScheduler;
+    private static Method entityRun;
+    private static Method entityRunDelayed;
     private static Method scheduledTaskCancel;
 
     private SchedulerUtils() {}
@@ -46,13 +53,19 @@ public class SchedulerUtils {
             scheduledTaskCancel = scheduledTaskClass.getMethod("cancel");
 
             Class<?> globalClass = globalRegionScheduler.getClass();
-            globalRun = globalClass.getMethod("run", JavaPlugin.class, Consumer.class);
-            globalRunDelayed = globalClass.getMethod("runDelayed", JavaPlugin.class, Consumer.class, long.class);
-            globalRunAtFixedRate = globalClass.getMethod("runAtFixedRate", JavaPlugin.class, Consumer.class, long.class, long.class);
+            globalRun = globalClass.getMethod("run", Plugin.class, Consumer.class);
+            globalRunDelayed = globalClass.getMethod("runDelayed", Plugin.class, Consumer.class, long.class);
+            globalRunAtFixedRate = globalClass.getMethod("runAtFixedRate", Plugin.class, Consumer.class, long.class, long.class);
 
             Class<?> asyncClass = asyncScheduler.getClass();
-            asyncRunNow = asyncClass.getMethod("runNow", JavaPlugin.class, Consumer.class);
-            asyncRunDelayed = asyncClass.getMethod("runDelayed", JavaPlugin.class, Consumer.class, long.class);
+            asyncRunNow = asyncClass.getMethod("runNow", Plugin.class, Consumer.class);
+            asyncRunDelayed = asyncClass.getMethod("runDelayed", Plugin.class, Consumer.class, long.class, TimeUnit.class);
+            asyncRunAtFixedRate = asyncClass.getMethod("runAtFixedRate", Plugin.class, Consumer.class, long.class, long.class, TimeUnit.class);
+
+            entityGetScheduler = Entity.class.getMethod("getScheduler");
+            Class<?> entitySchedulerClass = Class.forName("io.papermc.paper.threadedregions.scheduler.EntityScheduler");
+            entityRun = entitySchedulerClass.getMethod("run", Plugin.class, Consumer.class, Runnable.class);
+            entityRunDelayed = entitySchedulerClass.getMethod("runDelayed", Plugin.class, Consumer.class, Runnable.class, long.class);
 
             plugin.getLogger().info("Folia 调度器已初始化（反射缓存模式）");
         } catch (Exception e) {
@@ -73,12 +86,32 @@ public class SchedulerUtils {
                 return new SchedulerTask(result);
             } catch (Exception e) {
                 plugin.getLogger().warning("Folia global run failed: " + e.getMessage());
-                task.run();
                 return new SchedulerTask((Object) null);
             }
         }
         BukkitTask bt = Bukkit.getScheduler().runTask(plugin, task);
         return new SchedulerTask(bt);
+    }
+
+    public static SchedulerTask runTask(Lengbanlist plugin, CommandSender sender, Runnable task) {
+        if (sender instanceof Entity) {
+            return runTask(plugin, (Entity) sender, task);
+        }
+        return runTask(plugin, task);
+    }
+
+    public static SchedulerTask runTask(Lengbanlist plugin, Entity entity, Runnable task) {
+        if (folia && entity != null) {
+            try {
+                Object scheduler = entityGetScheduler.invoke(entity);
+                Object result = entityRun.invoke(scheduler, plugin, (Consumer<Object>) t -> task.run(), (Runnable) () -> {});
+                return new SchedulerTask(result);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Folia entity run failed: " + e.getMessage());
+                return new SchedulerTask((Object) null);
+            }
+        }
+        return runTask(plugin, task);
     }
 
     public static SchedulerTask runTaskLater(Lengbanlist plugin, Runnable task, long delayTicks) {
@@ -93,6 +126,20 @@ public class SchedulerUtils {
         }
         BukkitTask bt = Bukkit.getScheduler().runTaskLater(plugin, task, delayTicks);
         return new SchedulerTask(bt);
+    }
+
+    public static SchedulerTask runTaskLater(Lengbanlist plugin, Entity entity, Runnable task, long delayTicks) {
+        if (folia && entity != null) {
+            try {
+                Object scheduler = entityGetScheduler.invoke(entity);
+                Object result = entityRunDelayed.invoke(scheduler, plugin, (Consumer<Object>) t -> task.run(), (Runnable) () -> {}, delayTicks);
+                return new SchedulerTask(result);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Folia entity runDelayed failed: " + e.getMessage());
+                return new SchedulerTask((Object) null);
+            }
+        }
+        return runTaskLater(plugin, task, delayTicks);
     }
 
     public static SchedulerTask runTaskTimer(Lengbanlist plugin, Runnable task, long delayTicks, long periodTicks) {
@@ -115,8 +162,7 @@ public class SchedulerUtils {
             try {
                 asyncRunNow.invoke(asyncScheduler, plugin, (Consumer<Object>) t -> task.run());
             } catch (Exception e) {
-                plugin.getLogger().warning("Folia async runNow failed, running sync: " + e.getMessage());
-                task.run();
+                plugin.getLogger().warning("Folia async runNow failed: " + e.getMessage());
             }
         } else {
             Bukkit.getScheduler().runTaskAsynchronously(plugin, task);
@@ -126,7 +172,7 @@ public class SchedulerUtils {
     public static void runAsyncDelayed(Lengbanlist plugin, Runnable task, long delayMs) {
         if (folia) {
             try {
-                asyncRunDelayed.invoke(asyncScheduler, plugin, (Consumer<Object>) t -> task.run(), delayMs);
+                asyncRunDelayed.invoke(asyncScheduler, plugin, (Consumer<Object>) t -> task.run(), delayMs, TimeUnit.MILLISECONDS);
             } catch (Exception e) {
                 plugin.getLogger().warning("Folia async runDelayed failed: " + e.getMessage());
             }
@@ -138,66 +184,31 @@ public class SchedulerUtils {
 
     public static SchedulerTask runTaskTimerAsynchronously(Lengbanlist plugin, Runnable task, long delayTicks, long periodTicks) {
         if (folia) {
-            return new SchedulerTask(new FoliaAsyncRepeatingTask(plugin, task, delayTicks, periodTicks));
+            try {
+                Object result = asyncRunAtFixedRate.invoke(asyncScheduler, plugin, (Consumer<Object>) t -> task.run(), delayTicks * 50, periodTicks * 50, TimeUnit.MILLISECONDS);
+                return new SchedulerTask(result);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Folia async runAtFixedRate failed: " + e.getMessage());
+                return new SchedulerTask((Object) null);
+            }
         }
         BukkitTask bt = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, task, delayTicks, periodTicks);
         return new SchedulerTask(bt);
-    }
-
-    private static class FoliaAsyncRepeatingTask {
-        private volatile boolean cancelled;
-        private final Lengbanlist plugin;
-        private final Runnable task;
-        private final long periodMs;
-
-        FoliaAsyncRepeatingTask(Lengbanlist plugin, Runnable task, long delayTicks, long periodTicks) {
-            this.plugin = plugin;
-            this.task = task;
-            this.periodMs = periodTicks * 50;
-            scheduleNext(delayTicks * 50);
-        }
-
-        private void scheduleNext(long delayMs) {
-            if (cancelled) return;
-            try {
-                asyncRunDelayed.invoke(asyncScheduler, plugin, (Consumer<Object>) t -> {
-                    if (!cancelled) {
-                        task.run();
-                        scheduleNext(periodMs);
-                    }
-                }, delayMs);
-            } catch (Exception e) {
-                plugin.getLogger().warning("Folia async repeating task failed: " + e.getMessage());
-            }
-        }
-
-        void cancel() {
-            cancelled = true;
-        }
     }
 
 
     public static class SchedulerTask {
         private final Object foliaTask;
         private final BukkitTask bukkitTask;
-        private final FoliaAsyncRepeatingTask foliaRepeatingTask;
 
         SchedulerTask(Object foliaTask) {
             this.foliaTask = foliaTask;
             this.bukkitTask = null;
-            this.foliaRepeatingTask = null;
         }
 
         SchedulerTask(BukkitTask bukkitTask) {
             this.foliaTask = null;
             this.bukkitTask = bukkitTask;
-            this.foliaRepeatingTask = null;
-        }
-
-        SchedulerTask(FoliaAsyncRepeatingTask foliaRepeatingTask) {
-            this.foliaTask = null;
-            this.bukkitTask = null;
-            this.foliaRepeatingTask = foliaRepeatingTask;
         }
 
         public void cancel() {
@@ -208,9 +219,6 @@ public class SchedulerUtils {
             }
             if (bukkitTask != null) {
                 bukkitTask.cancel();
-            }
-            if (foliaRepeatingTask != null) {
-                foliaRepeatingTask.cancel();
             }
         }
     }

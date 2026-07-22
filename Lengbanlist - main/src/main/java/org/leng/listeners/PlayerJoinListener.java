@@ -53,7 +53,7 @@ public class PlayerJoinListener implements Listener {
                     boolean isVpn = plugin.getIpAssociationManager().isVpnIp(ip);
                     if (isVpn) {
                         String action = plugin.getConfig().getString("vpn-detection.action", "warn");
-                        SchedulerUtils.runTask(plugin, () -> handleVpnDetection(player, ip, action));
+                        SchedulerUtils.runTask(plugin, player, () -> handleVpnDetection(player, ip, action));
                     }
                 });
             }
