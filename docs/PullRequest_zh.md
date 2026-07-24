@@ -14,7 +14,7 @@
 
 1. **克隆仓库**：
    ```bash
-   git clone https://github.com/LengMC/Lengbanlist.git
+   git clone https://github.com/Serendisand/Lengbanlist.git
    cd Lengbanlist
 
 2. **提交规范**
