@@ -14,7 +14,7 @@
 **[Discord](https://discord.gg/aeWjf7vD)**
 </div>
 
-![Lengbanlist](https://github.com/LengMC/Lengbanlist/blob/main/Photos/Lengbanlist.png)
+![Lengbanlist](https://github.com/Serendisand/Lengbanlist/blob/main/Photos/Lengbanlist.png)
 ![Lengbanlist](https://bstats.org/signatures/bukkit/Lengbanlist.svg)
 
 ## What is this?
