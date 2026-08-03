@@ -6,20 +6,30 @@ import org.leng.Lengbanlist;
 import java.util.List;
 
 public class SaveIP {
-    private static boolean isRealIP(String ip) {
-        if (ip != null) {
-            if (ip.startsWith("10.") || ip.startsWith("172.") || ip.startsWith("192.168.") || ip.startsWith("127.")) {
-                return false;
-            }
-            if (ip.equalsIgnoreCase("::1")) {
-                return false;
-            }
-            if (ip.startsWith("fd")) {
-                return false;
-            }
-            return true;
+    public static boolean isRealIP(String ip) {
+        if (ip == null) return false;
+        if (ip.startsWith("10.") || ip.startsWith("127.") || ip.startsWith("192.168.")) {
+            return false;
         }
-        return false;
+        if (ip.startsWith("172.")) {
+            int dot = ip.indexOf('.', 4);
+            if (dot > 0) {
+                try {
+                    int secondOctet = Integer.parseInt(ip.substring(4, dot));
+                    if (secondOctet >= 16 && secondOctet <= 31) {
+                        return false;
+                    }
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+        if (ip.equalsIgnoreCase("::1")) {
+            return false;
+        }
+        if (ip.startsWith("fd") || ip.startsWith("fc")) {
+            return false;
+        }
+        return true;
     }
 
     public static void saveIP(Player player) {

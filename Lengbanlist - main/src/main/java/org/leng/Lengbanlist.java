@@ -258,6 +258,7 @@ public void onDisable() {
     private void startHistoryCleanupTask() {
         historyCleanupTask = SchedulerUtils.runTaskTimerAsynchronously(this, () -> {
             databaseManager.deactivateExpiredBans();
+            databaseManager.cleanupOldBans(Math.max(1, getConfig().getInt("history-retention-days", 7)));
         }, 6000L, 72000L);
     }
 

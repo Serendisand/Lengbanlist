@@ -5,7 +5,8 @@ import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
 public class TimeUtils {
-    private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    private static final ThreadLocal<SimpleDateFormat> DATE_FORMAT =
+            ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));
 
 
     public static long secondsToMillis(long seconds) {
@@ -109,7 +110,7 @@ public class TimeUtils {
 
     public static String timestampToReadable(long timestamp) {
         if (timestamp == Long.MAX_VALUE) return "永久";
-        return DATE_FORMAT.format(new Date(timestamp));
+        return DATE_FORMAT.get().format(new Date(timestamp));
     }
 
 

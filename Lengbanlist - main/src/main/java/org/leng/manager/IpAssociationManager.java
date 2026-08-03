@@ -116,10 +116,6 @@ public class IpAssociationManager {
     }
 
     public static boolean isRealIp(String ip) {
-        if (ip == null) return false;
-        if (ip.startsWith("10.") || ip.startsWith("172.") || ip.startsWith("192.168.") || ip.startsWith("127.")) return false;
-        if (ip.equalsIgnoreCase("::1")) return false;
-        if (ip.startsWith("fd")) return false;
-        return true;
+        return org.leng.utils.SaveIP.isRealIP(ip);
     }
 }
