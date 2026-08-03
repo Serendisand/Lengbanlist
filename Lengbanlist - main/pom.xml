@@ -91,7 +91,7 @@
 
     <build>
         <defaultGoal>clean package</defaultGoal>
-        <finalName>Lengbanlist - ${project.version}</finalName>
+        <finalName>Lengbanlist-${project.version}</finalName>
         <resources>
             <resource>
                 <directory>src/main/resources</directory>

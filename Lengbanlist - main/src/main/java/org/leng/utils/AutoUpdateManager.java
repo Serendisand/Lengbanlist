@@ -39,9 +39,9 @@ public class AutoUpdateManager {
     private String getPluginBaseName(String fileName) {
 
 
-        if (fileName.matches(".* - \\d+(\\.\\d+)*\\.jar$")) {
+        if (fileName.matches("Lengbanlist-\\d+(\\.\\d+)*\\.jar$")) {
 
-            return fileName.substring(0, fileName.lastIndexOf(" - ")) + ".jar";
+            return fileName.substring(0, fileName.lastIndexOf("-")) + ".jar";
         }
 
         return fileName;
@@ -74,13 +74,13 @@ public class AutoUpdateManager {
 
 
         String newFileName;
-        if (currentFileName.contains(" - ")) {
+        if (currentFileName.startsWith("Lengbanlist-")) {
 
-            String namePart = currentFileName.substring(0, currentFileName.lastIndexOf(" - "));
-            newFileName = namePart + " - " + version + ".jar";
+            String namePart = currentFileName.substring(0, currentFileName.lastIndexOf("-"));
+            newFileName = namePart + version + ".jar";
         } else {
 
-            newFileName = "Lengbanlist - " + version + ".jar";
+            newFileName = "Lengbanlist-" + version + ".jar";
         }
 
 

@@ -428,10 +428,6 @@ private void unregisterCommands() {
         }
     }
 
-    public ChestUIListener getChestUIListener() {
-        return new ChestUIListener(this);
-    }
-
     public String getHitokoto() {
         try {
             URL url = new URL("https://v1.hitokoto.cn/");

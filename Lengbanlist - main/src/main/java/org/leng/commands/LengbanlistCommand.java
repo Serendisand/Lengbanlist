@@ -27,6 +27,7 @@ import org.leng.utils.SchedulerUtils;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
 import org.leng.utils.SaveIP;
+import org.leng.utils.IpMatcher;
 
 import java.io.File;
 import java.net.HttpURLConnection;
@@ -664,6 +665,14 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 Sound.BLOCK_NOTE_BLOCK_SNARE,
                 player
         );
+        ItemStack ipBan = createItem(
+                Material.LAVA_BUCKET,
+                "§c封禁IP",
+                "§7/lban ipban",
+                "§7封禁一个IP地址",
+                Sound.BLOCK_NOTE_BLOCK_PLING,
+                player
+        );
         ItemStack help = createItem(
                 Material.BOOK,
                 "§a帮助信息",
@@ -719,6 +728,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
         chest.setItem(16, reload);
         chest.setItem(20, addBan);
         chest.setItem(22, removeBan);
+        chest.setItem(19, ipBan);
         chest.setItem(24, help);
         chest.setItem(28, model);
         chest.setItem(30, mute);
@@ -824,6 +834,9 @@ public void onInventoryClick(InventoryClickEvent event) {
             case "/lban remove":
                 startChatWizard(player, "unban");
                 break;
+            case "/lban ipban":
+                startChatWizard(player, "ipban");
+                break;
             case "/lban model":
                 ModelManager.getInstance().openModelSelectionUI(player);
                 break;
@@ -869,12 +882,22 @@ public void startChatWizard(Player player, String action) {
                 return;
             }
             break;
+        case "ipban":
+            if (!plugin.isFeatureEnabled("ban-ip")) {
+                plugin.sendFeatureDisabled(player);
+                return;
+            }
+            break;
     }
     player.setMetadata("lengbanlist-action", new org.bukkit.metadata.FixedMetadataValue(plugin, action));
     switch (action) {
         case "ban":
             player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "playerID"));
             Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f玩家名或IP§e：");
+            break;
+        case "ipban":
+            player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "ip"));
+            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入要§f封禁的IP地址§e：");
             break;
         case "unban":
             Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入要§f解封的玩家名或IP§e：");
@@ -934,6 +957,14 @@ public void handleChatWizard(Player player, String input) {
             Utils.broadcast(ModelManager.getInstance().getCurrentModel().removeMute(input));
             clearWizard(player);
             break;
+        case "ipban":
+            if (!plugin.isFeatureEnabled("ban-ip")) {
+                plugin.sendFeatureDisabled(player);
+                clearWizard(player);
+                return;
+            }
+            handleIPBanWizard(player, input);
+            break;
     }
 }
 
@@ -977,6 +1008,46 @@ private void handleBanWizard(Player player, String input) {
         } else {
             plugin.getBanManager().banPlayer(new BanEntry(playerID, player.getName(), endTime, input, isAuto));
         }
+        clearWizard(player);
+    }
+}
+
+private void handleIPBanWizard(Player player, String input) {
+    String step = player.getMetadata("lengbanlist-step").get(0).asString();
+    if (step.equals("ip")) {
+        if (!IpMatcher.isIpv4(input)) {
+            Utils.sendMessage(player, plugin.prefix() + "§cIP格式无效喵，请输入合法的 IPv4 地址。");
+            return;
+        }
+        player.setMetadata("lengbanlist-playerID", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
+        player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "time"));
+        Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f封禁时间§e（如：1d, 7d, forever, auto）：");
+    } else if (step.equals("time")) {
+        if (!TimeUtils.isValidTime(input)) {
+            Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效喵，请使用：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever, auto");
+            return;
+        }
+        player.setMetadata("lengbanlist-time", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
+        player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "reason"));
+        Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f封禁原因§e：");
+    } else if (step.equals("reason")) {
+        String ip = player.getMetadata("lengbanlist-playerID").get(0).asString();
+        String time = player.getMetadata("lengbanlist-time").get(0).asString();
+        long duration;
+        boolean isAuto = false;
+        if (time.equalsIgnoreCase("auto")) {
+            isAuto = true;
+            duration = TimeUtils.daysToMillis(7);
+        } else {
+            duration = TimeUtils.parseTime(time);
+        }
+        if (duration <= 0) {
+            Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效喵。");
+            return;
+        }
+        long endTime = TimeUtils.calculateEndTime(duration);
+        plugin.getBanManager().banIp(new BanIpEntry(ip, player.getName(), endTime, input, isAuto));
+        Utils.sendMessage(player, plugin.prefix() + "§a封禁IP成功：" + ip);
         clearWizard(player);
     }
 }
