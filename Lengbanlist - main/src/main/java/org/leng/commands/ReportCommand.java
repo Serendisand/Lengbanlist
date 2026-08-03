@@ -78,6 +78,13 @@ public class ReportCommand implements CommandExecutor {
         return true;
     }
 
+    private String formatCooldown(int seconds) {
+        if (seconds <= 0) return "";
+        if (seconds % 3600 == 0) return (seconds / 3600) + "小时";
+        if (seconds % 60 == 0) return (seconds / 60) + "分钟";
+        return seconds + "秒";
+    }
+
     private void handleAccept(Player player, String reportId) {
         ReportEntry report = plugin.getReportManager().getReport(reportId);
         if (report == null) {
@@ -87,6 +94,7 @@ public class ReportCommand implements CommandExecutor {
 
         report.setStatus("受理中");
         plugin.getReportManager().updateReport(report);
+        plugin.getAuditManager().log("受理举报", player.getName(), report.getTarget(), "编号: " + report.getId() + " - " + report.getReason());
 
         Player reporter = Bukkit.getPlayer(report.getReporter());
         if (reporter != null) {
@@ -104,6 +112,7 @@ public class ReportCommand implements CommandExecutor {
 
         report.setStatus("已关闭");
         plugin.getReportManager().updateReport(report);
+        plugin.getAuditManager().log("关闭举报", player.getName(), report.getTarget(), "编号: " + report.getId() + " - " + report.getReason());
 
         Player reporter = Bukkit.getPlayer(report.getReporter());
         if (reporter != null) {
@@ -121,16 +130,18 @@ public class ReportCommand implements CommandExecutor {
         }
         report.setStatus("已读");
         plugin.getReportManager().updateReport(report);
+        plugin.getAuditManager().log("已读举报", player.getName(), report.getTarget(), "编号: " + reportId);
         Utils.sendMessage(player, plugin.prefix() + "§a已标记举报 " + reportId + " 为已读。");
     }
 
     private void handleReportSubmit(Player reporter, String target, String reason) {
-
-        long oneDayAgo = System.currentTimeMillis() - 24L * 60 * 60 * 1000;
+        int cooldownSeconds = plugin.getConfig().getInt("report-cooldown-seconds", 86400);
+        long cooldownMillis = Math.max(0, (long) cooldownSeconds * 1000);
+        long cutoff = System.currentTimeMillis() - cooldownMillis;
         java.util.List<ReportEntry> recentReports = plugin.getReportManager().getReportsByReporterAndTarget(reporter.getName(), target);
         for (ReportEntry r : recentReports) {
-            if (r.getTimestamp() > oneDayAgo && !"已关闭".equals(r.getStatus())) {
-                Utils.sendMessage(reporter, plugin.prefix() + "§c你在24小时内已举报过该玩家，且该举报尚未处理完毕，请耐心等待！");
+            if (r.getTimestamp() > cutoff && !"已关闭".equals(r.getStatus())) {
+                Utils.sendMessage(reporter, plugin.prefix() + "§c你在" + formatCooldown(cooldownSeconds) + "内已举报过该玩家，且该举报尚未处理完毕，请耐心等待！");
                 return;
             }
         }
@@ -138,6 +149,7 @@ public class ReportCommand implements CommandExecutor {
         String reportId = UUID.randomUUID().toString().substring(0, 8);
         ReportEntry report = new ReportEntry(target, reporter.getName(), reason, reportId, System.currentTimeMillis(), "未处理");
         plugin.getReportManager().addReport(report);
+        plugin.getAuditManager().log("提交举报", reporter.getName(), target, reason);
         Utils.sendMessage(reporter, plugin.prefix() + "§a举报已提交: " + target + " - " + reason + "，举报编号：" + reportId);
 
 

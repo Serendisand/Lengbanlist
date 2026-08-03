@@ -8,6 +8,7 @@ import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.SchedulerUtils;
+import org.leng.utils.IpMatcher;
 import org.leng.utils.Utils;
 
 import java.util.List;
@@ -29,6 +30,7 @@ public class BanManager {
         Model currentModel = plugin.getModelManager().getCurrentModel();
         String banResult = currentModel.addBan(banEntry.getTarget(), durationDays, banEntry.getReason());
         updateBan(banEntry);
+        plugin.getAuditManager().log("封禁", banEntry.getStaff(), banEntry.getTarget(), banEntry.getReason());
 
         Player targetPlayer = Bukkit.getPlayer(banEntry.getTarget());
         if (targetPlayer != null) {
@@ -59,6 +61,7 @@ public class BanManager {
         Model currentModel = plugin.getModelManager().getCurrentModel();
         String banIpResult = currentModel.addBanIp(banIpEntry.getIp(), durationDays, banIpEntry.getReason());
         updateIpBan(banIpEntry);
+        plugin.getAuditManager().log("封禁IP", banIpEntry.getStaff(), banIpEntry.getIp(), banIpEntry.getReason());
 
         if (banIpResult != null && !banIpResult.isEmpty()) {
             Utils.broadcast(banIpResult);
@@ -69,12 +72,17 @@ public class BanManager {
     }
 
     public void unbanPlayer(String target) {
+        unbanPlayer(target, null);
+    }
+
+    public void unbanPlayer(String target, String actor) {
         Model currentModel = plugin.getModelManager().getCurrentModel();
         String unbanResult = currentModel.removeBan(target);
         boolean removed = isPlayerBanned(target);
         db.deactivateBan(target);
 
         if (removed) {
+            plugin.getAuditManager().log("解封", actor, target, "");
             if (unbanResult != null && !unbanResult.isEmpty()) {
                 Utils.broadcast(unbanResult);
             } else {
@@ -84,12 +92,17 @@ public class BanManager {
     }
 
     public void unbanIp(String ip) {
+        unbanIp(ip, null);
+    }
+
+    public void unbanIp(String ip, String actor) {
         Model currentModel = plugin.getModelManager().getCurrentModel();
         String unbanIpResult = currentModel.removeBanIp(ip);
         boolean removed = isIpBanned(ip);
         db.deactivateIpBan(ip);
 
         if (removed) {
+            plugin.getAuditManager().log("解封IP", actor, ip, "");
             if (unbanIpResult != null && !unbanIpResult.isEmpty()) {
                 Utils.broadcast(unbanIpResult);
             } else {
@@ -130,11 +143,11 @@ public class BanManager {
 
         if (plugin.isFeatureEnabled("ban-ip") && player.getAddress() != null) {
             String ip = player.getAddress().getAddress().getHostAddress();
-            BanIpEntry banIp = getBanIpEntry(ip);
+            BanIpEntry banIp = getMatchingIpBan(ip);
             if (banIp != null) {
                 long currentTime = System.currentTimeMillis();
                 if (banIp.getTime() <= currentTime) {
-                    unbanIp(ip);
+                    unbanIp(banIp.getIp());
                 } else {
                     SchedulerUtils.runTask(plugin, player, () -> player.kickPlayer("您的 IP 仍处于封禁状态，原因：" + banIp.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(banIp.getTime())));
                 }
@@ -171,6 +184,23 @@ public class BanManager {
             }
         }
         return true;
+    }
+
+    public boolean isValidIpOrCidr(String value) {
+        return IpMatcher.isValidIpOrCidr(value);
+    }
+
+    public BanIpEntry getMatchingIpBan(String ip) {
+        if (ip == null) return null;
+        for (BanIpEntry entry : getBanIpList()) {
+            if (entry.getIp().equals(ip)) return entry;
+            if (IpMatcher.cidrMatches(ip, entry.getIp())) return entry;
+        }
+        return null;
+    }
+
+    public boolean isIpBannedByCidr(String ip) {
+        return getMatchingIpBan(ip) != null;
     }
 
     public boolean isBanned(String player, String reason) {

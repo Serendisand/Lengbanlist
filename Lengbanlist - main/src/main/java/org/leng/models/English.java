@@ -39,6 +39,7 @@ public class English implements Model {
         Utils.sendMessage(sender, "§7  = §b/history");
         Utils.sendMessage(sender, "§2✦ §b/report <player> <reason> §7- §3Report a player");
         Utils.sendMessage(sender, "§2✦ §b/lban getip <player> §7- §3Query player IP address");
+        Utils.sendMessage(sender, "§2✦ §b/lban audit [operator] §7- §3View operator audit logs");
         Utils.sendMessage(sender, "§6§l◆ Miscellaneous");
         Utils.sendMessage(sender, "§2✦ §b/lban list §7- §3View ban list");
         Utils.sendMessage(sender, "§2✦ §b/lban list-mute §7- §3View mute list");

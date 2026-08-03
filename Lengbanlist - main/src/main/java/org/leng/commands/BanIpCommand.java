@@ -6,6 +6,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
+import org.leng.utils.IpMatcher;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
 
@@ -83,20 +84,14 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
     }
 
     private boolean isValidIp(String ip) {
+        if (ip == null || ip.isEmpty()) return false;
         if (ip.equalsIgnoreCase("127.0.0.1")) return false;
-
-        String[] parts = ip.split("\\.");
-        if (parts.length != 4) return false;
-
-        try {
-            for (String part : parts) {
-                int num = Integer.parseInt(part);
-                if (num < 0 || num > 255) return false;
-            }
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
+        if (IpMatcher.isIpv4(ip)) return !ip.startsWith("127.");
+        if (IpMatcher.isCidr(ip)) {
+            String base = ip.substring(0, ip.indexOf('/'));
+            return !base.startsWith("127.");
         }
+        return false;
     }
 
     private long calculateAutoBanTime(String ip) {

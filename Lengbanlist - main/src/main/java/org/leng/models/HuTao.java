@@ -39,6 +39,7 @@ public void showHelp(CommandSender sender) {
     Utils.sendMessage(sender, "§7  = §b/history");
     Utils.sendMessage(sender, "§2✦ §b/report <玩家名> <原因> §7- §3发现捣乱的家伙？快举报给胡桃！");
     Utils.sendMessage(sender, "§2✦ §b/lban getip <玩家名> §7- §3查询玩家 IP 地址，看看谁在捣乱！");
+    Utils.sendMessage(sender, "§2✦ §b/lban audit [操作人] §7- §3查看审计日志，看看谁在捣乱！");
     Utils.sendMessage(sender, "§6§l◆ 杂项");
     Utils.sendMessage(sender, "§2✦ §b/lban list §7- §3查看封禁名单，这些家伙真是麻烦！");
     Utils.sendMessage(sender, "§2✦ §b/lban list-mute §7- §3查看禁言列表，看看谁被胡桃禁言了！");

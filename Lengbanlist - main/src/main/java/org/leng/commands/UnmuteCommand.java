@@ -28,7 +28,7 @@ public class UnmuteCommand implements CommandExecutor {
             Utils.sendMessage(sender, plugin.prefix() + "§c用法喵: /" + label + " <玩家名>");
             return true;
         }
-        plugin.getMuteManager().unmutePlayer(args[0]);
+        plugin.getMuteManager().unmutePlayer(args[0], sender.getName());
         Utils.broadcast(ModelManager.getInstance().getCurrentModel().removeMute(args[0]));
         return true;
     }

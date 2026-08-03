@@ -17,6 +17,7 @@ import org.bukkit.Sound;
 import org.leng.Lengbanlist;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
+import org.leng.object.AuditEntry;
 import org.leng.object.MuteEntry;
 import org.leng.object.ReportEntry;
 import org.leng.object.WarnEntry;
@@ -192,13 +193,13 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 }
                 if (args[1].contains(".")) {
                     if (plugin.getBanManager().isIpBanned(args[1])) {
-                        plugin.getBanManager().unbanIp(args[1]);
+                        plugin.getBanManager().unbanIp(args[1], sender.getName());
                     } else {
                         Utils.sendMessage(sender, plugin.prefix() + "§cIP " + args[1] + " 未被封禁或封禁已过期");
                     }
                 } else {
                     if (plugin.getBanManager().isPlayerBanned(args[1])) {
-                        plugin.getBanManager().unbanPlayer(args[1]);
+                        plugin.getBanManager().unbanPlayer(args[1], sender.getName());
                     } else {
                         Utils.sendMessage(sender, plugin.prefix() + "§c玩家 " + args[1] + " 未被封禁或封禁已过期");
                     }
@@ -343,7 +344,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     return true;
                 }
                 String unmuteTarget = args[1];
-                plugin.getMuteManager().unmutePlayer(unmuteTarget);
+                plugin.getMuteManager().unmutePlayer(unmuteTarget, sender.getName());
                 Utils.broadcast(currentModel.removeMute(unmuteTarget));
                 break;
             case "list-mute":
@@ -397,6 +398,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     }
                 }
                 if (!warnings.isEmpty()) {
+                    plugin.getAuditManager().log("取消警告", sender.getName(), unwarnTarget, "全部警告");
                     plugin.getWarnManager().checkUnbanIfNecessary(unwarnTarget);
                 }
                 Utils.sendMessage(sender, currentModel.removeWarn(unwarnTarget));
@@ -487,6 +489,27 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 }
                 String[] histArgs = Arrays.copyOfRange(args, 1, args.length);
                 return new HistoryCommand(plugin).onCommand(sender, this, "history", histArgs);
+            case "audit":
+                if (!plugin.isFeatureEnabled("audit")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
+                if (!sender.hasPermission("lengbanlist.audit")) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                    return true;
+                }
+                String auditFilter = args.length >= 2 ? args[1] : "";
+                List<AuditEntry> auditLogs = plugin.getAuditManager().getLogsByActor(auditFilter, 20);
+                if (auditLogs.isEmpty()) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c暂无审计记录" + (auditFilter.isEmpty() ? "" : " (操作人: " + auditFilter + ")"));
+                    return true;
+                }
+                Utils.sendMessage(sender, "§7--§bLengbanlist 审计日志" + (auditFilter.isEmpty() ? "" : " (操作人: §f" + auditFilter + "§b)") + "§7--");
+                for (AuditEntry auditEntry : auditLogs) {
+                    String mark = auditEntry.isSuccess() ? "§a[成功]" : "§c[失败]";
+                    Utils.sendMessage(sender, mark + " §7[" + TimeUtils.timestampToReadable(auditEntry.getTimestamp()) + "] §e" + auditEntry.getAction() + " §f" + auditEntry.getActor() + " → " + auditEntry.getTarget() + " §7" + auditEntry.getReason());
+                }
+                break;
             default:
                 Utils.sendMessage(sender, plugin.prefix() + "§c未知子命令喵: §f" + args[0] + "§c，输入 §f/lban help §c看看能用什么喵。");
                 break;
@@ -506,7 +529,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
             String prefix = args[0].toLowerCase();
             String[] subs = {"toggle", "a", "list", "reload", "add", "remove", "help", "open",
                     "getip", "model", "mute", "unmute", "list-mute", "warn", "unwarn",
-                    "report", "admin", "check", "info", "tp", "history"};
+                    "report", "admin", "check", "info", "tp", "history", "audit"};
             for (String s : subs) {
                 if (s.startsWith(prefix)) completions.add(s);
             }
@@ -521,6 +544,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 case "getip":
                 case "tp":
                 case "history":
+                case "audit":
                     for (Player p : Bukkit.getOnlinePlayers()) {
                         if (p.getName().toLowerCase().startsWith(prefix)) completions.add(p.getName());
                     }
@@ -886,9 +910,9 @@ public void handleChatWizard(Player player, String input) {
                 return;
             }
             if (input.contains(".")) {
-                plugin.getBanManager().unbanIp(input);
+                plugin.getBanManager().unbanIp(input, player.getName());
             } else {
-                plugin.getBanManager().unbanPlayer(input);
+                plugin.getBanManager().unbanPlayer(input, player.getName());
             }
             clearWizard(player);
             break;
@@ -906,7 +930,7 @@ public void handleChatWizard(Player player, String input) {
                 clearWizard(player);
                 return;
             }
-            plugin.getMuteManager().unmutePlayer(input);
+            plugin.getMuteManager().unmutePlayer(input, player.getName());
             Utils.broadcast(ModelManager.getInstance().getCurrentModel().removeMute(input));
             clearWizard(player);
             break;

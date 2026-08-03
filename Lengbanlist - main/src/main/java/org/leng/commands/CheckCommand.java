@@ -7,6 +7,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.OfflinePlayer;
 import org.leng.Lengbanlist;
+import org.leng.object.BanIpEntry;
+import org.leng.utils.IpMatcher;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
 
@@ -121,11 +123,23 @@ public class CheckCommand extends Command implements CommandExecutor {
 
     private void checkIpInfo(CommandSender sender, String ip) {
         boolean isBanned = plugin.getBanManager().isIpBanned(ip);
+        if (IpMatcher.isIpv4(ip) && plugin.getBanManager().isIpBannedByCidr(ip)) {
+            isBanned = true;
+        }
         List<String> associatedPlayers = plugin.getDatabaseManager().getPlayersByIpFromHistory(ip);
 
         Utils.sendMessage(sender, plugin.prefix() + "§aIP信息：");
         Utils.sendMessage(sender, plugin.prefix() + "§bIP: " + ip);
         Utils.sendMessage(sender, plugin.prefix() + "§b是否封禁: " + (isBanned ? "是" : "否"));
+
+        if (IpMatcher.isIpv4(ip)) {
+            for (BanIpEntry entry : plugin.getBanManager().getBanIpList()) {
+                if (IpMatcher.isCidr(entry.getIp()) && IpMatcher.cidrMatches(ip, entry.getIp())) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c命中网段封禁: §f" + entry.getIp() + " §7原因: " + entry.getReason() + " §7解封时间: " + TimeUtils.timestampToReadable(entry.getTime()));
+                }
+            }
+        }
+
         Utils.sendMessage(sender, plugin.prefix() + "§b关联玩家: " + (associatedPlayers.isEmpty() ? "无" : String.join(", ", associatedPlayers)));
     }
 

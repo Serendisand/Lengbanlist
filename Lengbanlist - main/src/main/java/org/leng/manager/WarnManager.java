@@ -21,6 +21,7 @@ public class WarnManager {
     public void warnPlayer(String player, String staff, String reason) {
         WarnEntry entry = new WarnEntry(player, staff, System.currentTimeMillis(), reason);
         db.upsertWarning(entry);
+        plugin.getAuditManager().log("警告", staff, player, reason);
         checkAutoBan(player);
     }
 
@@ -46,6 +47,7 @@ public class WarnManager {
             if (!entry.isRevoked()) {
                 entry.revoke();
                 db.updateWarningRevoked(entry.getId(), true);
+                plugin.getAuditManager().log("取消警告", null, target, "警告ID: " + entry.getId());
                 checkUnbanIfNecessary(target);
                 return true;
             }

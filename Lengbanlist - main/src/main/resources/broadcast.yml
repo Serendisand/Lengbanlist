@@ -1,5 +1,13 @@
 default-message: "§d⚝ §5§oServer守护灵 §d⚝ §f当前已筑起 §d§l%t §f道防火墙 §7(§f囚禁了 §d%s §7个捣蛋ID §d%i §7个分身IP§7) §c§n请做乖孩子哦~ §f如需解疑，来群里找窝→ §bxxxxxxx"
 
+# 广播消息列表（每次从列表中随机选取一条发送）
+# 若列表为空则回退到 default-message
+messages:
+  - "§d⚝ §5§oServer守护灵 §d⚝ §f当前已筑起 §d§l%t §f道防火墙 §7(§f囚禁了 §d%s §7个捣蛋ID §d%i §7个分身IP§7) §c§n请做乖孩子哦~ §f如需解疑，来群里找窝→ §bxxxxxxx"
+  - "§d⚝ §5§oServer守护灵 §d⚝ §f第 §d§l%t §f道防火墙已就位 §7(§d%s §7个ID，§d%i §7个IP) §f请做个乖孩子~"
+  - "§d⚝ §5§oServer守护灵 §d⚝ §f今日防线统计：§d%s §7个捣蛋ID，§d%i §7个分身IP，共筑 §d%t §f道防火墙 §f秩序由我们共同守护~"
+  - "§d⚝ §5§oServer守护灵 §d⚝ §f防火墙 §d§l%t §f道全开！§7(§d%s §7个ID，§d%i §7个IP) §f安心玩耍吧~"
+
 #可用变量：
 # %s 封禁玩家（ID），
 # %i 封禁IP 

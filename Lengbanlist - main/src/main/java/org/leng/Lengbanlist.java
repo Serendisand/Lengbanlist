@@ -31,6 +31,7 @@ public class Lengbanlist extends JavaPlugin {
     public BanManager banManager;
     public MuteManager muteManager;
     public WarnManager warnManager;
+    public AuditManager auditManager;
     public ReportManager reportManager;
     public IpAssociationManager ipAssociationManager;
     public WebServer webServer;
@@ -71,7 +72,20 @@ public void onLoad() {
         return;
     }
 
+    File configFile = new File(getDataFolder(), "config.yml");
+    boolean firstLoad = !configFile.exists();
     saveDefaultConfig();
+    if (firstLoad && getConfig().getBoolean("model-auto-detect", true)) {
+        String language = java.util.Locale.getDefault().getLanguage();
+        String detectedModel = language != null && language.toLowerCase().startsWith("zh") ? "Default" : "English";
+        getConfig().set("Model", detectedModel);
+        try {
+            getConfig().save(configFile);
+        } catch (IOException e) {
+            getLogger().warning("写入模型自动检测结果失败: " + e.getMessage());
+        }
+        getLogger().info("首次加载，根据系统语言（" + language + "）自动选择模型: " + detectedModel);
+    }
 
     databaseManager = new DatabaseManager(this);
     try {
@@ -87,6 +101,7 @@ public void onLoad() {
     banManager = new BanManager(this);
     muteManager = new MuteManager(this);
     warnManager = new WarnManager(this);
+    auditManager = new AuditManager(this);
     reportManager = new ReportManager(this);
     ipAssociationManager = new IpAssociationManager(this);
     webServer = new WebServer(this);
@@ -213,6 +228,11 @@ public void onEnable() {
         webServer.start();
     }
 
+    if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
+        new org.leng.placeholder.PlaceholderAPIHook(Lengbanlist.this).register();
+        getServer().getConsoleSender().sendMessage(prefix() + "§a已接入 PlaceholderAPI，可使用 %lengbanlist_*% 占位符");
+    }
+
     startHistoryCleanupTask();
 }
 
@@ -258,7 +278,7 @@ public void onDisable() {
     private void startHistoryCleanupTask() {
         historyCleanupTask = SchedulerUtils.runTaskTimerAsynchronously(this, () -> {
             databaseManager.deactivateExpiredBans();
-            databaseManager.cleanupOldBans(Math.max(1, getConfig().getInt("history-retention-days", 7)));
+            databaseManager.cleanupOldData(Math.max(1, getConfig().getInt("history-retention-days", 7)));
         }, 6000L, 72000L);
     }
 
@@ -366,6 +386,10 @@ private void unregisterCommands() {
 
     public WarnManager getWarnManager() {
         return warnManager;
+    }
+
+    public AuditManager getAuditManager() {
+        return auditManager;
     }
 
     public ReportManager getReportManager() {

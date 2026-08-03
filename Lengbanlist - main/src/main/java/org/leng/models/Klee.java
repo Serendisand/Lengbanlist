@@ -40,6 +40,7 @@ public class Klee implements Model {
                 "§7  = §b/history",
                 "§e✦ §b/report <玩家名> <原因> §7- §3举报坏孩子，可莉会告诉琴团长！",
                 "§e✦ §b/lban getip <玩家名> §7- §3查询玩家 IP 地址。",
+                "§e✦ §b/lban audit [操作人] §7- §3查看审计日志。",
                 "§6§l◆ 杂项",
                 "§e✦ §b/lban list §7- §3查看封禁名单。",
                 "§e✦ §b/lban list-mute §7- §3查看禁言列表。",

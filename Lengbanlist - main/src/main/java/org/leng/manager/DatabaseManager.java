@@ -1,6 +1,7 @@
 package org.leng.manager;
 
 import org.leng.Lengbanlist;
+import org.leng.object.AuditEntry;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.object.MuteEntry;
@@ -100,6 +101,7 @@ public class DatabaseManager {
         execute("CREATE TABLE IF NOT EXISTS mutes (target " + textPrimaryKey() + ", staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL)");
         execute("CREATE TABLE IF NOT EXISTS warnings (id " + textPrimaryKey() + ", player " + textType() + " NOT NULL, staff " + textType() + " NOT NULL, warn_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, revoked " + booleanType() + " NOT NULL DEFAULT 0)");
         execute("CREATE TABLE IF NOT EXISTS reports (id " + textPrimaryKey() + ", target " + textType() + " NOT NULL, reporter " + textType() + " NOT NULL, reason " + textType() + " NOT NULL, status " + varcharType(32) + " NOT NULL DEFAULT '未处理', timestamp " + longType() + " NOT NULL)");
+        execute("CREATE TABLE IF NOT EXISTS audit_log (id " + integerPrimaryKey() + ", timestamp " + longType() + " NOT NULL, actor " + textType() + " NOT NULL, action " + textType() + " NOT NULL, target " + textType() + " NOT NULL, reason " + textType() + " NOT NULL, success " + booleanType() + " NOT NULL DEFAULT 1)");
 
         addColumnIfMissing("schema_meta", "meta_value", nullableTextType());
         addColumnIfMissing("player_ips", "ip", nullableTextType());
@@ -133,6 +135,9 @@ public class DatabaseManager {
         createIndexIfMissing("warnings", "idx_warnings_player", "player");
         createIndexIfMissing("reports", "idx_reports_target", "target");
         createIndexIfMissing("reports", "idx_reports_reporter", "reporter");
+        createIndexIfMissing("audit_log", "idx_audit_log_timestamp", "timestamp");
+        createIndexIfMissing("audit_log", "idx_audit_log_actor", "actor");
+        createIndexIfMissing("audit_log", "idx_audit_log_target", "target");
 
         String currentVersion = getMeta("schema.version");
         if (currentVersion == null || Integer.parseInt(currentVersion) < 3) {
@@ -541,6 +546,60 @@ public class DatabaseManager {
         return entries;
     }
 
+    public void addAuditLog(String actor, String action, String target, String reason, boolean success) {
+        executeUpdate("INSERT INTO audit_log (timestamp, actor, action, target, reason, success) VALUES (?, ?, ?, ?, ?, ?)",
+                System.currentTimeMillis(), actor, action, target, reason, success);
+    }
+
+    public List<AuditEntry> getAuditLogs(String actorOrTarget, int limit) {
+        List<AuditEntry> entries = new ArrayList<>();
+        try (Connection connection = getConnection()) {
+            if (actorOrTarget == null || actorOrTarget.isEmpty()) {
+                try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM audit_log ORDER BY timestamp DESC LIMIT ?")) {
+                    ps.setInt(1, limit);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) entries.add(readAudit(rs));
+                    }
+                }
+            } else {
+                try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM audit_log WHERE actor = ? OR target = ? ORDER BY timestamp DESC LIMIT ?")) {
+                    ps.setString(1, actorOrTarget);
+                    ps.setString(2, actorOrTarget);
+                    ps.setInt(3, limit);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) entries.add(readAudit(rs));
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
+    }
+
+    public List<AuditEntry> getAuditLogsByActor(String actor, int limit) {
+        if (actor == null || actor.isEmpty()) {
+            return getAuditLogs(null, limit);
+        }
+        List<AuditEntry> entries = new ArrayList<>();
+        try (Connection connection = getConnection()) {
+            try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM audit_log WHERE actor = ? ORDER BY timestamp DESC LIMIT ?")) {
+                ps.setString(1, actor);
+                ps.setInt(2, limit);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) entries.add(readAudit(rs));
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
+    }
+
+    private AuditEntry readAudit(ResultSet rs) throws SQLException {
+        return new AuditEntry(rs.getLong("timestamp"), value(rs, "actor"), value(rs, "action"), value(rs, "target"), value(rs, "reason"), rs.getBoolean("success"));
+    }
+
     public String getMeta(String key) {
         try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT meta_value FROM schema_meta WHERE meta_key = ?")) {
             ps.setString(1, key);
@@ -566,10 +625,14 @@ public class DatabaseManager {
     }
 
 
-    public void cleanupOldBans(int retentionDays) {
+    public void cleanupOldData(int retentionDays) {
         long cutoff = System.currentTimeMillis() - (retentionDays * 86400000L);
         executeUpdate("DELETE FROM bans WHERE active = 0 AND end_time < ?", cutoff);
         executeUpdate("DELETE FROM ip_bans WHERE active = 0 AND end_time < ?", cutoff);
+        executeUpdate("DELETE FROM mutes WHERE end_time != " + Long.MAX_VALUE + " AND end_time < ?", cutoff);
+        executeUpdate("DELETE FROM warnings WHERE revoked = 1 AND warn_time < ?", cutoff);
+        executeUpdate("DELETE FROM reports WHERE status != '未处理' AND timestamp < ?", cutoff);
+        executeUpdate("DELETE FROM audit_log WHERE timestamp < ?", cutoff);
     }
 
 

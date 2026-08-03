@@ -50,6 +50,7 @@ public class KickCommand implements CommandExecutor {
 
 
         SchedulerUtils.runTask(plugin, target, () -> target.kickPlayer(model.getKickMessage(reason)));
+        plugin.getAuditManager().log("踢出", sender.getName(), target.getName(), reason);
         Utils.sendMessage(sender, plugin.prefix() + model.onKickSuccess(target.getName(), reason));
 
         return true;

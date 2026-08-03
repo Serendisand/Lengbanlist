@@ -24,11 +24,20 @@ public class MuteManager {
         }
         db.upsertMute(muteEntry);
         muteCache.put(muteEntry.getTarget(), muteEntry.getTime());
+        plugin.getAuditManager().log("禁言", muteEntry.getStaff(), muteEntry.getTarget(), muteEntry.getReason());
     }
 
     public void unmutePlayer(String target) {
+        unmutePlayer(target, null);
+    }
+
+    public void unmutePlayer(String target, String actor) {
+        boolean wasMuted = isPlayerMuted(target);
         db.deleteMute(target);
         muteCache.remove(target);
+        if (wasMuted) {
+            plugin.getAuditManager().log("解除禁言", actor, target, "");
+        }
     }
 
     public List<MuteEntry> getMuteList() {

@@ -49,7 +49,7 @@ public class SetBanCommand implements CommandExecutor {
         BanManager banManager = plugin.getBanManager();
 
 
-        boolean isIp = banManager.isValidIp(target);
+        boolean isIp = banManager.isValidIpOrCidr(target);
 
 
         if (!isIp && !banManager.isPlayerBanned(target) && !banManager.isIpBanned(target)) {
@@ -110,6 +110,7 @@ public class SetBanCommand implements CommandExecutor {
         }
 
         Utils.sendMessage(sender, plugin.prefix() + "§a成功更新目标 " + target + " 的封禁时间，新的封禁时长为: §e" + durationStr + "§a，理由: §e" + reason);
+        plugin.getAuditManager().log("设置封禁时间", sender.getName(), target, durationStr + " - " + reason);
 
         return true;
     }

@@ -40,6 +40,7 @@ public class YaeMiko implements Model {
                 "§7  = §b/history",
                 "§5✦ §b/report <玩家名> <原因> §7- §3举报玩家，把趣事告诉神子吧。",
                 "§5✦ §b/lban getip <玩家名> §7- §3查询玩家 IP 地址。",
+                "§5✦ §b/lban audit [操作人] §7- §3查看审计日志。",
                 "§6§l◆ 杂项",
                 "§5✦ §b/lban list §7- §3查看封禁名单。",
                 "§5✦ §b/lban list-mute §7- §3查看禁言列表。",
