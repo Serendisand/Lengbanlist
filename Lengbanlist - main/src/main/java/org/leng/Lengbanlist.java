@@ -154,7 +154,9 @@ public void onEnable() {
     modelChoiceListener = new ModelChoiceListener(Lengbanlist.this);
     getServer().getPluginManager().registerEvents(modelChoiceListener, Lengbanlist.this);
 
-    getCommand("lban").setExecutor(new LengbanlistCommand("lban", Lengbanlist.this));
+    LengbanlistCommand lbanCmd = new LengbanlistCommand("lban", Lengbanlist.this);
+    getCommand("lban").setExecutor(lbanCmd);
+    getCommand("lban").setTabCompleter(lbanCmd);
     BanCommand banCmd = new BanCommand(Lengbanlist.this);
     setFeatureExecutor("ban", "ban", banCmd);
     getCommand("ban").setTabCompleter(banCmd);
@@ -247,7 +249,7 @@ public void onDisable() {
 }
 
     private void startBroadcastTask() {
-        long interval = getConfig().getInt("sendtime") * 1200L;
+        long interval = Math.max(getConfig().getInt("sendtime") * 1200L, 1200L);
         long delay = 200L;
         broadcastTask = SchedulerUtils.runTaskTimer(this,
                 new BroadCastBanCountMessage(), delay, interval);

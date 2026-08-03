@@ -63,7 +63,7 @@ public class PlayerJoinListener implements Listener {
             ReportManager reportManager = plugin.getReportManager();
             List<ReportEntry> reports = reportManager.getPendingReports().stream()
                     .filter(report -> report.getReporter().equals(player.getName()))
-                    .filter(report -> !"未处理".equals(report.getStatus()))
+                    .filter(report -> "受理中".equals(report.getStatus()))
                     .collect(Collectors.toList());
 
             if (!reports.isEmpty()) {

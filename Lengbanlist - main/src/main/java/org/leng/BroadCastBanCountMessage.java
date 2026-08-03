@@ -21,6 +21,9 @@ public class BroadCastBanCountMessage implements Runnable {
 
         try {
                 final String defaultMessage = Lengbanlist.getInstance().getBroadcastFC().getString("default-message");
+                if (defaultMessage == null || defaultMessage.isEmpty()) {
+                    return;
+                }
 
                 int banCount = Lengbanlist.getInstance().getBanManager().getBanList().size();
                 int banIpCount = Lengbanlist.getInstance().getBanManager().getBanIpList().size();

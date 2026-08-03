@@ -220,6 +220,9 @@ public class WebServer {
         private static final long WINDOW_MS = 60000L;
 
         boolean isRateLimited(String ip) {
+            if (requests.size() > 1024) {
+                cleanup();
+            }
             long now = System.currentTimeMillis();
             long[] window = requests.compute(ip, (key, val) -> {
                 if (val == null || now - val[0] > WINDOW_MS) {

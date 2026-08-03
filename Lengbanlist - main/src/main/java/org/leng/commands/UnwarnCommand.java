@@ -59,6 +59,7 @@ public class UnwarnCommand extends Command implements CommandExecutor {
                     WarnEntry entry = allWarnings.get(warnId - 1);
                     if (!entry.isRevoked()) {
                         entry.revoke();
+                        plugin.getDatabaseManager().updateWarningRevoked(entry.getId(), true);
                         Utils.sendMessage(sender, plugin.prefix() + "§a警告 #" + warnId + " 已移除");
 
 
@@ -74,6 +75,7 @@ public class UnwarnCommand extends Command implements CommandExecutor {
                 for (WarnEntry warning : allWarnings) {
                     if (!warning.isRevoked()) {
                         warning.revoke();
+                        plugin.getDatabaseManager().updateWarningRevoked(warning.getId(), true);
                     }
                 }
                 Utils.sendMessage(sender, plugin.prefix() + "§a已移除玩家 " + target + " 的所有警告");

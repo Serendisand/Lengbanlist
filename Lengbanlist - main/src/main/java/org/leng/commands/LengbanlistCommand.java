@@ -19,6 +19,7 @@ import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.object.MuteEntry;
 import org.leng.object.ReportEntry;
+import org.leng.object.WarnEntry;
 import org.leng.manager.ModelManager;
 import org.leng.models.Model;
 import org.leng.utils.SchedulerUtils;
@@ -81,6 +82,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     return true;
                 }
                 String defaultMessage = plugin.getBroadcastFC().getString("default-message");
+                if (defaultMessage == null || defaultMessage.isEmpty()) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c广播消息未配置，请在 broadcast.yml 中设置 default-message。");
+                    break;
+                }
                 int banCount = plugin.getBanManager().getBanList().size();
                 int banIpCount = plugin.getBanManager().getBanIpList().size();
                 int totalBans = banCount + banIpCount;
@@ -384,14 +389,16 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     return true;
                 }
                 String unwarnTarget = args[1];
-                plugin.getWarnManager().getActiveWarnings(unwarnTarget).forEach(warn -> {
-                    try {
-                        int warnId = Integer.parseInt(warn.getId());
-                        plugin.getWarnManager().unwarnPlayer(unwarnTarget, warnId);
-                    } catch (NumberFormatException e) {
-                        Utils.sendMessage(sender, plugin.prefix() + "§c警告ID格式不对喵: " + warn.getId());
+                List<WarnEntry> warnings = plugin.getWarnManager().getActiveWarnings(unwarnTarget);
+                for (WarnEntry warn : warnings) {
+                    if (!warn.isRevoked()) {
+                        warn.revoke();
+                        plugin.getDatabaseManager().updateWarningRevoked(warn.getId(), true);
                     }
-                });
+                }
+                if (!warnings.isEmpty()) {
+                    plugin.getWarnManager().checkUnbanIfNecessary(unwarnTarget);
+                }
                 Utils.sendMessage(sender, currentModel.removeWarn(unwarnTarget));
                 break;
         case "report":
@@ -707,12 +714,6 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
         lore.add(description);
         meta.setLore(lore);
         item.setItemMeta(meta);
-
-        if (sound != null && player != null) {
-            SchedulerUtils.runTaskLater(plugin, player, () -> {
-                player.playSound(player.getLocation(), sound, 1.0f, 1.0f);
-            }, 1L);
-        }
 
         return item;
     }
