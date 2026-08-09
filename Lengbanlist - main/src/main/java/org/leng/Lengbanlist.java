@@ -218,7 +218,7 @@ public void onEnable() {
     getServer().getConsoleSender().sendMessage("§6 |______\\___|_| |_|\\__,_|___/ \\__,_|_| |_|______|_|___/\\__|");
     getServer().getConsoleSender().sendMessage("§b                   __/ |                                    ");
     getServer().getConsoleSender().sendMessage("§f                   |___/                                     ");
-    getServer().getConsoleSender().sendMessage("§6插件版本：v" + getPluginVersion());
+    getServer().getConsoleSender().sendMessage("§6插件版本：V" + getPluginVersion());
     getServer().getConsoleSender().sendMessage("§3服务端版本：" + Bukkit.getServer().getVersion());
 
     new Metrics(Lengbanlist.this, 33262);
