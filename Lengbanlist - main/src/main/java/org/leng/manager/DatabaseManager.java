@@ -11,12 +11,16 @@ import org.leng.object.WarnEntry;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 
 public class DatabaseManager {
+    private static final String ZERO_HASH = "0000000000000000000000000000000000000000000000000000000000000000";
     private final Lengbanlist plugin;
     private HikariDataSource dataSource;
     private boolean mysql;
@@ -143,7 +147,10 @@ public class DatabaseManager {
         if (currentVersion == null || Integer.parseInt(currentVersion) < 3) {
             migrateToV3();
         }
-        setMeta("schema.version", "3");
+        if (currentVersion == null || Integer.parseInt(currentVersion) < 4) {
+            migrateToV4();
+        }
+        setMeta("schema.version", "4");
     }
 
     private void migrateToV3() throws SQLException {
@@ -151,6 +158,26 @@ public class DatabaseManager {
         migrateBanTableToV3("bans");
         migrateBanTableToV3("ip_bans");
         plugin.getLogger().info("数据库结构升级完成。");
+    }
+
+    private void migrateToV4() throws SQLException {
+        addColumnIfMissing("audit_log", "prev_hash", varcharType(64) + " NOT NULL DEFAULT ''");
+        if (mysql) {
+            execute("INSERT IGNORE INTO schema_meta (meta_key, meta_value) VALUES ('audit.tail', '')");
+        } else {
+            execute("INSERT OR IGNORE INTO schema_meta (meta_key, meta_value) VALUES ('audit.tail', '')");
+        }
+        String prevHash = ZERO_HASH;
+        int offset = 0;
+        List<AuditEntry> batch;
+        while (!(batch = getAuditLogsAsc(offset, 1000)).isEmpty()) {
+            for (AuditEntry row : batch) {
+                prevHash = hashRow(prevHash, row.getTimestamp(), row.getActor(), row.getAction(), row.getTarget(), row.getReason(), row.isSuccess());
+                executeUpdate("UPDATE audit_log SET prev_hash = ? WHERE id = ?", prevHash, row.getId());
+            }
+            offset += batch.size();
+        }
+        setMeta("schema.version", "4");
     }
 
     private void migrateBanTableToV3(String table) throws SQLException {
@@ -330,6 +357,24 @@ public class DatabaseManager {
         return entries;
     }
 
+    public int countBanHistory(String target) {
+        return count("SELECT COUNT(*) FROM bans WHERE LOWER(target) = LOWER(?)", target);
+    }
+
+    public List<BanEntry> getAllActiveBans() {
+        List<BanEntry> entries = new ArrayList<>();
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE active = 1")) {
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(readBan(rs));
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
+    }
+
     public boolean isHealthy() {
         return dataSource != null && !dataSource.isClosed();
     }
@@ -399,6 +444,10 @@ public class DatabaseManager {
         return entries;
     }
 
+    public int countIpBanHistory(String ip) {
+        return count("SELECT COUNT(*) FROM ip_bans WHERE ip = ?", ip);
+    }
+
     public void upsertMute(MuteEntry entry) {
         executeUpdate(upsertSql("mutes", "target", new String[]{"target", "staff", "end_time", "reason"}, new String[]{"staff", "end_time", "reason"}), entry.getTarget(), entry.getStaff(), entry.getTime(), entry.getReason());
     }
@@ -439,6 +488,20 @@ public class DatabaseManager {
         List<MuteEntry> entries = new ArrayList<>();
         try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason FROM mutes WHERE LOWER(target) = LOWER(?) ORDER BY end_time DESC")) {
             ps.setString(1, player);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(readMute(rs));
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
+    }
+
+    public List<MuteEntry> getAllMutes() {
+        List<MuteEntry> entries = new ArrayList<>();
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason FROM mutes")) {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     entries.add(readMute(rs));
@@ -509,8 +572,9 @@ public class DatabaseManager {
 
     public List<ReportEntry> getPendingReports() {
         List<ReportEntry> entries = new ArrayList<>();
-        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT id, target, reporter, reason, status, timestamp FROM reports WHERE status IS NULL OR status <> ? ORDER BY timestamp ASC")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT id, target, reporter, reason, status, timestamp FROM reports WHERE status IS NULL OR (status <> ? AND status <> ?) ORDER BY timestamp ASC")) {
             ps.setString(1, "已关闭");
+            ps.setString(2, "已处理");
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     entries.add(readReport(rs));
@@ -523,7 +587,7 @@ public class DatabaseManager {
     }
 
     public int getPendingReportCount() {
-        return count("SELECT COUNT(*) FROM reports WHERE status IS NULL OR status <> ?", "已关闭");
+        return count("SELECT COUNT(*) FROM reports WHERE status IS NULL OR (status <> ? AND status <> ?)", "已关闭", "已处理");
     }
 
     public int getReportCount(String target) {
@@ -549,6 +613,85 @@ public class DatabaseManager {
     public void addAuditLog(String actor, String action, String target, String reason, boolean success) {
         executeUpdate("INSERT INTO audit_log (timestamp, actor, action, target, reason, success) VALUES (?, ?, ?, ?, ?, ?)",
                 System.currentTimeMillis(), actor, action, target, reason, success);
+    }
+
+    public void addAuditLogChained(String actor, String action, String target, String reason, boolean success) {
+        try (Connection connection = getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                if (mysql) {
+                    try (PreparedStatement lock = connection.prepareStatement("SELECT meta_value FROM schema_meta WHERE meta_key='audit.tail' FOR UPDATE")) {
+                        lock.executeQuery();
+                    }
+                }
+                String prevHash = ZERO_HASH;
+                try (PreparedStatement ps = connection.prepareStatement("SELECT id, timestamp, actor, action, target, reason, success, prev_hash FROM audit_log ORDER BY id DESC LIMIT 1")) {
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            prevHash = hashRow(value(rs, "prev_hash"), rs.getLong("timestamp"), value(rs, "actor"), value(rs, "action"), value(rs, "target"), value(rs, "reason"), rs.getBoolean("success"));
+                        }
+                    }
+                }
+                try (PreparedStatement ps = connection.prepareStatement("INSERT INTO audit_log (timestamp, actor, action, target, reason, success, prev_hash) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+                    ps.setLong(1, System.currentTimeMillis());
+                    ps.setString(2, actor == null ? "" : actor);
+                    ps.setString(3, action == null ? "" : action);
+                    ps.setString(4, target == null ? "" : target);
+                    ps.setString(5, reason == null ? "" : reason);
+                    ps.setBoolean(6, success);
+                    ps.setString(7, prevHash);
+                    ps.executeUpdate();
+                }
+                connection.commit();
+            } catch (SQLException e) {
+                try {
+                    connection.rollback();
+                } catch (SQLException rollbackError) {
+                    logSql(rollbackError);
+                }
+                logSql(e);
+            } finally {
+                connection.setAutoCommit(true);
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+    }
+
+    public List<AuditEntry> getAuditLogsAsc(int offset, int limit) {
+        List<AuditEntry> entries = new ArrayList<>();
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT id, timestamp, actor, action, target, reason, success, prev_hash FROM audit_log ORDER BY id ASC LIMIT ? OFFSET ?")) {
+            ps.setInt(1, limit);
+            ps.setInt(2, offset);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(readAudit(rs));
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
+    }
+
+    public static String hashRow(String prevHash, long timestamp, String actor, String action, String target, String reason, boolean success) {
+        String safePrevHash = prevHash == null ? "" : prevHash;
+        String safeActor = actor == null ? "" : actor;
+        String safeAction = action == null ? "" : action;
+        String safeTarget = target == null ? "" : target;
+        String safeReason = reason == null ? "" : reason;
+        String data = safePrevHash + timestamp + "[" + safeActor.length() + "]" + safeActor + "[" + safeAction.length() + "]" + safeAction + "[" + safeTarget.length() + "]" + safeTarget + "[" + safeReason.length() + "]" + safeReason + "[" + (success ? 1 : 0) + "]";
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(data.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder();
+            for (byte b : hash) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public List<AuditEntry> getAuditLogs(String actorOrTarget, int limit) {
@@ -597,7 +740,7 @@ public class DatabaseManager {
     }
 
     private AuditEntry readAudit(ResultSet rs) throws SQLException {
-        return new AuditEntry(rs.getLong("timestamp"), value(rs, "actor"), value(rs, "action"), value(rs, "target"), value(rs, "reason"), rs.getBoolean("success"));
+        return new AuditEntry(rs.getLong("id"), rs.getLong("timestamp"), value(rs, "actor"), value(rs, "action"), value(rs, "target"), value(rs, "reason"), rs.getBoolean("success"), value(rs, "prev_hash"));
     }
 
     public String getMeta(String key) {

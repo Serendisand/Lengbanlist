@@ -1,11 +1,13 @@
 package org.leng.commands;
 
+import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
+import org.leng.manager.EscalationManager.EscalationResult;
 import org.leng.object.BanEntry;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
@@ -38,6 +40,12 @@ public class BanCommand implements CommandExecutor, TabCompleter {
         }
 
 
+        boolean silent = false;
+        if (args.length > 0 && args[0].equalsIgnoreCase("-s")) {
+            silent = true;
+            args = Arrays.copyOfRange(args, 1, args.length);
+        }
+
         if (args.length < 3) {
             sendUsage(sender);
             return false;
@@ -49,6 +57,11 @@ public class BanCommand implements CommandExecutor, TabCompleter {
         String reason = resolvePresetReason(rawReason);
 
 
+        if (!plugin.getImmunityManager().canPunish(sender, target)) {
+            Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(target));
+            return false;
+        }
+
         if (plugin.getBanManager().isPlayerBanned(target)) {
             Utils.sendMessage(sender, "§c玩家 " + target + " 已经被封禁");
             return false;
@@ -59,9 +72,11 @@ public class BanCommand implements CommandExecutor, TabCompleter {
 
         if (timeArg.equalsIgnoreCase("auto")) {
             isAuto = true;
-            banDuration = calculateAutoBanTime(target);
-
-            banDuration = Math.max(banDuration, TimeUtils.daysToMillis(1));
+            EscalationResult r = plugin.getEscalationManager().resolveBan(target);
+            banDuration = r.durationMillis;
+            if (r.offenseCount > 0) {
+                Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(target, r.offenseCount, TimeUtils.formatDuration(banDuration)));
+            }
         } else {
             banDuration = TimeUtils.parseDurationToMillis(timeArg);
             if (banDuration <= 0) {
@@ -81,34 +96,31 @@ public class BanCommand implements CommandExecutor, TabCompleter {
             isAuto
         );
 
-        plugin.getBanManager().banPlayer(entry);
+        plugin.getBanManager().banPlayer(entry, silent);
         return true;
-    }
-
-    private long calculateAutoBanTime(String playerName) {
-        int warnCount = Math.max(0, plugin.getWarnManager().getActiveWarnings(playerName).size());
-
-
-        switch (warnCount) {
-            case 0:  return TimeUtils.daysToMillis(1);
-            case 1:  return TimeUtils.daysToMillis(3);
-            case 2:  return TimeUtils.daysToMillis(7);
-            case 3:  return TimeUtils.daysToMillis(14);
-            case 4:  return TimeUtils.daysToMillis(30);
-            default: return Long.MAX_VALUE;
-        }
     }
 
     private void sendUsage(CommandSender sender) {
         Utils.sendMessage(sender, "§c用法错误喵: /ban <玩家> <时间/auto> <原因>");
         Utils.sendMessage(sender, "§c时间单位喵: s(秒), m(分), h(时), d(天), w(周), M(月), y(年)");
         Utils.sendMessage(sender, "§c使用 auto 自动计算封禁时间喵（基于警告次数）");
+        Utils.sendMessage(sender, "§7在第一位加上 -s 可静默执行（不向全服广播）喵");
     }
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 3) {
-            String prefix = args[2].toLowerCase();
+        int offset = (args.length > 0 && args[0].equalsIgnoreCase("-s")) ? 1 : 0;
+        if (args.length - offset == 1) {
+            String prefix = args[offset].toLowerCase();
+            List<String> completions = new ArrayList<>();
+            if (offset == 0 && "-s".startsWith(prefix)) completions.add("-s");
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (p.getName().toLowerCase().startsWith(prefix)) completions.add(p.getName());
+            }
+            return completions;
+        }
+        if (args.length - offset == 3) {
+            String prefix = args[offset + 2].toLowerCase();
             List<String> presets = plugin.getConfig().getStringList("preset-reasons");
 
             if (presets.isEmpty() && plugin.getConfig().isConfigurationSection("preset-reasons")) {

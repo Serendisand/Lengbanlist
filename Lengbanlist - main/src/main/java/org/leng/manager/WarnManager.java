@@ -1,9 +1,11 @@
 package org.leng.manager;
 
+import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.object.BanEntry;
 import org.leng.object.WarnEntry;
 import org.leng.utils.TimeUtils;
+import org.leng.utils.Utils;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -23,6 +25,19 @@ public class WarnManager {
         db.upsertWarning(entry);
         plugin.getAuditManager().log("警告", staff, player, reason);
         checkAutoBan(player);
+        if (plugin.isFeatureEnabled("offline-warn") && !player.contains(".")) {
+            Player targetPlayer = plugin.getServer().getPlayer(player);
+            if (targetPlayer == null) {
+                Player staffPlayer = plugin.getServer().getPlayer(staff);
+                if (staffPlayer != null) {
+                    Utils.sendMessage(staffPlayer, plugin.getModelManager().getCurrentModel().onWarnOffline(player, reason));
+                }
+            }
+        }
+    }
+
+    public int countActiveWarnings(String target) {
+        return db.getWarnings(target, true).size();
     }
 
     public List<WarnEntry> getAllWarnings(String target) {

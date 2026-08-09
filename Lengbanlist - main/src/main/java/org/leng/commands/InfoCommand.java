@@ -42,7 +42,7 @@ public class InfoCommand implements CommandExecutor {
         infoMessage.append("§7当前在线玩家：§b").append(onlinePlayers).append("\n");
         infoMessage.append("§7当前CPU占用：§b").append(String.format("%.2f", cpuLoad)).append("%\n");
 
-        if (!plugin.getConfig().getBoolean("disable-update-check", false)) {
+        if (plugin.isFeatureEnabled("update-check")) {
             GitHubUpdateChecker.getLatestReleaseVersionAsync(plugin).thenAccept(latestVersion -> {
                 String message;
                 if (latestVersion == null) {

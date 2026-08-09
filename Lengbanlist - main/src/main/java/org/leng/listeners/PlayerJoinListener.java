@@ -76,6 +76,17 @@ public class PlayerJoinListener implements Listener {
                 player.sendMessage(plugin.prefix() + "§7——————————");
             }
         }
+
+        if (plugin.isFeatureEnabled("offline-warn") && plugin.getConfig().getBoolean("offline-warn.notify-on-join", true)) {
+            String target = event.getPlayer().getName();
+            SchedulerUtils.runAsync(plugin, () -> {
+                int count = plugin.getWarnManager().countActiveWarnings(target);
+                if (count > 0) {
+                    String msg = plugin.getModelManager().getCurrentModel().getPendingWarningsNotice(count);
+                    SchedulerUtils.runTask(plugin, event.getPlayer(), () -> event.getPlayer().sendMessage(msg));
+                }
+            });
+        }
     }
 
     private void handleVpnDetection(Player player, String ip, String action) {

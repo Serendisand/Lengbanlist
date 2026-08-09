@@ -3,7 +3,6 @@ package org.leng;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandMap;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -19,7 +18,6 @@ import org.leng.utils.Utils;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.lang.reflect.Field;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.io.BufferedReader;
@@ -37,6 +35,11 @@ public class Lengbanlist extends JavaPlugin {
     public WebServer webServer;
     public SchedulerUtils.SchedulerTask broadcastTask;
     private SchedulerUtils.SchedulerTask historyCleanupTask;
+    private SchedulerUtils.SchedulerTask expiryReminderTask;
+    private ImmunityManager immunityManager;
+    private EscalationManager escalationManager;
+    private GuiSessionManager guiSessionManager;
+    private AltsCommand altsCommand;
     private boolean isBroadcast;
     private FileConfiguration broadcastFC;
     private FileConfiguration chatConfig;
@@ -101,6 +104,9 @@ public void onLoad() {
     banManager = new BanManager(this);
     muteManager = new MuteManager(this);
     warnManager = new WarnManager(this);
+    immunityManager = new ImmunityManager(this);
+    escalationManager = new EscalationManager(this);
+    guiSessionManager = new GuiSessionManager();
     auditManager = new AuditManager(this);
     reportManager = new ReportManager(this);
     ipAssociationManager = new IpAssociationManager(this);
@@ -168,6 +174,8 @@ public void onEnable() {
     getServer().getPluginManager().registerEvents(new OpJoinListener(Lengbanlist.this), Lengbanlist.this);
     modelChoiceListener = new ModelChoiceListener(Lengbanlist.this);
     getServer().getPluginManager().registerEvents(modelChoiceListener, Lengbanlist.this);
+    getServer().getPluginManager().registerEvents(new MuteCommandBlockListener(this), Lengbanlist.this);
+    getServer().getPluginManager().registerEvents(new GuiCleanupListener(this), this);
 
     LengbanlistCommand lbanCmd = new LengbanlistCommand("lban", Lengbanlist.this);
     getCommand("lban").setExecutor(lbanCmd);
@@ -199,6 +207,8 @@ public void onEnable() {
     setFeatureExecutor("mute", "listmute", new ListMuteCommand(Lengbanlist.this));
     setFeatureExecutor("getip", "getip", new GetIPCommand(Lengbanlist.this));
     setFeatureExecutor("staffchat", "sc", new StaffChatCommand(Lengbanlist.this));
+    altsCommand = new AltsCommand(this);
+    setFeatureExecutor("alts", "alts", altsCommand);
 
     getServer().getConsoleSender().sendMessage("§b  _                      ____              _      _     _   ");
     getServer().getConsoleSender().sendMessage("§6 | |                    |  _ \\            | |    (_)   | |  ");
@@ -234,6 +244,11 @@ public void onEnable() {
     }
 
     startHistoryCleanupTask();
+
+    if (isFeatureEnabled("expiry-reminder")) {
+        long periodTicks = Math.max(20L, getConfig().getInt("expiry-reminder.interval", 60) * 20L);
+        expiryReminderTask = SchedulerUtils.runTaskTimerAsynchronously(this, new ExpiryReminderTask(this), 200L, periodTicks);
+    }
 }
 
 public void reloadWebServer() {
@@ -254,6 +269,7 @@ public void onDisable() {
 
     if (broadcastTask != null) broadcastTask.cancel();
     if (historyCleanupTask != null) historyCleanupTask.cancel();
+    if (expiryReminderTask != null) expiryReminderTask.cancel();
     if (webServer != null) webServer.stop();
 
     if (eulaAgreed) {
@@ -288,18 +304,6 @@ public void onDisable() {
 
     public static Lengbanlist getInstance() {
         return instance;
-    }
-
-    public static CommandMap getCommandMap() {
-        CommandMap commandMap = null;
-        try {
-            Field bukkitCommandMap = Bukkit.getServer().getClass().getDeclaredField("commandMap");
-            bukkitCommandMap.setAccessible(true);
-            commandMap = (CommandMap) bukkitCommandMap.get(Bukkit.getServer());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return commandMap;
     }
 
     public boolean isBroadcastEnabled() {
@@ -343,26 +347,6 @@ public void onDisable() {
         }
     }
 
-private void unregisterCommands() {
-    try {
-        CommandMap commandMap = getCommandMap();
-        if (commandMap != null) {
-            String[] commands = {"lban", "ban", "ban-ip", "unban", "warn", "unwarn", "check",
-                               "report", "admin", "kick", "info", "allowmsg", "warnmsg", "setban", "history",
-                               "mute", "unmute", "listmute"};
-
-            for (String commandName : commands) {
-                org.bukkit.command.Command command = commandMap.getCommand(commandName);
-                if (command != null) {
-                    command.unregister(commandMap);
-                }
-            }
-        }
-    } catch (Exception e) {
-        getLogger().warning("取消注册命令时出现错误: " + e.getMessage());
-    }
-}
-
     public String toggleBroadcast() {
         setBroadcastEnabled(!isBroadcastEnabled());
         return isBroadcastEnabled() ? "§a已开启" : "§c已关闭";
@@ -386,6 +370,22 @@ private void unregisterCommands() {
 
     public WarnManager getWarnManager() {
         return warnManager;
+    }
+
+    public ImmunityManager getImmunityManager() {
+        return immunityManager;
+    }
+
+    public EscalationManager getEscalationManager() {
+        return escalationManager;
+    }
+
+    public GuiSessionManager getGuiSessionManager() {
+        return guiSessionManager;
+    }
+
+    public AltsCommand getAltsCommand() {
+        return altsCommand;
     }
 
     public AuditManager getAuditManager() {

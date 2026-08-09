@@ -6,6 +6,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
+import org.leng.manager.EscalationManager.EscalationResult;
 import org.leng.utils.IpMatcher;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
@@ -39,10 +40,17 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
         }
 
 
+        boolean silent = false;
+        if (args.length > 0 && args[0].equalsIgnoreCase("-s")) {
+            silent = true;
+            args = Arrays.copyOfRange(args, 1, args.length);
+        }
+
         if (args.length < 3) {
             Utils.sendMessage(sender, "§c用法错误喵: /ban-ip <IP> <时间/auto> <原因>");
             Utils.sendMessage(sender, "§c时间单位喵: s(秒), m(分), h(时), d(天), w(周), M(月), y(年)");
             Utils.sendMessage(sender, "§c使用 auto 自动计算封禁时间喵");
+            Utils.sendMessage(sender, "§7在第一位加上 -s 可静默执行（不向全服广播）喵");
             return false;
         }
 
@@ -63,7 +71,11 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
         long banDuration;
 
         if (isAuto) {
-            banDuration = calculateAutoBanTime(args[0]);
+            EscalationResult r = plugin.getEscalationManager().resolveIpBan(args[0]);
+            banDuration = r.durationMillis;
+            if (r.offenseCount > 0) {
+                Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(args[0], r.offenseCount, TimeUtils.formatDuration(banDuration)));
+            }
         } else {
             banDuration = TimeUtils.parseDurationToMillis(args[1]);
             if (banDuration <= 0) {
@@ -78,7 +90,8 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
 
 
         plugin.getBanManager().banIp(
-            new org.leng.object.BanIpEntry(args[0], sender.getName(), banEndTime, reason, isAuto)
+            new org.leng.object.BanIpEntry(args[0], sender.getName(), banEndTime, reason, isAuto),
+            silent
         );
         return true;
     }
@@ -94,25 +107,16 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
         return false;
     }
 
-    private long calculateAutoBanTime(String ip) {
-
-        int warnCount = plugin.getWarnManager().getActiveWarnings(ip).size();
-
-
-        switch (warnCount) {
-            case 0:  return TimeUtils.daysToMillis(1);
-            case 1:  return TimeUtils.daysToMillis(3);
-            case 2:  return TimeUtils.daysToMillis(7);
-            case 3:  return TimeUtils.daysToMillis(14);
-            case 4:  return TimeUtils.daysToMillis(30);
-            default: return Long.MAX_VALUE;
-        }
-    }
-
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 3) {
-            String prefix = args[2].toLowerCase();
+        int offset = (args.length > 0 && args[0].equalsIgnoreCase("-s")) ? 1 : 0;
+        if (args.length - offset == 1) {
+            List<String> completions = new ArrayList<>();
+            if (offset == 0 && "-s".startsWith(args[0].toLowerCase())) completions.add("-s");
+            return completions;
+        }
+        if (args.length - offset == 3) {
+            String prefix = args[offset + 2].toLowerCase();
             List<String> presets = new ArrayList<>();
             if (plugin.getConfig().isConfigurationSection("preset-reasons")) {
                 presets.addAll(plugin.getConfig().getConfigurationSection("preset-reasons").getKeys(false));

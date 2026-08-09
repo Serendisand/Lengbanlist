@@ -1,5 +1,6 @@
 package org.leng.commands;
 
+import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -53,6 +54,11 @@ public class WarnCommand extends Command implements CommandExecutor, TabComplete
         boolean isIp = target.contains(".");
 
 
+        if (!isIp && !plugin.getImmunityManager().canPunish(sender, target)) {
+            Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(target));
+            return false;
+        }
+
         if (isIp) {
             if (!plugin.getBanManager().isValidIp(target)) {
                 Utils.sendMessage(sender, plugin.prefix() + "§c无效的IP地址");
@@ -73,6 +79,14 @@ public class WarnCommand extends Command implements CommandExecutor, TabComplete
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (args.length == 1) {
+            String prefix = args[0].toLowerCase();
+            List<String> completions = new ArrayList<>();
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (p.getName().toLowerCase().startsWith(prefix)) completions.add(p.getName());
+            }
+            return completions;
+        }
         if (args.length == 2) {
             String prefix = args[1].toLowerCase();
             List<String> presets = new ArrayList<>();

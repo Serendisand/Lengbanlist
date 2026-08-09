@@ -61,16 +61,21 @@ public class CheckCommand extends Command implements CommandExecutor {
     }
 
     private void checkPlayerInfo(CommandSender sender, String playerName) {
+        Player online = plugin.getServer().getPlayerExact(playerName);
         OfflinePlayer player;
-        try {
-            player = Bukkit.getOfflinePlayer(playerName);
-        } catch (Exception e) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c未找到玩家：" + playerName);
-            return;
-        }
-        if (!player.hasPlayedBefore() && !player.isOnline()) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c未找到玩家：" + playerName);
-            return;
+        if (online != null) {
+            player = online;
+        } else {
+            try {
+                player = Bukkit.getOfflinePlayer(playerName);
+            } catch (Exception e) {
+                Utils.sendMessage(sender, plugin.prefix() + "§c当前服务端不支持离线玩家查询（Folia），请查询在线玩家。");
+                return;
+            }
+            if (!player.hasPlayedBefore() && !player.isOnline()) {
+                Utils.sendMessage(sender, plugin.prefix() + "§c未找到玩家：" + playerName);
+                return;
+            }
         }
 
         String uuid = player.getUniqueId().toString();

@@ -40,6 +40,21 @@ public class MuteManager {
         }
     }
 
+    public void clearMuteCache() {
+        muteCache.clear();
+    }
+
+    public void reloadMuteCache() {
+        muteCache.clear();
+        for (MuteEntry entry : db.getMutes()) {
+            if (entry.getTime() == Long.MAX_VALUE || entry.getTime() > System.currentTimeMillis()) {
+                muteCache.put(entry.getTarget(), entry.getTime());
+            } else {
+                db.deleteMute(entry.getTarget());
+            }
+        }
+    }
+
     public List<MuteEntry> getMuteList() {
         return db.getMutes();
     }

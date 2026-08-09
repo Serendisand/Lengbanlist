@@ -11,14 +11,9 @@ import org.leng.Lengbanlist;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
 
 public class GitHubUpdateChecker {
     public static final String RELEASES_URL = "https://github.com/Ukiyograin/Lengbanlist/releases";
@@ -28,26 +23,6 @@ public class GitHubUpdateChecker {
     private static final List<String> STATIC_API_URLS = Arrays.asList(GITHUB_API_URL);
     private static final int TIMEOUT = 3000;
     private static final int MAX_RETRIES = 3;
-
-    static {
-        try {
-            TrustManager[] trustAll = new TrustManager[]{
-                new X509TrustManager() {
-                    public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
-                    public void checkClientTrusted(X509Certificate[] certs, String authType) {}
-                    public void checkServerTrusted(X509Certificate[] certs, String authType) {}
-                }
-            };
-            SSLContext sc = SSLContext.getInstance("TLS");
-            sc.init(null, trustAll, new java.security.SecureRandom());
-            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
-            HttpsURLConnection.setDefaultHostnameVerifier((hostname, session) -> true);
-        } catch (Exception e) {
-            if (Lengbanlist.getInstance() != null) {
-                Lengbanlist.getInstance().getLogger().warning("SSL初始化失败: " + e.getMessage());
-            }
-        }
-    }
 
     public static String getLatestReleaseVersion() throws Exception {
         return fetchJsonFromApi().get("tag_name").getAsString();

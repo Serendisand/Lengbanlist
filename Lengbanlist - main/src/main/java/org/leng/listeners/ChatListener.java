@@ -82,15 +82,16 @@ public class ChatListener implements Listener {
         }
 
         if (!containsBadWord && message.matches(".*\\b(\\w*喵\\w*){2,}.*")) {
-            String adminMessage = plugin.prefix() + "请检测该句是否违规：" + message + " 【正常】【违规】";
-            for (Player admin : Bukkit.getOnlinePlayers()) {
-                if (admin.isOp()) {
-                    org.leng.utils.Utils.sendMessage(admin,
-                            Utils.clickableText("【正常】", "/allowmsg " + player.getName()),
-                            Utils.clickableText("【违规】", "/warnmsg " + player.getName())
-                    );
+            SchedulerUtils.runTask(plugin, () -> {
+                for (Player admin : Bukkit.getOnlinePlayers()) {
+                    if (admin.isOp()) {
+                        org.leng.utils.Utils.sendMessage(admin,
+                                Utils.clickableText("【正常】", "/allowmsg " + player.getName()),
+                                Utils.clickableText("【违规】", "/warnmsg " + player.getName())
+                        );
+                    }
                 }
-            }
+            });
             event.setCancelled(true);
             return;
         }

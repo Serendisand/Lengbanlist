@@ -38,4 +38,28 @@ public interface Model {
     String onKickSuccess(String playerName, String reason);
 
     String getHistory(String player, List<String> entries);
+
+    String onMuteCommandBlocked();
+
+    String onWarnOffline(String player, String reason);
+
+    String getPendingWarningsNotice(int count);
+
+    String getExpiryReminder(String type, String target, String remaining);
+
+    String onEscalatedBan(String player, int offenseCount, String duration);
+
+    String getAltsResult(String player, int count);
+
+    String getNoAlts(String player);
+
+    String onReportBan(String player, String duration);
+
+    String getExportResult(int count);
+
+    String getVerifyResult(boolean valid, int count);
+
+    String getSyncStatus(String detail);
+
+    String getImmunityDenied(String target);
 }

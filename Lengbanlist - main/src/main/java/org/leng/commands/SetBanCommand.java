@@ -3,8 +3,10 @@ package org.leng.commands;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
+import org.leng.manager.EscalationManager.EscalationResult;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.manager.BanManager;
@@ -12,8 +14,10 @@ import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
 
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 
-public class SetBanCommand implements CommandExecutor {
+public class SetBanCommand implements CommandExecutor, TabCompleter {
     private final Lengbanlist plugin;
 
     public SetBanCommand(Lengbanlist plugin) {
@@ -52,6 +56,11 @@ public class SetBanCommand implements CommandExecutor {
         boolean isIp = banManager.isValidIpOrCidr(target);
 
 
+        if (!isIp && !plugin.getImmunityManager().canPunish(sender, target)) {
+            Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(target));
+            return true;
+        }
+
         if (!isIp && !banManager.isPlayerBanned(target) && !banManager.isIpBanned(target)) {
             Utils.sendMessage(sender, plugin.prefix() + "§c目标 " + target + " 未被封禁，无法设置封禁时间。");
             return true;
@@ -65,9 +74,11 @@ public class SetBanCommand implements CommandExecutor {
             banDuration = Long.MAX_VALUE;
         } else if (timeArg.equalsIgnoreCase("auto")) {
             isAuto = true;
-            banDuration = calculateAutoBanTime(target);
-
-            banDuration = Math.max(banDuration, TimeUtils.daysToMillis(1));
+            EscalationResult r = plugin.getEscalationManager().resolveBan(target);
+            banDuration = r.durationMillis;
+            if (r.offenseCount > 0) {
+                Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(target, r.offenseCount, TimeUtils.formatDuration(banDuration)));
+            }
         } else {
             banDuration = TimeUtils.parseDurationToMillis(timeArg);
             if (banDuration <= 0) {
@@ -115,20 +126,6 @@ public class SetBanCommand implements CommandExecutor {
         return true;
     }
 
-    private long calculateAutoBanTime(String target) {
-        int warnCount = Math.max(0, plugin.getWarnManager().getActiveWarnings(target).size());
-
-
-        switch (warnCount) {
-            case 0:  return TimeUtils.daysToMillis(1);
-            case 1:  return TimeUtils.daysToMillis(3);
-            case 2:  return TimeUtils.daysToMillis(7);
-            case 3:  return TimeUtils.daysToMillis(14);
-            case 4:  return TimeUtils.daysToMillis(30);
-            default: return Long.MAX_VALUE;
-        }
-    }
-
     private void sendUsage(CommandSender sender) {
         Utils.sendMessage(sender, plugin.prefix() + "§c用法错误喵: /setban <玩家名/IP> <时间/forever/auto> <理由>");
         Utils.sendMessage(sender, plugin.prefix() + "§c时间单位喵: s(秒), m(分钟), h(小时), d(天), w(周), M(月), y(年)");
@@ -146,5 +143,20 @@ public class SetBanCommand implements CommandExecutor {
         Utils.sendMessage(sender, plugin.prefix() + "§c - 1y: 年 (1 年，按 365 天计算)");
         Utils.sendMessage(sender, plugin.prefix() + "§c - forever: 永久封禁");
         Utils.sendMessage(sender, plugin.prefix() + "§c - auto: 自动计算封禁时间");
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        List<String> completions = new ArrayList<>();
+        if (args.length == 1) {
+            String prefix = args[0].toLowerCase();
+            for (BanEntry e : plugin.getBanManager().getBanList()) {
+                if (e.getTarget().toLowerCase().startsWith(prefix)) completions.add(e.getTarget());
+            }
+            for (BanIpEntry e : plugin.getBanManager().getBanIpList()) {
+                if (e.getIp().toLowerCase().startsWith(prefix)) completions.add(e.getIp());
+            }
+        }
+        return completions;
     }
 }

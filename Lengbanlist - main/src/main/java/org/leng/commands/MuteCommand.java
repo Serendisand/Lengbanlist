@@ -27,6 +27,12 @@ public class MuteCommand implements CommandExecutor {
             Utils.sendMessage(sender, plugin.prefix() + "§c你没有权限使用此命令。");
             return true;
         }
+        boolean silent = false;
+        if (args.length > 0 && args[0].equalsIgnoreCase("-s")) {
+            silent = true;
+            args = Arrays.copyOfRange(args, 1, args.length);
+        }
+
         if (args.length < 3) {
             sendUsage(sender, label);
             return true;
@@ -35,9 +41,13 @@ public class MuteCommand implements CommandExecutor {
         String timeArg = args[1];
         String rawReason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
         String reason = resolvePresetReason(rawReason);
+        if (!plugin.getImmunityManager().canPunish(sender, target)) {
+            Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(target));
+            return true;
+        }
         long duration;
         if (timeArg.equalsIgnoreCase("auto")) {
-            duration = calculateAutoMuteTime(target);
+            duration = plugin.getEscalationManager().resolveMute(target);
         } else {
             duration = org.leng.utils.TimeUtils.parseDurationToMillis(timeArg);
             if (duration <= 0) {
@@ -47,26 +57,19 @@ public class MuteCommand implements CommandExecutor {
         }
         MuteEntry entry = new MuteEntry(target, sender.getName(), org.leng.utils.TimeUtils.calculateEndTime(duration), reason);
         plugin.getMuteManager().mutePlayer(entry);
-        Utils.broadcast(ModelManager.getInstance().getCurrentModel().addMute(target, reason));
-        return true;
-    }
-
-    private long calculateAutoMuteTime(String playerName) {
-        int warnCount = Math.max(0, plugin.getWarnManager().getActiveWarnings(playerName).size());
-        switch (warnCount) {
-            case 0:  return org.leng.utils.TimeUtils.daysToMillis(1);
-            case 1:  return org.leng.utils.TimeUtils.daysToMillis(3);
-            case 2:  return org.leng.utils.TimeUtils.daysToMillis(7);
-            case 3:  return org.leng.utils.TimeUtils.daysToMillis(14);
-            case 4:  return org.leng.utils.TimeUtils.daysToMillis(30);
-            default: return Long.MAX_VALUE;
+        if (silent) {
+            Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addMute(target, reason));
+        } else {
+            Utils.broadcast(ModelManager.getInstance().getCurrentModel().addMute(target, reason));
         }
+        return true;
     }
 
     private void sendUsage(CommandSender sender, String label) {
         Utils.sendMessage(sender, plugin.prefix() + "§c用法错误喵: /" + label + " <玩家> <时间/auto> <原因>");
         Utils.sendMessage(sender, plugin.prefix() + "§c时间单位喵: s(秒), m(分), h(时), d(天), w(周), M(月), y(年)");
         Utils.sendMessage(sender, plugin.prefix() + "§c使用 auto 会根据警告次数自动计算禁言时间喵");
+        Utils.sendMessage(sender, plugin.prefix() + "§7在第一位加上 -s 可静默执行（不向全服广播）喵");
     }
 
     private void showTimeFormatError(CommandSender sender) {

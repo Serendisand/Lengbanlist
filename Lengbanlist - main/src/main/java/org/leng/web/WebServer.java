@@ -57,7 +57,7 @@ public class WebServer {
             int port = plugin.getConfig().getInt("web.port", 8080);
             String secret = plugin.getConfig().getString("web.jwt-secret", "change-this-to-a-random-secret-key");
             String username = plugin.getConfig().getString("web.admin-username", "admin");
-            String password = plugin.getConfig().getString("web.admin-password", "admin123");
+            String password = plugin.getConfig().getString("web.admin-password", "lban123");
             if (!validateWebCredentials(secret, password)) {
                 return false;
             }
@@ -457,14 +457,21 @@ public class WebServer {
         if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
         if (!requireAuth(exchange)) return;
 
-        JsonArray players = new JsonArray();
-        for (Player player : plugin.getServer().getOnlinePlayers()) {
-            JsonObject obj = new JsonObject();
-            obj.addProperty("name", player.getName());
-            obj.addProperty("uuid", player.getUniqueId().toString());
-            obj.addProperty("ping", player.getPing());
-            players.add(obj);
-        }
+        AtomicReference<JsonArray> playersRef = new AtomicReference<>(new JsonArray());
+        boolean completed = runSync(exchange, () -> {
+            JsonArray players = new JsonArray();
+            for (Player player : plugin.getServer().getOnlinePlayers()) {
+                JsonObject obj = new JsonObject();
+                obj.addProperty("name", player.getName());
+                obj.addProperty("uuid", player.getUniqueId().toString());
+                obj.addProperty("ping", player.getPing());
+                players.add(obj);
+            }
+            playersRef.set(players);
+        });
+        if (!completed) return;
+
+        JsonArray players = playersRef.get();
         JsonObject result = new JsonObject();
         result.add("players", players);
         result.addProperty("total", players.size());
@@ -483,14 +490,29 @@ public class WebServer {
             JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
             String target = json.get("target").getAsString();
             String reason = json.has("reason") ? json.get("reason").getAsString() : "管理员操作";
-            Player player = plugin.getServer().getPlayerExact(target);
-            if (player == null) {
+            final String finalReason = reason;
+            AtomicReference<String> outcome = new AtomicReference<>("ok");
+            boolean completed = runSync(exchange, () -> {
+                Player player = plugin.getServer().getPlayerExact(target);
+                if (player == null) {
+                    outcome.set("404");
+                    return;
+                }
+                if (!plugin.getImmunityManager().canPunish(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
+                    outcome.set("403");
+                    return;
+                }
+                player.kickPlayer(finalReason);
+            });
+            if (!completed) return;
+            if ("404".equals(outcome.get())) {
                 sendError(exchange, 404, "玩家 " + target + " 不在线");
                 return;
             }
-            final String finalReason = reason;
-            boolean completed = runSync(exchange, () -> player.kickPlayer(finalReason));
-            if (!completed) return;
+            if ("403".equals(outcome.get())) {
+                sendError(exchange, 403, "目标权重高于操作者，无法执行");
+                return;
+            }
 
             plugin.getAuditManager().log("踢出", "WebAdmin", target, reason);
             JsonObject result = new JsonObject();
@@ -584,7 +606,12 @@ public class WebServer {
             String feature = target.contains(".") ? "ban-ip" : "ban";
             if (!requireFeature(exchange, feature)) return;
 
+            AtomicReference<String> outcome = new AtomicReference<>("ok");
             boolean completed = runSync(exchange, () -> {
+                if (!target.contains(".") && !plugin.getImmunityManager().canPunish(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
+                    outcome.set("403");
+                    return;
+                }
                 if (target.contains(".")) {
                     plugin.getBanManager().banIp(new BanIpEntry(target, finalStaff, endTime, reason, false));
                 } else {
@@ -592,6 +619,10 @@ public class WebServer {
                 }
             });
             if (!completed) return;
+            if ("403".equals(outcome.get())) {
+                sendError(exchange, 403, "目标权重高于操作者，无法执行");
+                return;
+            }
 
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
@@ -640,12 +671,20 @@ public class WebServer {
         if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
         if (!requireAuth(exchange)) return;
 
+        AtomicReference<Integer> onlineRef = new AtomicReference<>(0);
+        AtomicReference<Integer> maxRef = new AtomicReference<>(0);
+        boolean completed = runSync(exchange, () -> {
+            onlineRef.set(plugin.getServer().getOnlinePlayers().size());
+            maxRef.set(plugin.getServer().getMaxPlayers());
+        });
+        if (!completed) return;
+
         JsonObject stats = new JsonObject();
         List<BanEntry> bans = plugin.getBanManager().getBanList();
         List<BanIpEntry> ipBans = plugin.getBanManager().getBanIpList();
         stats.addProperty("plugin_version", plugin.getPluginVersion());
-        stats.addProperty("online_players", plugin.getServer().getOnlinePlayers().size());
-        stats.addProperty("max_players", plugin.getServer().getMaxPlayers());
+        stats.addProperty("online_players", onlineRef.get());
+        stats.addProperty("max_players", maxRef.get());
         stats.addProperty("database_status", plugin.getDatabaseManager().isHealthy() ? "正常" : "异常");
         stats.addProperty("database_type", getDatabaseType());
         stats.addProperty("total_bans", bans.size() + ipBans.size());
@@ -779,8 +818,19 @@ public class WebServer {
             if (durationMs <= 0) durationMs = TimeUtils.daysToMillis(7);
             long endTime = TimeUtils.calculateEndTime(durationMs);
 
-            boolean completed = runSync(exchange, () -> plugin.getMuteManager().mutePlayer(new MuteEntry(target, finalStaff, endTime, reason)));
+            AtomicReference<String> outcome = new AtomicReference<>("ok");
+            boolean completed = runSync(exchange, () -> {
+                if (!plugin.getImmunityManager().canPunish(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
+                    outcome.set("403");
+                    return;
+                }
+                plugin.getMuteManager().mutePlayer(new MuteEntry(target, finalStaff, endTime, reason));
+            });
             if (!completed) return;
+            if ("403".equals(outcome.get())) {
+                sendError(exchange, 403, "目标权重高于操作者，无法执行");
+                return;
+            }
 
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
@@ -834,8 +884,19 @@ public class WebServer {
             if (staff == null) staff = "WebAdmin";
             final String finalStaff = staff;
 
-            boolean completed = runSync(exchange, () -> plugin.getWarnManager().warnPlayer(target, finalStaff, reason));
+            AtomicReference<String> outcome = new AtomicReference<>("ok");
+            boolean completed = runSync(exchange, () -> {
+                if (!plugin.getImmunityManager().canPunish(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
+                    outcome.set("403");
+                    return;
+                }
+                plugin.getWarnManager().warnPlayer(target, finalStaff, reason);
+            });
             if (!completed) return;
+            if ("403".equals(outcome.get())) {
+                sendError(exchange, 403, "目标权重高于操作者，无法执行");
+                return;
+            }
 
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
@@ -903,6 +964,8 @@ public class WebServer {
 
         try {
             boolean completed = runSync(exchange, () -> {
+            plugin.reloadConfig();
+
             ModelManager.getInstance().reloadModel();
 
             File broadcastFile = new File(plugin.getDataFolder(), "broadcast.yml");

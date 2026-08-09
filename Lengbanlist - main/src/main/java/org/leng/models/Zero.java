@@ -18,28 +18,32 @@ public void showHelp(CommandSender sender) {
     Utils.sendMessage(sender, "§b║ §2§oLengbanlist 帮助 - 零风格 §b║");
     Utils.sendMessage(sender, "§b╠══════════════════════════════════╣");
     Utils.sendMessage(sender, "§6§l◆ 处罚管理");
-    Utils.sendMessage(sender, "§2✦ §b/lban add <玩家名> <天数> <原因> §7- §3添加封禁，零的秩序不容破坏！");
+    Utils.sendMessage(sender, "§2✦ §b/lban add <可选>-s <必填>玩家名 <必填>天数 <必填>原因 §7- §3添加封禁，零的秩序不容破坏！");
     Utils.sendMessage(sender, "§7  = §b/ban");
-    Utils.sendMessage(sender, "§2✦ §b/lban remove <玩家名> §7- §3移除封禁，给予机会。");
+    Utils.sendMessage(sender, "§2✦ §b/lban remove <必填>玩家名 §7- §3移除封禁，给予机会。");
     Utils.sendMessage(sender, "§7  = §b/unban");
-    Utils.sendMessage(sender, "§2✦ §b/ban-ip <IP地址> <天数> <原因> §7- §3封禁 IP 地址，维护秩序。");
-    Utils.sendMessage(sender, "§2✦ §b/lban mute <玩家名> <原因> §7- §3禁言玩家，维护秩序。");
+    Utils.sendMessage(sender, "§2✦ §b/ban-ip <可选>-s <必填>IP地址 <必填>天数 <必填>原因 §7- §3封禁 IP 地址，维护秩序。");
+    Utils.sendMessage(sender, "§2✦ §b/lban mute <可选>-s <必填>玩家名 <必填>原因 §7- §3禁言玩家，维护秩序。");
     Utils.sendMessage(sender, "§7  = §b/mute");
-    Utils.sendMessage(sender, "§2✦ §b/lban unmute <玩家名> §7- §3解除禁言，给予机会。");
+    Utils.sendMessage(sender, "§2✦ §b/lban unmute <可选>-s <必填>玩家名 §7- §3解除禁言，给予机会。");
     Utils.sendMessage(sender, "§7  = §b/unmute");
-    Utils.sendMessage(sender, "§2✦ §b/lban warn <玩家名> <原因> §7- §3警告玩家，三次警告自动封禁！");
+    Utils.sendMessage(sender, "§2✦ §b/lban warn <必填>玩家名 <必填>原因 §7- §3警告玩家，三次警告自动封禁！");
     Utils.sendMessage(sender, "§7  = §b/warn");
-    Utils.sendMessage(sender, "§2✦ §b/lban unwarn <玩家名> §7- §3移除玩家警告");
+    Utils.sendMessage(sender, "§2✦ §b/lban unwarn <必填>玩家名 §7- §3移除玩家警告");
     Utils.sendMessage(sender, "§7  = §b/unwarn");
-    Utils.sendMessage(sender, "§2✦ §b/kick <玩家名> <原因> §7- §3踢出不守规矩的玩家！");
-    Utils.sendMessage(sender, "§2✦ §b/setban <玩家名/IP> <时间/forever/auto> <原因> §7- §3修改封禁时间，维护秩序。");
+    Utils.sendMessage(sender, "§2✦ §b/kick <必填>玩家名 <可选>原因 §7- §3踢出不守规矩的玩家！");
+    Utils.sendMessage(sender, "§2✦ §b/setban <必填>玩家名/IP <必填>时间/forever/auto <必填>原因 §7- §3修改封禁时间，维护秩序。");
     Utils.sendMessage(sender, "§6§l◆ 查询信息");
-    Utils.sendMessage(sender, "§2✦ §b/lban check <玩家名/IP> §7- §3检查封禁状态，维护秩序。");
-    Utils.sendMessage(sender, "§2✦ §b/lban history <玩家名> §7- §3查询秩序档案，一切记录在案。");
+    Utils.sendMessage(sender, "§2✦ §b/lban check <必填>玩家名/IP §7- §3检查封禁状态，维护秩序。");
+    Utils.sendMessage(sender, "§2✦ §b/lban history <必填>玩家名 §7- §3查询秩序档案，一切记录在案。");
     Utils.sendMessage(sender, "§7  = §b/history");
-    Utils.sendMessage(sender, "§2✦ §b/report <玩家名> <原因> §7- §3维护秩序，举报违规者。");
-    Utils.sendMessage(sender, "§2✦ §b/lban getip <玩家名> §7- §3查询玩家 IP 地址，找出违规者。");
-    Utils.sendMessage(sender, "§2✦ §b/lban audit [操作人] §7- §3查看审计日志，维护秩序。");
+    Utils.sendMessage(sender, "§2✦ §b/report <必填>玩家名 <必填>原因 §7- §3维护秩序，举报违规者。");
+    Utils.sendMessage(sender, "§2✦ §b/lban getip <可选>玩家名 §7- §3查询玩家 IP 地址，找出违规者。");
+    Utils.sendMessage(sender, "§2✦ §b/lban alts <必填>玩家名 §7- §3查询同IP小号，彻查违规者。");
+    Utils.sendMessage(sender, "§2✦ §b/lban audit <可选>操作人 §7- §3查看审计日志，维护秩序。");
+    Utils.sendMessage(sender, "§2✦ §b/lban audit export §7- §3导出审计日志，一切记录在案。");
+    Utils.sendMessage(sender, "§2✦ §b/lban audit verify §7- §3校验审计完整性，确保秩序不被篡改。");
+    Utils.sendMessage(sender, "§2✦ §b/lban sync §7- §3查看跨服同步状态，掌控一切。");
     Utils.sendMessage(sender, "§6§l◆ 杂项");
     Utils.sendMessage(sender, "§2✦ §b/lban list §7- §3查看封禁名单，零的秩序不容破坏！");
     Utils.sendMessage(sender, "§2✦ §b/lban list-mute §7- §3查看禁言列表");
@@ -47,7 +51,7 @@ public void showHelp(CommandSender sender) {
     Utils.sendMessage(sender, "§2✦ §b/lban a §7- §3广播封禁人数，让违规者无所遁形！");
     Utils.sendMessage(sender, "§2✦ §b/lban toggle §7- §3开关自动广播，掌控一切！");
     Utils.sendMessage(sender, "§2✦ §b/lban open §7- §3打开可视化操作界面");
-    Utils.sendMessage(sender, "§2✦ §b/lban model <模型名称> §7- §3切换模型，体验不同的风格。");
+    Utils.sendMessage(sender, "§2✦ §b/lban model <必填>模型名称 §7- §3切换模型，体验不同的风格。");
     Utils.sendMessage(sender, "§2✦ §b/lban reload §7- §3重新加载配置，确保一切正常运行。");
     Utils.sendMessage(sender, "§2✦ §b/lban info §7- §3查看插件信息");
     Utils.sendMessage(sender, "§b╚══════════════════════════════════╝");
@@ -134,5 +138,68 @@ public void showHelp(CommandSender sender) {
         }
         sb.append("§b零说：§7秩序不容破坏，以上记录将永久存档。");
         return sb.toString().trim();
+    }
+
+    @Override
+    public String onMuteCommandBlocked() {
+        return "§b零说：§c禁言期间不得使用该命令。静思己过，遵守秩序。";
+    }
+
+    @Override
+    public String onWarnOffline(String player, String reason) {
+        return "§b零说：§a离线玩家 " + player + " 已被警告，原因是：" + reason + "。上线后将收到通知，一切记录在案。";
+    }
+
+    @Override
+    public String getPendingWarningsNotice(int count) {
+        return "§b零说：§e你有 " + count + " 条待处理警告。正视问题，方能维护秩序。";
+    }
+
+    @Override
+    public String getExpiryReminder(String type, String target, String remaining) {
+        return "§b零说：§a" + target + " 的" + type + "将在 " + remaining + " 后解除，秩序回归。";
+    }
+
+    @Override
+    public String onEscalatedBan(String player, int offenseCount, String duration) {
+        return "§b零说：§a玩家 " + player + " 第 " + offenseCount + " 次违规，处罚已自动升级为封禁 " + duration + "。秩序不容破坏！";
+    }
+
+    @Override
+    public String getAltsResult(String player, int count) {
+        return "§b零说：§a玩家 " + player + " 名下查到 " + count + " 个小号，一切记录在案。";
+    }
+
+    @Override
+    public String getNoAlts(String player) {
+        return "§b零说：§a玩家 " + player + " 名下无任何小号，档案干净。";
+    }
+
+    @Override
+    public String onReportBan(String player, String duration) {
+        return "§b零说：§a举报已确认，玩家 " + player + " 已被封禁 " + duration + "。秩序不容破坏！";
+    }
+
+    @Override
+    public String getExportResult(int count) {
+        return "§b零说：§a审计日志已导出，共 " + count + " 条记录，一切记录在案。";
+    }
+
+    @Override
+    public String getVerifyResult(boolean valid, int count) {
+        if (valid) {
+            return "§b零说：§a审计校验通过，" + count + " 条记录完整无损。";
+        }
+        return "§b零说：§c审计校验失败！检测到 " + count + " 条记录被篡改，必须彻查！";
+    }
+
+    @Override
+    public String getSyncStatus(String detail) {
+        return "§b零说：§a跨服同步状态：§f" + detail;
+    }
+
+    @Override
+    public String getImmunityDenied(String target) {
+        return "§b零说：§c目标 " + target + " 权限等级不低，权限秩序不可逾越！";
     }
 }
