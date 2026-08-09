@@ -221,7 +221,7 @@ public void onEnable() {
     getServer().getConsoleSender().sendMessage("§6插件版本：v" + getPluginVersion());
     getServer().getConsoleSender().sendMessage("§3服务端版本：" + Bukkit.getServer().getVersion());
 
-    new Metrics(Lengbanlist.this, 24495);
+    new Metrics(Lengbanlist.this, 33262);
 
     if (getConfig().getBoolean("features.auto-update", false)) {
         getLogger().info("§a自动更新功能已启用，正在检查更新...");
