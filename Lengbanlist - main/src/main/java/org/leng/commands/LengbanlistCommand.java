@@ -72,10 +72,6 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
 
         switch (args[0].toLowerCase()) {
             case "toggle":
-                if (!plugin.isFeatureEnabled("broadcast")) {
-                    plugin.sendFeatureDisabled(sender);
-                    return true;
-                }
                 if (!sender.hasPermission("lengbanlist.toggle")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
@@ -85,10 +81,6 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 Utils.sendMessage(sender, currentModel.toggleBroadcast(enabled));
                 break;
             case "a":
-                if (!plugin.isFeatureEnabled("broadcast")) {
-                    plugin.sendFeatureDisabled(sender);
-                    return true;
-                }
                 if (!sender.hasPermission("lengbanlist.broadcast")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
@@ -107,7 +99,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                         .replace("%i", String.valueOf(banIpCount))
                         .replace("%t", String.valueOf(totalBans));
 
-                plugin.getServer().broadcastMessage(replacedMessage);
+                plugin.getServer().broadcastMessage(plugin.prefix() + " " + replacedMessage);
                 break;
             case "list":
                 if (!plugin.isFeatureEnabled("ban")) {

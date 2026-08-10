@@ -28,7 +28,7 @@ public class OpJoinListener implements Listener {
         Player player = event.getPlayer();
         if (!player.isOp()) return;
 
-        if (plugin.isFeatureEnabled("update-check") || plugin.isFeatureEnabled("auto-update")) {
+        if (plugin.isUpdateCheckEnabled() || plugin.isFeatureEnabled("auto-update")) {
             SchedulerUtils.runAsync(plugin, () -> checkUpdateAndNotify(player));
         }
 

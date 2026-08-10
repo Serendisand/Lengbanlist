@@ -8,7 +8,6 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.Bukkit;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.enchantments.Enchantment;
 
 import java.util.ArrayList;
@@ -89,10 +88,26 @@ public class ModelManager {
         Lengbanlist.getInstance().getServer().getConsoleSender().sendMessage("§a模型已重新加载，当前模型: " + currentModel.getName());
     }
 
+    private static final Map<String, Material> MODEL_MATERIALS = new HashMap<>();
+
+    static {
+        MODEL_MATERIALS.put("default", Material.PAPER);
+        MODEL_MATERIALS.put("english", Material.BOOK);
+        MODEL_MATERIALS.put("hutao", Material.RED_TULIP);
+        MODEL_MATERIALS.put("furina", Material.WATER_BUCKET);
+        MODEL_MATERIALS.put("zhongli", Material.DEEPSLATE);
+        MODEL_MATERIALS.put("keqing", Material.AMETHYST_SHARD);
+        MODEL_MATERIALS.put("xiao", Material.FEATHER);
+        MODEL_MATERIALS.put("ayaka", Material.SNOWBALL);
+        MODEL_MATERIALS.put("zero", Material.REDSTONE);
+        MODEL_MATERIALS.put("herta", Material.KNOWLEDGE_BOOK);
+        MODEL_MATERIALS.put("nahida", Material.OAK_SAPLING);
+        MODEL_MATERIALS.put("klee", Material.TNT);
+        MODEL_MATERIALS.put("yaemiko", Material.PINK_DYE);
+    }
+
     public static Material getModelMaterial(String modelName) {
-        FileConfiguration config = Lengbanlist.getInstance().getConfig();
-        String materialName = config.getString("models." + modelName.toLowerCase() + ".material", "PAPER");
-        Material material = Material.matchMaterial(materialName);
+        Material material = MODEL_MATERIALS.get(modelName.toLowerCase());
         return material != null ? material : Material.PAPER;
     }
 

@@ -1007,7 +1007,7 @@ public class WebServer {
             sendError(exchange, 405, "仅支持 POST");
             return;
         }
-        if (!requireAuth(exchange) || !requireFeature(exchange, "broadcast")) return;
+        if (!requireAuth(exchange)) return;
 
         try {
             String defaultMessage = plugin.getBroadcastFC().getString("default-message");
@@ -1021,7 +1021,7 @@ public class WebServer {
                     .replace("%t", String.valueOf(totalBans));
 
             String message = defaultMessage;
-            boolean completed = runSync(exchange, () -> plugin.getServer().broadcastMessage(message));
+            boolean completed = runSync(exchange, () -> plugin.getServer().broadcastMessage(plugin.prefix() + " " + message));
             if (!completed) return;
 
             JsonObject result = new JsonObject();

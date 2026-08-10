@@ -90,6 +90,11 @@ public void onLoad() {
         getLogger().info("首次加载，根据系统语言（" + language + "）自动选择模型: " + detectedModel);
     }
 
+    if (!getConfig().contains("update-check.enabled")) {
+        getConfig().set("update-check.enabled", getConfig().getBoolean("features.update-check", true));
+        saveConfig();
+    }
+
     databaseManager = new DatabaseManager(this);
     try {
         databaseManager.initialize();
@@ -218,7 +223,7 @@ public void onEnable() {
     getServer().getConsoleSender().sendMessage("§6 |______\\___|_| |_|\\__,_|___/ \\__,_|_| |_|______|_|___/\\__|");
     getServer().getConsoleSender().sendMessage("§b                   __/ |                                    ");
     getServer().getConsoleSender().sendMessage("§f                   |___/                                     ");
-    getServer().getConsoleSender().sendMessage("§6插件版本：V" + getPluginVersion());
+    getServer().getConsoleSender().sendMessage("§6插件版本：v" + getPluginVersion());
     getServer().getConsoleSender().sendMessage("§3服务端版本：" + Bukkit.getServer().getVersion());
 
     new Metrics(Lengbanlist.this, 33262);
@@ -226,11 +231,11 @@ public void onEnable() {
     if (getConfig().getBoolean("features.auto-update", false)) {
         getLogger().info("§a自动更新功能已启用，正在检查更新...");
         SchedulerUtils.runAsyncDelayed(this, this::checkUpdate, 5000);
-    } else if (getConfig().getBoolean("features.update-check", false)) {
+    } else if (isUpdateCheckEnabled()) {
         SchedulerUtils.runAsync(this, GitHubUpdateChecker::checkUpdate);
     }
 
-    if (isFeatureEnabled("broadcast") && isBroadcast) {
+    if (isBroadcast) {
         startBroadcastTask();
     }
 
@@ -314,6 +319,10 @@ public void onDisable() {
         return getConfig().getBoolean("features." + feature, true);
     }
 
+    public boolean isUpdateCheckEnabled() {
+        return getConfig().getBoolean("update-check.enabled", true);
+    }
+
     private void setFeatureExecutor(String feature, String commandName, CommandExecutor executor) {
         PluginCommand command = getCommand(commandName);
         if (command == null) {
@@ -334,10 +343,6 @@ public void onDisable() {
 
     public void setBroadcastEnabled(boolean broadcastEnabled) {
         this.isBroadcast = broadcastEnabled;
-        if (!isFeatureEnabled("broadcast")) {
-            if (broadcastTask != null) broadcastTask.cancel();
-            return;
-        }
         if (isBroadcast) {
             startBroadcastTask();
         } else {

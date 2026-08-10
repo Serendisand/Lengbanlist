@@ -44,7 +44,7 @@ public class BroadCastBanCountMessage implements Runnable {
 
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     org.leng.utils.SchedulerUtils.runTask(Lengbanlist.getInstance(), player, () -> {
-                        TextComponent mainMessage = new TextComponent(ChatColor.translateAlternateColorCodes('&', replacedMessage));
+                        TextComponent mainMessage = new TextComponent(ChatColor.translateAlternateColorCodes('&', Lengbanlist.getInstance().prefix() + " " + replacedMessage));
                         mainMessage.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
                                 new ComponentBuilder("§a绳§b之§c于§d法§e！").create()));
 

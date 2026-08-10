@@ -3,6 +3,8 @@ package org.leng.utils;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.leng.Lengbanlist;
 
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLSocketFactory;
 import java.io.*;
 import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
@@ -93,8 +95,20 @@ public class AutoUpdateManager {
 
         logger.info("正在从 " + downloadUrl + " 下载新版本...");
         HttpURLConnection connection = (HttpURLConnection) new URL(downloadUrl).openConnection();
+        connection.setRequestMethod("GET");
+        connection.setRequestProperty("User-Agent", GitHubUpdateChecker.getUserAgent());
         connection.setConnectTimeout(5000);
         connection.setReadTimeout(15000);
+        if (connection instanceof HttpsURLConnection) {
+            HttpsURLConnection https = (HttpsURLConnection) connection;
+            if (!GitHubUpdateChecker.isSslVerifyEnabled()) {
+                SSLSocketFactory factory = GitHubUpdateChecker.getInsecureSocketFactory();
+                if (factory != null) {
+                    https.setSSLSocketFactory(factory);
+                }
+                https.setHostnameVerifier((hostname, session) -> true);
+            }
+        }
         try (InputStream in = connection.getInputStream();
              ReadableByteChannel rbc = Channels.newChannel(in);
              FileOutputStream fos = new FileOutputStream(tempFile)) {
