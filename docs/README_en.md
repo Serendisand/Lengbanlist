@@ -26,7 +26,7 @@ Every feature has its own toggle in the config file — turn off what you don't 
 ## Features
 
 **Ban / IP Ban / Unban / Setban — `/ban` `/ban-ip` `/unban` `/setban`**
-Ban a player or IP with durations in seconds, minutes, hours, days, weeks, months, or years. Use `forever` for permanent or `auto` to let the plugin calculate it from warning count. You can also modify an existing ban's duration and reason.
+Ban a player or IP with durations in seconds, minutes, hours, days, weeks, months, or years. Use `forever` for permanent or `auto` to let the plugin calculate it from warning count. You can also modify an existing ban's duration and reason. Also supports IP range banning (e.g., `172.198.2.x` or `172.198.2.0/24`) to block entire network segments.
 
 **Warning System — `/warn` `/unwarn`**
 Warn players for rule violations. Has a built-in auto-ban system (LBAC): 3 warnings within 30 days triggers an automatic ban, and the ban duration scales up with each trigger. Remove warnings to drop below the threshold and the ban gets lifted automatically.
