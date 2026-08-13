@@ -9,6 +9,7 @@ import org.leng.object.BanIpEntry;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.SchedulerUtils;
 import org.leng.utils.IpMatcher;
+import org.leng.utils.SyncChannel;
 import org.leng.utils.Utils;
 
 import java.util.List;
@@ -35,6 +36,9 @@ public class BanManager {
         String banResult = currentModel.addBan(banEntry.getTarget(), durationDays, banEntry.getReason());
         updateBan(banEntry);
         plugin.getAuditManager().log("封禁", banEntry.getStaff(), banEntry.getTarget(), banEntry.getReason());
+
+        // Notify other servers
+        plugin.getSyncChannel().sendSyncNotification(SyncChannel.TYPE_PLAYER_BAN, banEntry.getTarget());
 
         Player targetPlayer = Bukkit.getPlayer(banEntry.getTarget());
         if (targetPlayer != null) {
@@ -77,6 +81,9 @@ public class BanManager {
         updateIpBan(banIpEntry);
         plugin.getAuditManager().log("封禁IP", banIpEntry.getStaff(), banIpEntry.getIp(), banIpEntry.getReason());
 
+        // Notify other servers
+        plugin.getSyncChannel().sendSyncNotification(SyncChannel.TYPE_IP_BAN, banIpEntry.getIp());
+
         if (!silent) {
             if (banIpResult != null && !banIpResult.isEmpty()) {
                 Utils.broadcast(banIpResult);
@@ -104,6 +111,9 @@ public class BanManager {
         String unbanResult = currentModel.removeBan(target);
         boolean removed = isPlayerBanned(target);
         db.deactivateBan(target);
+
+        // Notify other servers
+        plugin.getSyncChannel().sendSyncNotification(SyncChannel.TYPE_PLAYER_UNBAN, target);
 
         if (removed) {
             plugin.getAuditManager().log("解封", actor, target, "");
@@ -135,6 +145,9 @@ public class BanManager {
         boolean removed = isIpBanned(ip);
         db.deactivateIpBan(ip);
 
+        // Notify other servers
+        plugin.getSyncChannel().sendSyncNotification(SyncChannel.TYPE_IP_UNBAN, ip);
+
         if (removed) {
             plugin.getAuditManager().log("解封IP", actor, ip, "");
             if (!silent) {
@@ -143,6 +156,24 @@ public class BanManager {
                 } else {
                     Utils.broadcast(String.format("§aIP %s 已被解封", ip));
                 }
+            }
+        }
+    }
+
+    public void kickOnlineIfBanned(String target, boolean isIp) {
+        if (target == null || target.isEmpty()) return;
+        for (Player online : plugin.getServer().getOnlinePlayers()) {
+            if (isIp) {
+                if (online.getAddress() == null) continue;
+                String ip = online.getAddress().getAddress().getHostAddress();
+                BanIpEntry banIp = getMatchingIpBan(ip);
+                if (banIp == null || banIp.getTime() <= System.currentTimeMillis()) continue;
+                SchedulerUtils.runTask(plugin, online, () -> online.kickPlayer("您的 IP 已被封禁，原因：" + banIp.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(banIp.getTime())));
+            } else {
+                if (!online.getName().equalsIgnoreCase(target)) continue;
+                BanEntry ban = getBanEntry(target);
+                if (ban == null || ban.getTime() <= System.currentTimeMillis()) continue;
+                SchedulerUtils.runTask(plugin, online, () -> online.kickPlayer("您已被封禁，原因：" + ban.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(ban.getTime())));
             }
         }
     }

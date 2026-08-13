@@ -3,6 +3,7 @@ package org.leng.manager;
 import org.leng.Lengbanlist;
 import org.leng.object.MuteEntry;
 import org.leng.utils.IpMatcher;
+import org.leng.utils.SyncChannel;
 
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,9 @@ public class MuteManager {
             ipMuteCache.put(muteEntry.getTarget(), muteEntry.getTime());
         }
         plugin.getAuditManager().log("禁言", muteEntry.getStaff(), muteEntry.getTarget(), muteEntry.getReason());
+
+        // Notify other servers
+        plugin.getSyncChannel().sendSyncNotification(SyncChannel.TYPE_PLAYER_MUTE, muteEntry.getTarget());
     }
 
     public void unmutePlayer(String target) {
@@ -44,6 +48,9 @@ public class MuteManager {
         if (wasMuted) {
             plugin.getAuditManager().log("解除禁言", actor, target, "");
         }
+
+        // Notify other servers
+        plugin.getSyncChannel().sendSyncNotification(SyncChannel.TYPE_PLAYER_UNMUTE, target);
     }
 
     public void clearMuteCache() {
@@ -63,6 +70,35 @@ public class MuteManager {
             } else {
                 db.deleteMute(entry.getTarget());
             }
+        }
+    }
+
+    public void refreshPlayerMute(String target) {
+        if (target == null) return;
+        MuteEntry entry = db.getMute(target);
+        if (entry != null && (entry.getTime() == Long.MAX_VALUE || entry.getTime() > System.currentTimeMillis())) {
+            muteCache.put(target, entry.getTime());
+            if (IpMatcher.isCidr(target)) {
+                ipMuteCache.put(target, entry.getTime());
+            }
+        } else {
+            muteCache.remove(target);
+            ipMuteCache.remove(target);
+            if (entry != null) {
+                db.deleteMute(target);
+            }
+        }
+    }
+
+    /**
+     * 跨服同步收到裸 IP（非 CIDR）禁言消息时调用：
+     * 将该 IP 登记到 ipMuteCache，使 isIpMuted 的精确匹配能够命中。
+     */
+    public void registerIpMuteFallback(String ip) {
+        if (ip == null || IpMatcher.isCidr(ip)) return;
+        MuteEntry entry = db.getMute(ip);
+        if (entry != null && (entry.getTime() == Long.MAX_VALUE || entry.getTime() > System.currentTimeMillis())) {
+            ipMuteCache.put(ip, entry.getTime());
         }
     }
 
@@ -98,7 +134,7 @@ public class MuteManager {
             Map.Entry<String, Long> entry = it.next();
             String cidr = entry.getKey();
             Long time = entry.getValue();
-            if (IpMatcher.cidrMatches(ip, cidr)) {
+            if (cidr.equals(ip) || IpMatcher.cidrMatches(ip, cidr)) {
                 if (time == Long.MAX_VALUE || time > now) {
                     return true;
                 } else {

@@ -28,6 +28,7 @@ public class Lengbanlist extends JavaPlugin {
     private static Lengbanlist instance;
     public BanManager banManager;
     public MuteManager muteManager;
+    public SyncManager syncManager;
     public WarnManager warnManager;
     public AuditManager auditManager;
     public ReportManager reportManager;
@@ -40,6 +41,7 @@ public class Lengbanlist extends JavaPlugin {
     private EscalationManager escalationManager;
     private GuiSessionManager guiSessionManager;
     private AltsCommand altsCommand;
+    private org.leng.utils.SyncChannel syncChannel;
     private boolean isBroadcast;
     private FileConfiguration broadcastFC;
     private FileConfiguration chatConfig;
@@ -108,6 +110,8 @@ public void onLoad() {
 
     banManager = new BanManager(this);
     muteManager = new MuteManager(this);
+    syncManager = new SyncManager(this);
+    syncChannel = new org.leng.utils.SyncChannel(this);
     warnManager = new WarnManager(this);
     immunityManager = new ImmunityManager(this);
     escalationManager = new EscalationManager(this);
@@ -193,6 +197,9 @@ public void onEnable() {
     getServer().getPluginManager().registerEvents(modelChoiceListener, Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new MuteCommandBlockListener(this), Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new GuiCleanupListener(this), this);
+    
+    getServer().getMessenger().registerOutgoingPluginChannel(this, "lengbanlist:sync");
+    getServer().getMessenger().registerIncomingPluginChannel(this, "lengbanlist:sync", syncChannel);
 
     LengbanlistCommand lbanCmd = new LengbanlistCommand("lban", Lengbanlist.this);
     getCommand("lban").setExecutor(lbanCmd);
@@ -375,6 +382,14 @@ public void onDisable() {
 
     public String getPluginVersion() {
         return getDescription().getVersion();
+    }
+
+    public SyncManager getSyncManager() {
+        return syncManager;
+    }
+
+    public org.leng.utils.SyncChannel getSyncChannel() {
+        return syncChannel;
     }
 
     public BanManager getBanManager() {

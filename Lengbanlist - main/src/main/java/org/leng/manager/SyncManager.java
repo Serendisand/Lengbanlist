@@ -2,7 +2,9 @@ package org.leng.manager;
 
 import org.bukkit.command.CommandSender;
 import org.leng.Lengbanlist;
+import org.leng.utils.IpMatcher;
 import org.leng.utils.SchedulerUtils;
+import org.leng.utils.SyncChannel;
 import org.leng.utils.Utils;
 
 public class SyncManager {
@@ -10,6 +12,41 @@ public class SyncManager {
 
     public SyncManager(Lengbanlist plugin) {
         this.plugin = plugin;
+    }
+
+    public void syncPlayer(String target) {
+        if (target == null) return;
+        plugin.getMuteManager().refreshPlayerMute(target);
+    }
+
+    public void handleSync(byte type, String target) {
+        if (target == null || target.isEmpty()) return;
+        switch (type) {
+            case SyncChannel.TYPE_PLAYER_BAN:
+                SchedulerUtils.runTask(plugin, () -> plugin.getBanManager().kickOnlineIfBanned(target, false));
+                break;
+            case SyncChannel.TYPE_IP_BAN:
+                SchedulerUtils.runTask(plugin, () -> plugin.getBanManager().kickOnlineIfBanned(target, true));
+                break;
+            case SyncChannel.TYPE_PLAYER_MUTE:
+                plugin.getMuteManager().refreshPlayerMute(target);
+                break;
+            case SyncChannel.TYPE_IP_MUTE:
+                plugin.getMuteManager().refreshPlayerMute(target);
+                if (!IpMatcher.isCidr(target)) {
+                    plugin.getMuteManager().registerIpMuteFallback(target);
+                }
+                break;
+            case SyncChannel.TYPE_PLAYER_UNBAN:
+            case SyncChannel.TYPE_IP_UNBAN:
+                break;
+            case SyncChannel.TYPE_PLAYER_UNMUTE:
+                plugin.getMuteManager().refreshPlayerMute(target);
+                break;
+            default:
+                plugin.getLogger().warning("收到未知类型的跨服同步消息 (type=" + type + ", target=" + target + ")，已忽略");
+                break;
+        }
     }
 
     public boolean isAvailable() {
