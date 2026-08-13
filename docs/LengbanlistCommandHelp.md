@@ -6,7 +6,7 @@
 | `/lban list` | 查看封禁名单 | - |
 | `/lban a` | 广播当前封禁人数 | - |
 | `/lban toggle` | 开关自动广播 | - |
-| `/lban model <名称>` | 切换广播模型 | - |
+| `/lban model <名称>` | 切换角色模型 | - |
 | `/lban reload` | 重载配置 | - |
 | `/lban info` | 查看插件信息 | - |
 
@@ -52,5 +52,7 @@
 | `/lban open` | 打开GUI界面 |
 
 > 💡 提示：所有命令都需要对应权限才能执行
+> 📌 自定义模型：将 YAML 文件放入 plugins/Lengbanlist/models/ 目录，
+>    然后使用 `/lban reload` 重载即可使用
 > 文档内的命令可能并不是最新的，你需要👇
 > 📌 使用 `/lban` 或`/lban help` 可查看游戏内帮助信息

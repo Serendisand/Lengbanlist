@@ -47,7 +47,7 @@ Players can report rule-breaking. Reports are stored in the database, and the re
 Periodically announces the current ban count in chat. Fully customizable message format. Toggle it on/off anytime, or broadcast manually.
 
 **Character Models**
-12 built-in character skins — Hutao, Furina, Zhongli, Keqing, Nahida, Klee, Yaemiko, and more. Switch between them and all plugin messages change tone and wording. Just a fun little touch.
+12 built-in character skins — Hutao, Furina, Zhongli, Keqing, Nahida, Klee, Yaemiko, and more. Switch between them and all plugin messages change tone and wording. Also supports custom models — drop a YAML file in plugins/Lengbanlist/models/ to define your own message style. An example file is auto-generated on first startup.
 
 **GUI — `/lban open`**
 A 54-slot chest interface. Ban, unban, mute, reload, switch models — all clickable. Banning and unbanning also have a chat wizard that walks you through it step by step.
