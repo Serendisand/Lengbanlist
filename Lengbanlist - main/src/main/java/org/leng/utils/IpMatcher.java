@@ -100,6 +100,15 @@ public class IpMatcher {
         return isIpv4(value) || isCidr(value);
     }
 
+    public static boolean isLoopback(String value) {
+        if (value == null) return false;
+        String normalized = normalizeIpOrCidr(value);
+        if (normalized == null) return false;
+        String base = normalized;
+        if (isCidr(normalized)) base = normalized.substring(0, normalized.indexOf('/'));
+        return base.startsWith("127.");
+    }
+
     public static long ipToLong(String ip) {
         String[] parts = ip.split("\\.");
         long result = 0;

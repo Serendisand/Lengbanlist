@@ -97,12 +97,7 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
     }
 
     private boolean isValidIp(String ip) {
-        if (ip == null || ip.isEmpty()) return false;
-        String normalized = IpMatcher.normalizeIpOrCidr(ip);
-        if (normalized == null) return false;
-        String base = normalized;
-        if (IpMatcher.isCidr(normalized)) base = normalized.substring(0, normalized.indexOf('/'));
-        return !base.startsWith("127.");
+        return IpMatcher.isValidIpOrCidrOrWildcard(ip);
     }
 
     @Override

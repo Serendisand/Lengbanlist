@@ -1462,7 +1462,7 @@ private void handleIPBanWizard(Player player, String input) {
     }
 }
 
-private void handleMuteWizard(Player player, String input) {
+    private void handleMuteWizard(Player player, String input) {
     String step = player.getMetadata("lengbanlist-step").get(0).asString();
     if (step.equals("playerID")) {
         if (input.equalsIgnoreCase("-s")) {

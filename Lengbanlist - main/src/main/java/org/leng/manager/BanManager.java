@@ -65,6 +65,10 @@ public class BanManager {
     }
 
     public void banIp(BanIpEntry banIpEntry, boolean silent) {
+        if (IpMatcher.isLoopback(banIpEntry.getIp())) {
+            plugin.getLogger().warning("已阻止封禁本地回环 IP: " + banIpEntry.getIp() + "（staff: " + banIpEntry.getStaff() + "）");
+            return;
+        }
         long durationMillis = banIpEntry.getEndTime() == Long.MAX_VALUE ? Long.MAX_VALUE : banIpEntry.getEndTime() - System.currentTimeMillis();
         int durationDays = durationMillis == Long.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(1, Math.round(durationMillis / (double)(1000 * 60 * 60 * 24)));
 
