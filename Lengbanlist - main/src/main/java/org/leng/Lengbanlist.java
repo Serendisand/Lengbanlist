@@ -99,6 +99,7 @@ public void onLoad() {
     try {
         databaseManager.initialize();
         new StorageMigrationManager(this, databaseManager).migrateYamlIfNeeded();
+        muteManager = new MuteManager(this);
     } catch (Exception e) {
         getLogger().severe("数据库初始化失败，插件将停止启用: " + e.getMessage());
         e.printStackTrace();
@@ -107,7 +108,6 @@ public void onLoad() {
     }
 
     banManager = new BanManager(this);
-    muteManager = new MuteManager(this);
     warnManager = new WarnManager(this);
     immunityManager = new ImmunityManager(this);
     escalationManager = new EscalationManager(this);
@@ -290,15 +290,27 @@ public void onDisable() {
     if (webServer != null) webServer.stop();
 
     if (eulaAgreed) {
-        try {
-            saveBroadcastConfig();
-            if (databaseManager != null) databaseManager.close();
-        } catch (Exception e) {
-            getLogger().warning("保存配置文件时出错: " + e.getMessage());
-        }
+        shutdownStorage();
     }
 
     getServer().getConsoleSender().sendMessage(prefix() + "§f期待我们的下一次相遇！");
+}
+
+void shutdownStorage() {
+    try {
+        if (broadcastFC != null) {
+            saveBroadcastConfig();
+        }
+    } catch (Exception e) {
+        getLogger().warning("保存配置文件时出错: " + e.getMessage());
+    }
+    try {
+        if (databaseManager != null) {
+            databaseManager.close();
+        }
+    } catch (Exception e) {
+        getLogger().warning("关闭数据库时出错: " + e.getMessage());
+    }
 }
 
     private void startBroadcastTask() {

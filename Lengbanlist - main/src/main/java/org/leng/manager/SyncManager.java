@@ -27,8 +27,14 @@ public class SyncManager {
             result.ipBans = plugin.getDatabaseManager().getIpBans().size();
             result.mutes = plugin.getDatabaseManager().getMutes().size();
             result.warnings = plugin.getDatabaseManager().getWarnedPlayers().size();
-            plugin.getMuteManager().reloadMuteCache();
-            SchedulerUtils.runTask(plugin, () -> Utils.sendMessage(sender, plugin.prefix() + "§a跨服同步完成：封禁 " + result.bans + " 条 / IP封禁 " + result.ipBans + " 条 / 禁言 " + result.mutes + " 条 / 警告 " + result.warnings + " 条，缓存已刷新"));
+            boolean muteCacheReloaded = plugin.getMuteManager().reloadMuteCache();
+            SchedulerUtils.runTask(plugin, () -> {
+                if (!muteCacheReloaded) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c跨服同步未完成：禁言缓存刷新失败，请稍后重试。");
+                    return;
+                }
+                Utils.sendMessage(sender, plugin.prefix() + "§a跨服同步完成：封禁 " + result.bans + " 条 / IP封禁 " + result.ipBans + " 条 / 禁言 " + result.mutes + " 条 / 警告 " + result.warnings + " 条，缓存已刷新");
+            });
         });
     }
 

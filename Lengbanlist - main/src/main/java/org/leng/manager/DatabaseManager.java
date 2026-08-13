@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 
+@SuppressWarnings("SqlResolve")
 public class DatabaseManager {
     private static final String ZERO_HASH = "0000000000000000000000000000000000000000000000000000000000000000";
     private final Lengbanlist plugin;
@@ -456,6 +457,10 @@ public class DatabaseManager {
         executeUpdate("DELETE FROM mutes WHERE target = ?", target);
     }
 
+    public void deleteMuteIfExpiresAt(String target, long endTime) {
+        executeUpdate("DELETE FROM mutes WHERE target = ? AND end_time = ?", target, endTime);
+    }
+
     public MuteEntry getMute(String target) {
         try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason FROM mutes WHERE target = ?")) {
             ps.setString(1, target);
@@ -469,6 +474,15 @@ public class DatabaseManager {
     }
 
     public List<MuteEntry> getMutes() {
+        try {
+            return loadMutesForCache();
+        } catch (SQLException e) {
+            logSql(e);
+            return new ArrayList<>();
+        }
+    }
+
+    List<MuteEntry> loadMutesForCache() throws SQLException {
         List<MuteEntry> entries = new ArrayList<>();
         try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason FROM mutes WHERE end_time = ? OR end_time > ? ORDER BY target")) {
             ps.setLong(1, Long.MAX_VALUE);
@@ -478,8 +492,6 @@ public class DatabaseManager {
                     entries.add(readMute(rs));
                 }
             }
-        } catch (SQLException e) {
-            logSql(e);
         }
         return entries;
     }

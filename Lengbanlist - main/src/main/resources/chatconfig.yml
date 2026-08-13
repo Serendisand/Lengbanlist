@@ -4,3 +4,15 @@ bad-words:
 
 # 禁言阈值（触发多少次后处罚）
 mute-threshold: 3
+
+# 禁言期间禁止执行的命令（可带或不带 /，填写根命令）
+# 修改后使用 /lban reload 即可生效
+mute-blocked-commands:
+  - "/msg"
+  - "/tell"
+  - "/w"
+  - "/r"
+  - "/reply"
+  - "/me"
+  - "/mail"
+  - "/tpa"

@@ -39,7 +39,7 @@ features:
 
   # --- 聊天与过滤 ---
   chat-filter: true    # 违禁词过滤、自动禁言、可疑消息标记
-  mute-command-block: true  # 禁言期间屏蔽指定指令（配合 mute-blocked-commands）
+  mute-command-block: true  # 禁言期间屏蔽 chatconfig.yml 中指定的指令
 
   # --- 安全防护 ---
   ip-association: true # 多账号 IP 关联检测
@@ -151,17 +151,6 @@ escalation:
 expiry-reminder:
   lead-time: 600      # 到期前多少秒提醒
   interval: 60        # 扫描间隔（秒）
-
-# ---------- 禁言屏蔽指令（mute-command-block 开启时生效） ----------
-mute-blocked-commands:
-  - "/msg"
-  - "/tell"
-  - "/w"
-  - "/r"
-  - "/reply"
-  - "/me"
-  - "/mail"
-  - "/tpa"
 
 # ---------- 权重系统（immunity） ----------
 # 目标玩家权重高于操作者权重时，可免疫该操作者的封禁/踢出

@@ -27,25 +27,14 @@ public class MuteCommandBlockListener implements Listener {
             return;
         }
 
-        List<String> blockedCommands = plugin.getConfig().getStringList("mute-blocked-commands");
-        if (blockedCommands.isEmpty()) {
+        List<String> blockedCommands = MuteCommandBlockPolicy.resolveBlockedCommands(
+                plugin.getChatConfig(), plugin.getConfig());
+        if (!MuteCommandBlockPolicy.isBlocked(event.getMessage(), blockedCommands)) {
             return;
         }
 
-        String message = event.getMessage().trim();
-        if (message.isEmpty()) {
-            return;
-        }
-        String firstPart = message.split("\\s+")[0];
-        String commandName = firstPart.startsWith("/") ? firstPart.substring(1) : firstPart;
-
-        for (String blocked : blockedCommands) {
-            String blockedName = blocked.startsWith("/") ? blocked.substring(1) : blocked;
-            if (blockedName.equalsIgnoreCase(commandName)) {
-                event.setCancelled(true);
-                player.sendMessage(plugin.getModelManager().getCurrentModel().onMuteCommandBlocked());
-                return;
-            }
-        }
+        event.setCancelled(true);
+        // noinspection AccessStaticViaInstance
+        player.sendMessage(plugin.getModelManager().getCurrentModel().onMuteCommandBlocked());
     }
 }
