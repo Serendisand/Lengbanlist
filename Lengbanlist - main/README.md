@@ -72,7 +72,7 @@ src/main/java/org/leng/
 ## manager 包职责
 
 - `DatabaseManager`：统一管理 SQLite / MySQL 连接、建表、读写、历史记录和过期数据维护。
-- `BanManager`：封禁、IP 封禁、解封、封禁查询和入服拦截判断。
+- `BanManager`：封禁、IP 封禁、解封、封禁查询和入服拦截判断。支持 IP 段（通配符 `x` 或 CIDR 格式）封禁，可一次性拦截整个网段，且 LBAC 自动封禁同样支持 IP 段。
 - `MuteManager`：禁言、解禁和禁言状态查询。
 - `WarnManager`：警告记录、撤销警告、LBAC 自动封禁与自动解除。
 - `ReportManager`：举报创建、查询、处理和待处理数量统计。
