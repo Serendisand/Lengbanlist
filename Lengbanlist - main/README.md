@@ -67,8 +67,6 @@ src/main/java/org/leng/
 - `PlayerJoinListener`：玩家入服时检查封禁、IP 封禁、IP 关联、VPN 检测和待处理举报提示。
 - `ChatListener`：处理禁言、聊天过滤、聊天审核和管理员放行流程。
 - `OpJoinListener`：OP 入服后异步检查更新，并提示待处理举报。
-- `ChestUIListener`：处理封禁列表等箱子 GUI 点击事件。
-- `AnvilGUIListener`：处理铁砧输入界面中的封禁、解封和原因输入。
 - `ModelChoiceListener`：处理模型选择 GUI 和当前模型切换。
 
 ## manager 包职责
@@ -93,6 +91,8 @@ src/main/java/org/leng/
 
 `models` 包实现不同角色模型的提示语。新增模型时需要实现 `Model` 接口，并在 `ModelManager` 中注册。
 
+同时支持外部自定义模型：插件启动时自动在 `plugins/Lengbanlist/models/` 目录生成示例文件 `example-custom-model.yml`，并将该目录下所有 `.yml`/`.yaml` 文件加载为自定义模型（由 `CustomModel` 实现 `Model` 接口，从 YAML 读取消息模板）。自定义模型名称与内置模型冲突时不加载，内置模型优先级最高。首次生成的示例文件包含全部消息键、占位符说明和编写教程。
+
 ## utils 包职责
 
 - `AutoUpdateManager`：下载 GitHub Release 中的新版本 jar，替换本地插件文件并提示重启加载。
@@ -115,7 +115,7 @@ src/main/java/org/leng/
 - 更新链接、下载文件名和版本比较统一放在 `GitHubUpdateChecker`，不要在命令或监听器里硬编码 GitHub 地址。
 - 自动更新只负责安装新 jar 并提示重启，不做运行时热重载。
 - 新命令需要同时更新 `plugin.yml` 的 commands 和 permissions，并在 `Lengbanlist.onEnable()` 注册执行器。
-- 新增角色模型需要实现 `Model`，注册到 `ModelManager`，并确认模型切换 GUI 能显示。
+- 新增内置角色模型需要实现 `Model`，注册到 `ModelManager`，并确认模型切换 GUI 能显示；如需让玩家自定义消息风格，可指导其使用 `plugins/Lengbanlist/models/` 目录下的 YAML 自定义模型。
 - 修改处罚逻辑后至少验证封禁、解封、警告、禁言和历史查询的主路径。
 
 ## 构建
@@ -124,4 +124,4 @@ src/main/java/org/leng/
 mvn clean package
 ```
 
-构建产物位于 `target/Lengbanlist - <version>.jar`。当前版本号由 `pom.xml` 控制，并会写入 `plugin.yml` 的 `${project.version}`。
+构建产物位于 `target/Lengbanlist-<version>.jar`。当前版本号由 `pom.xml` 控制，并会写入 `plugin.yml` 的 `${project.version}`。

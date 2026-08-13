@@ -1,0 +1,101 @@
+# ============================================================
+# Lengbanlist 自定义模型示例文件
+# ============================================================
+# 使用方法：
+# 1. 将此文件复制到 plugins/Lengbanlist/models/ 目录下
+# 2. 重命名为你喜欢的名字（如 mymodel.yml）
+# 3. 修改下面的 name 和 messages 内容
+# 4. 执行 /lban reload 或重启服务器即可加载
+#
+# 注意事项：
+# - 模型名称不能与内置模型冲突
+# - 内置模型列表：Default, English, HuTao, Furina, Zhongli,
+#   Keqing, Xiao, Ayaka, Zero, Herta, Nahida, Klee, YaeMiko
+# - 如果名称冲突，自定义模型不会被加载（内置模型优先）
+# - 支持 Minecraft 颜色代码（§0-§f, §l, §n, §o 等）
+#
+# 可用占位符：
+#   {player}    - 玩家名
+#   {reason}    - 处罚原因
+#   {days}      - 天数（永久封禁自动显示为"永久"）
+#   {ip}        - IP 地址
+#   {count}     - 数量（如警告次数、记录条数）
+#   {enabled}   - 自动替换为"开启"或"关闭"
+#   {type}      - 处罚类型（如"封禁"、"禁言"）
+#   {target}    - 目标名称
+#   {remaining} - 剩余时间
+#   {duration}  - 处罚时长
+#   {detail}    - 详细信息
+#   {entry}     - 历史记录条目
+# ============================================================
+
+# 模型名称（唯一标识，不能与内置模型重名）
+name: "MyCustomModel"
+
+# 帮助菜单（显示在 /lban 或 /lban help 中）
+# 每行一个字符串，支持颜色代码
+help:
+  - "§6=== MyCustomModel 自定义模型 ==="
+  - "§a所有命令用法请参考 §e/lban help"
+  - "§a当前为自定义模型，所有消息均可自定义"
+  - "§6================================"
+
+# 消息模板（所有消息均可自定义）
+messages:
+  # --- 踢出相关 ---
+  get-kick-message: "§c你被踢出服务器了！\n原因: {reason}\n§c请遵守服务器规则！"
+  on-kick-success: "§a玩家 {player} 已被踢出！原因: {reason}"
+
+  # --- 广播开关 ---
+  toggle-broadcast: "§a自动广播已{enabled}"
+
+  # --- 重载配置 ---
+  reload-config: "§a配置已重新加载"
+
+  # --- 封禁相关 ---
+  add-ban: "§a玩家 {player} 已被封禁 {days}，原因: {reason}"
+  remove-ban: "§a玩家 {player} 已解封"
+  add-ban-ip: "§aIP {ip} 已被封禁 {days}，原因: {reason}"
+  remove-ban-ip: "§aIP {ip} 已解封"
+
+  # --- 禁言相关 ---
+  add-mute: "§a玩家 {player} 已被禁言，原因: {reason}"
+  remove-mute: "§a玩家 {player} 已解除禁言"
+  mute-command-blocked: "§c你正在被禁言，无法使用此命令"
+
+  # --- 警告相关 ---
+  add-warn: "§a玩家 {player} 已被警告，原因: {reason}（三次警告自动封禁）"
+  remove-warn: "§a玩家 {player} 的警告已移除"
+  warn-offline: "§a离线玩家 {player} 已被警告，原因: {reason}，上线后他将收到通知"
+  pending-warnings-notice: "§e你有 {count} 条待处理警告，请遵守规则！"
+
+  # --- 过期提醒 ---
+  expiry-reminder: "§a{target} 的{type}将在 {remaining} 后到期"
+
+  # --- 处罚升级（LBAC自动封禁） ---
+  escalated-ban: "§a玩家 {player} 因第 {count} 次违规，处罚已自动升级为封禁 {duration}"
+
+  # --- 小号查询 ---
+  alts-result: "§a玩家 {player} 名下查到 {count} 个小号："
+  no-alts: "§a玩家 {player} 没有查到小号，是干净的好玩家"
+
+  # --- 举报相关 ---
+  on-report-ban: "§a举报已确认！玩家 {player} 已被封禁 {duration}"
+
+  # --- 审计日志导出 ---
+  export-result: "§a审计日志导出成功，共 {count} 条记录"
+
+  # --- 审计校验 ---
+  verify-result-valid: "§a审计校验通过！{count} 条记录完整无损"
+  verify-result-invalid: "§c审计校验失败！{count} 条记录可能被篡改"
+
+  # --- 跨服同步 ---
+  sync-status: "§a跨服同步状态: {detail}"
+
+  # --- 权限拒绝 ---
+  immunity-denied: "§c目标 {target} 的权限等级不低于你，无法执行此操作"
+
+  # --- 历史记录模板 ---
+  history-header: "§a玩家 {player} 的处罚历史："
+  history-empty: "§a玩家 {player} 没有任何处罚记录，是遵纪守法的好玩家"
+  history-entry-format: "§7{entry}"

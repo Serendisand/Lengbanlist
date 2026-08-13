@@ -2,6 +2,9 @@ package org.leng.manager;
 
 import org.leng.Lengbanlist;
 import org.leng.models.Model;
+import org.leng.models.CustomModel;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -10,6 +13,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.Bukkit;
 import org.bukkit.enchantments.Enchantment;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -43,8 +47,54 @@ public class ModelManager {
         loadModel("Klee");
         loadModel("YaeMiko");
 
+        loadCustomModels();
+
         String modelName = Lengbanlist.getInstance().getConfig().getString("Model", "Default");
         switchModel(modelName.toLowerCase());
+    }
+
+    private void loadCustomModels() {
+        File modelsDir = new File(Lengbanlist.getInstance().getDataFolder(), "models");
+        if (!modelsDir.exists() || !modelsDir.isDirectory()) {
+            return;
+        }
+
+        File[] yamlFiles = modelsDir.listFiles((dir, name) -> name.endsWith(".yml") || name.endsWith(".yaml"));
+        if (yamlFiles == null || yamlFiles.length == 0) {
+            return;
+        }
+
+        for (File file : yamlFiles) {
+            try {
+                FileConfiguration yaml = YamlConfiguration.loadConfiguration(file);
+                String modelName = yaml.getString("name");
+                if (modelName != null) {
+                    modelName = modelName.trim();
+                }
+                if (modelName == null || modelName.isEmpty()) {
+                    Lengbanlist.getInstance().getLogger().warning("跳过模型文件 " + file.getName() + "：缺少 'name' 字段");
+                    continue;
+                }
+
+                String lowerName = modelName.toLowerCase();
+
+                // 内置模型优先：名称冲突则跳过自定义模型
+                if (models.containsKey(lowerName)) {
+                    Lengbanlist.getInstance().getLogger().warning("跳过自定义模型 " + modelName + "（来自 " + file.getName() + "）：与内置模型 " + lowerName + " 冲突，内置模型优先");
+                    continue;
+                }
+
+                CustomModel model = new CustomModel(modelName, yaml);
+                models.put(lowerName, model);
+                Lengbanlist.getInstance().getLogger().info("已加载自定义模型: " + modelName + "（来自 " + file.getName() + "）");
+            } catch (Exception e) {
+                if (e instanceof org.bukkit.configuration.InvalidConfigurationException) {
+                    Lengbanlist.getInstance().getLogger().warning("跳过模型文件 " + file.getName() + "：YAML 格式错误，请检查语法");
+                } else {
+                    Lengbanlist.getInstance().getLogger().warning("加载自定义模型文件 " + file.getName() + " 失败：" + e.getMessage());
+                }
+            }
+        }
     }
 
     public static void loadModel(String modelName) {

@@ -117,6 +117,18 @@ public void onLoad() {
     ipAssociationManager = new IpAssociationManager(this);
     webServer = new WebServer(this);
     isBroadcast = getConfig().getBoolean("opensendtime");
+
+    // 生成自定义模型目录和示例文件
+    File modelsDir = new File(getDataFolder(), "models");
+    if (!modelsDir.exists()) {
+        modelsDir.mkdirs();
+    }
+    File exampleModelFile = new File(modelsDir, "example-custom-model.yml");
+    if (!exampleModelFile.exists()) {
+        saveResource("models/example-custom-model.yml", false);
+        getLogger().info("已生成自定义模型示例文件: models/example-custom-model.yml");
+    }
+
     modelManager = ModelManager.getInstance();
 
     File chatConfigFile = new File(getDataFolder(), "chatconfig.yml");
