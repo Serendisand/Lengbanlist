@@ -23,7 +23,7 @@ public class MuteCommandBlockListener implements Listener {
 
         Player player = event.getPlayer();
 
-        if (!plugin.getMuteManager().isPlayerMuted(player.getName())) {
+        if (!plugin.getMuteManager().isPlayerMuted(player)) {
             return;
         }
 

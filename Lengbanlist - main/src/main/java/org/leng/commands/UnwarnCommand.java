@@ -7,6 +7,7 @@ import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.manager.WarnManager;
 import org.leng.object.WarnEntry;
+import org.leng.utils.IpMatcher;
 import org.leng.utils.Utils;
 
 import java.util.List;
@@ -42,6 +43,8 @@ public class UnwarnCommand extends Command implements CommandExecutor {
         }
 
         String target = args[0];
+        String normalized = IpMatcher.normalizeIpOrCidr(target);
+        if (normalized != null) target = normalized;
         WarnManager warnManager = plugin.getWarnManager();
 
 

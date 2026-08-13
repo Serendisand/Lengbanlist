@@ -98,13 +98,11 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
 
     private boolean isValidIp(String ip) {
         if (ip == null || ip.isEmpty()) return false;
-        if (ip.equalsIgnoreCase("127.0.0.1")) return false;
-        if (IpMatcher.isIpv4(ip)) return !ip.startsWith("127.");
-        if (IpMatcher.isCidr(ip)) {
-            String base = ip.substring(0, ip.indexOf('/'));
-            return !base.startsWith("127.");
-        }
-        return false;
+        String normalized = IpMatcher.normalizeIpOrCidr(ip);
+        if (normalized == null) return false;
+        String base = normalized;
+        if (IpMatcher.isCidr(normalized)) base = normalized.substring(0, normalized.indexOf('/'));
+        return !base.startsWith("127.");
     }
 
     @Override

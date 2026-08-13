@@ -43,7 +43,7 @@ public class ChatListener implements Listener {
 
         String message = event.getMessage();
 
-        if (plugin.getMuteManager().isPlayerMuted(player.getName())) {
+        if (plugin.getMuteManager().isPlayerMuted(player)) {
             event.setCancelled(true);
             player.sendMessage(plugin.prefix() + "§c你不准说话喵！");
             return;

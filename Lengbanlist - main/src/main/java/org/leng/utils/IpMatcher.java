@@ -32,6 +32,70 @@ public class IpMatcher {
         }
     }
 
+    public static boolean isWildcardIp(String value) {
+        if (value == null || value.isEmpty()) return false;
+        String[] parts = value.split("\\.");
+        if (parts.length != 4) return false;
+        boolean inWildcard = false;
+        boolean hasWildcard = false;
+        for (String part : parts) {
+            if (part.equalsIgnoreCase("x")) {
+                inWildcard = true;
+                hasWildcard = true;
+            } else {
+                if (inWildcard) return false;
+                try {
+                    int num = Integer.parseInt(part);
+                    if (num < 0 || num > 255) return false;
+                } catch (NumberFormatException e) {
+                    return false;
+                }
+            }
+        }
+        return hasWildcard;
+    }
+
+    public static String wildcardToCidr(String value) {
+        if (!isWildcardIp(value)) return null;
+        String[] parts = value.split("\\.");
+        int firstX = -1;
+        for (int i = 0; i < 4; i++) {
+            if (parts[i].equalsIgnoreCase("x")) {
+                firstX = i;
+                break;
+            }
+        }
+        if (firstX == 0) return null;
+        int prefix = (firstX == 3) ? 24 : (firstX == 2) ? 16 : (firstX == 1) ? 8 : 0;
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 4; i++) {
+            if (i < firstX) {
+                sb.append(parts[i]);
+            } else {
+                sb.append("0");
+            }
+            if (i < 3) sb.append(".");
+        }
+        sb.append("/").append(prefix);
+        return sb.toString();
+    }
+
+    public static String normalizeIpOrCidr(String value) {
+        if (value == null) return null;
+        if (isWildcardIp(value)) {
+            return wildcardToCidr(value);
+        }
+        if (isCidr(value) || isIpv4(value)) return value;
+        return null;
+    }
+
+    public static boolean isValidIpOrCidrOrWildcard(String value) {
+        if (isWildcardIp(value)) {
+            return wildcardToCidr(value) != null;
+        }
+        return isIpv4(value) || isCidr(value);
+    }
+
     public static boolean isValidIpOrCidr(String value) {
         return isIpv4(value) || isCidr(value);
     }

@@ -146,6 +146,8 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     args = Arrays.copyOfRange(args, 1, args.length);
                 }
                 if (args.length >= 2 && args[1].contains(".")) {
+                    String normalizedIp = IpMatcher.normalizeIpOrCidr(args[1]);
+                    if (normalizedIp != null) args[1] = normalizedIp;
                     if (!plugin.isFeatureEnabled("ban-ip")) {
                         plugin.sendFeatureDisabled(sender);
                         return true;
@@ -218,6 +220,8 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     return true;
                 }
                 if (args[1].contains(".")) {
+                    String normalizedIp = IpMatcher.normalizeIpOrCidr(args[1]);
+                    if (normalizedIp != null) args[1] = normalizedIp;
                     if (plugin.getBanManager().isIpBanned(args[1])) {
                         plugin.getBanManager().unbanIp(args[1], sender.getName());
                     } else {
@@ -341,7 +345,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     return true;
                 }
                 String muteTarget = args[1];
-                if (!plugin.getImmunityManager().canPunish(sender, muteTarget)) {
+                String normalizedMute = IpMatcher.normalizeIpOrCidr(muteTarget);
+                boolean isIpTarget = normalizedMute != null;
+                if (isIpTarget) muteTarget = normalizedMute;
+                if (!isIpTarget && !plugin.getImmunityManager().canPunish(sender, muteTarget)) {
                     Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(muteTarget));
                     return true;
                 }
@@ -388,6 +395,8 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     return true;
                 }
                 String unmuteTarget = args[1];
+                String normalizedUnmute = IpMatcher.normalizeIpOrCidr(unmuteTarget);
+                if (normalizedUnmute != null) unmuteTarget = normalizedUnmute;
                 plugin.getMuteManager().unmutePlayer(unmuteTarget, sender.getName());
                 if (unmuteSilent) {
                     Utils.sendMessage(sender, currentModel.removeMute(unmuteTarget));
@@ -420,7 +429,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     return true;
                 }
                 String warnTarget = args[1];
-                if (!warnTarget.contains(".") && !plugin.getImmunityManager().canPunish(sender, warnTarget)) {
+                String normalizedWarn = IpMatcher.normalizeIpOrCidr(warnTarget);
+                boolean isIpWarnTarget = normalizedWarn != null;
+                if (isIpWarnTarget) warnTarget = normalizedWarn;
+                if (!isIpWarnTarget && !plugin.getImmunityManager().canPunish(sender, warnTarget)) {
                     Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(warnTarget));
                     return true;
                 }
@@ -442,6 +454,8 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     return true;
                 }
                 String unwarnTarget = args[1];
+                String normalizedUnwarn = IpMatcher.normalizeIpOrCidr(unwarnTarget);
+                if (normalizedUnwarn != null) unwarnTarget = normalizedUnwarn;
                 List<WarnEntry> warnings = plugin.getWarnManager().getActiveWarnings(unwarnTarget);
                 for (WarnEntry warn : warnings) {
                     if (!warn.isRevoked()) {
@@ -513,6 +527,8 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     return true;
                 }
                 String checkTarget = args[1];
+                String normalizedCheck = IpMatcher.normalizeIpOrCidr(checkTarget);
+                if (normalizedCheck != null) checkTarget = normalizedCheck;
                 CheckCommand checkCommand = new CheckCommand(plugin);
                 checkCommand.execute(sender, "check", new String[]{checkTarget});
                 break;
@@ -540,6 +556,11 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     return true;
                 }
                 String[] histArgs = Arrays.copyOfRange(args, 1, args.length);
+                if (histArgs.length > 0) {
+                    String histTarget = histArgs[0];
+                    String normalizedHist = IpMatcher.normalizeIpOrCidr(histTarget);
+                    if (normalizedHist != null) histArgs[0] = normalizedHist;
+                }
                 return new HistoryCommand(plugin).onCommand(sender, this, "history", histArgs);
             case "audit":
                 if (!plugin.isFeatureEnabled("audit")) {

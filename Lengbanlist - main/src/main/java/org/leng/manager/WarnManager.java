@@ -3,7 +3,9 @@ package org.leng.manager;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.object.BanEntry;
+import org.leng.object.BanIpEntry;
 import org.leng.object.WarnEntry;
+import org.leng.utils.IpMatcher;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
 
@@ -71,6 +73,8 @@ public class WarnManager {
     }
 
     private void checkAutoBan(String player) {
+        String normalized = IpMatcher.normalizeIpOrCidr(player);
+        if (normalized != null) player = normalized;
         long now = System.currentTimeMillis();
         long timeWindow = 30L * 24 * 60 * 60 * 1000;
         List<WarnEntry> validWarnings = getAllWarnings(player).stream()
@@ -80,25 +84,47 @@ public class WarnManager {
         if (validWarnings.size() >= 3) {
             int triggerCount = Math.max(1, validWarnings.size() / 3);
 
-            BanEntry existingBan = plugin.getBanManager().getBanEntry(player);
-            if (existingBan != null && existingBan.getReason().contains("LBAC")) {
-                int prevTrigger = extractTriggerCount(existingBan.getReason());
-                if (triggerCount <= prevTrigger) return;
+            if (IpMatcher.isValidIpOrCidr(player)) {
+                BanIpEntry existingIpBan = plugin.getBanManager().getBanIpEntry(player);
+                if (existingIpBan != null && existingIpBan.getReason().contains("LBAC")) {
+                    int prevTrigger = extractTriggerCount(existingIpBan.getReason());
+                    if (triggerCount <= prevTrigger) return;
+                }
+
+                long banDuration = calculateBanDuration(triggerCount);
+                String formattedDuration = TimeUtils.formatDuration(banDuration);
+                BanIpEntry ipBanEntry = new BanIpEntry(
+                        player,
+                        "LBAC",
+                        now + banDuration,
+                        String.format("LBAC自动封禁（累计%d次警告，第%d次触发）", validWarnings.size(), triggerCount),
+                        true
+                );
+
+                plugin.getBanManager().banIp(ipBanEntry);
+                String message = String.format("§6[LBAC] §e%s §c因30天内累计%d次警告被自动封禁§a%s §6<此封禁由系统决定>", player, validWarnings.size(), formattedDuration);
+                plugin.getServer().broadcastMessage(message);
+            } else {
+                BanEntry existingBan = plugin.getBanManager().getBanEntry(player);
+                if (existingBan != null && existingBan.getReason().contains("LBAC")) {
+                    int prevTrigger = extractTriggerCount(existingBan.getReason());
+                    if (triggerCount <= prevTrigger) return;
+                }
+
+                long banDuration = calculateBanDuration(triggerCount);
+                String formattedDuration = TimeUtils.formatDuration(banDuration);
+                BanEntry banEntry = new BanEntry(
+                        player,
+                        "LBAC",
+                        now + banDuration,
+                        String.format("LBAC自动封禁（累计%d次警告，第%d次触发）", validWarnings.size(), triggerCount),
+                        true
+                );
+
+                plugin.getBanManager().banPlayer(banEntry);
+                String message = String.format("§6[LBAC] §e%s §c因30天内累计%d次警告被自动封禁§a%s §6<此封禁由系统决定>", player, validWarnings.size(), formattedDuration);
+                plugin.getServer().broadcastMessage(message);
             }
-
-            long banDuration = calculateBanDuration(triggerCount);
-            String formattedDuration = TimeUtils.formatDuration(banDuration);
-            BanEntry banEntry = new BanEntry(
-                    player,
-                    "LBAC",
-                    now + banDuration,
-                    String.format("LBAC自动封禁（累计%d次警告，第%d次触发）", validWarnings.size(), triggerCount),
-                    true
-            );
-
-            plugin.getBanManager().banPlayer(banEntry);
-            String message = String.format("§6[LBAC] §e%s §c因30天内累计%d次警告被自动封禁§a%s §6<此封禁由系统决定>", player, validWarnings.size(), formattedDuration);
-            plugin.getServer().broadcastMessage(message);
         }
     }
 
@@ -114,16 +140,26 @@ public class WarnManager {
     }
 
     public void checkUnbanIfNecessary(String player) {
+        String normalized = IpMatcher.normalizeIpOrCidr(player);
+        if (normalized != null) player = normalized;
         long now = System.currentTimeMillis();
         long timeWindow = 30L * 24 * 60 * 60 * 1000;
         List<WarnEntry> validWarnings = getAllWarnings(player).stream()
                 .filter(e -> (now - e.getTime()) <= timeWindow)
                 .collect(Collectors.toList());
 
-        if (validWarnings.size() < 3 && plugin.getBanManager().isBanned(player, "LBAC")) {
-            plugin.getBanManager().unbanPlayer(player);
-            String message = String.format("§6[LBAC] §e%s §a因警告次数减少至%d次，自动解封", player, validWarnings.size());
-            plugin.getServer().broadcastMessage(message);
+        if (validWarnings.size() < 3) {
+            if (IpMatcher.isValidIpOrCidr(player)) {
+                if (plugin.getBanManager().isIpBanned(player)) {
+                    plugin.getBanManager().unbanIp(player);
+                    String message = String.format("§6[LBAC] §e%s §a因警告次数减少至%d次，自动解封", player, validWarnings.size());
+                    plugin.getServer().broadcastMessage(message);
+                }
+            } else if (plugin.getBanManager().isBanned(player, "LBAC")) {
+                plugin.getBanManager().unbanPlayer(player);
+                String message = String.format("§6[LBAC] §e%s §a因警告次数减少至%d次，自动解封", player, validWarnings.size());
+                plugin.getServer().broadcastMessage(message);
+            }
         }
     }
 

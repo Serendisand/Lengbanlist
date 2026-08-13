@@ -9,6 +9,7 @@ import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.manager.ModelManager;
 import org.leng.manager.WarnManager;
+import org.leng.utils.IpMatcher;
 import org.leng.utils.Utils;
 
 import java.util.Arrays;
@@ -60,11 +61,13 @@ public class WarnCommand extends Command implements CommandExecutor, TabComplete
         }
 
         if (isIp) {
-            if (!plugin.getBanManager().isValidIp(target)) {
+            if (!IpMatcher.isValidIpOrCidrOrWildcard(target)) {
                 Utils.sendMessage(sender, plugin.prefix() + "§c无效的IP地址");
                 return false;
             }
 
+            String normalized = IpMatcher.normalizeIpOrCidr(target);
+            if (normalized != null) target = normalized;
             warnManager.warnPlayer(target, sender.getName(), reason);
             Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addWarn(target, reason));
             return true;

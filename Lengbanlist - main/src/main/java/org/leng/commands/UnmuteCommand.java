@@ -5,6 +5,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.leng.Lengbanlist;
 import org.leng.manager.ModelManager;
+import org.leng.utils.IpMatcher;
 import org.leng.utils.Utils;
 
 import java.util.Arrays;
@@ -35,6 +36,8 @@ public class UnmuteCommand implements CommandExecutor {
             Utils.sendMessage(sender, plugin.prefix() + "§c用法喵: /" + label + " <玩家名>");
             return true;
         }
+        String normalized = IpMatcher.normalizeIpOrCidr(args[0]);
+        if (normalized != null) args[0] = normalized;
         plugin.getMuteManager().unmutePlayer(args[0], sender.getName());
         String message = ModelManager.getInstance().getCurrentModel().removeMute(args[0]);
         if (silent) {

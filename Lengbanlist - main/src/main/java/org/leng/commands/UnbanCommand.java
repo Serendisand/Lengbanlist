@@ -5,6 +5,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
+import org.leng.utils.IpMatcher;
 import org.leng.utils.Utils;
 
 public class UnbanCommand extends Command implements CommandExecutor {
@@ -39,11 +40,15 @@ public class UnbanCommand extends Command implements CommandExecutor {
 
 
         if (args[0].contains(".")) {
-
-            if (Lengbanlist.getInstance().banManager.isIpBanned(args[0])) {
-                Lengbanlist.getInstance().banManager.unbanIp(args[0], sender.getName());
+            String normalized = IpMatcher.normalizeIpOrCidr(args[0]);
+            if (normalized == null) {
+                Utils.sendMessage(sender, "§c无效的IP地址");
+                return false;
+            }
+            if (Lengbanlist.getInstance().banManager.isIpBanned(normalized)) {
+                Lengbanlist.getInstance().banManager.unbanIp(normalized, sender.getName());
             } else {
-                Utils.sendMessage(sender, "§cIP " + args[0] + " 未被封禁或封禁已过期");
+                Utils.sendMessage(sender, "§cIP " + normalized + " 未被封禁或封禁已过期");
             }
         } else {
 

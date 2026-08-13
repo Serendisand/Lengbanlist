@@ -15,6 +15,7 @@ import org.leng.object.MuteEntry;
 import org.leng.object.WarnEntry;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
+import org.leng.utils.IpMatcher;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -57,6 +58,9 @@ public class HistoryCommand implements CommandExecutor, TabCompleter {
         }
 
         String target = args[0];
+        String normalizedTarget = IpMatcher.normalizeIpOrCidr(target);
+        if (normalizedTarget != null) target = normalizedTarget;
+
         List<HistoryEntry> raw = new ArrayList<>();
 
         boolean isIp = target.contains(".");

@@ -127,6 +127,9 @@ public class CheckCommand extends Command implements CommandExecutor {
     }
 
     private void checkIpInfo(CommandSender sender, String ip) {
+        String normalized = IpMatcher.normalizeIpOrCidr(ip);
+        if (normalized != null) ip = normalized;
+
         boolean isBanned = plugin.getBanManager().isIpBanned(ip);
         if (IpMatcher.isIpv4(ip) && plugin.getBanManager().isIpBannedByCidr(ip)) {
             isBanned = true;

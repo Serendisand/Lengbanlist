@@ -6,6 +6,7 @@ import org.bukkit.command.CommandSender;
 import org.leng.Lengbanlist;
 import org.leng.manager.ModelManager;
 import org.leng.object.MuteEntry;
+import org.leng.utils.IpMatcher;
 import org.leng.utils.Utils;
 
 import java.util.Arrays;
@@ -41,10 +42,12 @@ public class MuteCommand implements CommandExecutor {
         String timeArg = args[1];
         String rawReason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
         String reason = resolvePresetReason(rawReason);
-        if (!plugin.getImmunityManager().canPunish(sender, target)) {
+        if (IpMatcher.normalizeIpOrCidr(target) == null && !plugin.getImmunityManager().canPunish(sender, target)) {
             Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(target));
             return true;
         }
+        String normalized = IpMatcher.normalizeIpOrCidr(target);
+        if (normalized != null) target = normalized;
         long duration;
         if (timeArg.equalsIgnoreCase("auto")) {
             duration = plugin.getEscalationManager().resolveMute(target);

@@ -2,6 +2,7 @@ package org.leng.models;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.leng.Lengbanlist;
 import org.leng.utils.Utils;
 
 import java.util.Collections;
@@ -57,8 +58,9 @@ public class CustomModel implements Model {
             Utils.sendMessage(sender, "§6" + name + " 模型 - 没有自定义帮助信息");
             return;
         }
+        String version = Lengbanlist.getInstance().getPluginVersion();
         for (String line : helpLines) {
-            Utils.sendMessage(sender, line);
+            Utils.sendMessage(sender, line.replace("{version}", version == null ? "" : version));
         }
     }
 
