@@ -106,7 +106,32 @@ public class IpMatcher {
         if (normalized == null) return false;
         String base = normalized;
         if (isCidr(normalized)) base = normalized.substring(0, normalized.indexOf('/'));
-        return base.startsWith("127.");
+        return base.startsWith("127.") || base.equals("0.0.0.0") || base.equals("::1");
+    }
+
+    /** 是否私有/保留地址（禁止封禁，避免误封整个内网）。 */
+    public static boolean isPrivateOrReserved(String value) {
+        if (value == null) return false;
+        String normalized = normalizeIpOrCidr(value);
+        if (normalized == null) return false;
+        String base = normalized;
+        if (isCidr(normalized)) base = normalized.substring(0, normalized.indexOf('/'));
+        if (base.startsWith("127.") || base.equals("0.0.0.0") || base.equals("::1")) return true;
+        if (base.startsWith("10.")) return true;
+        if (base.startsWith("192.168.")) return true;
+        if (base.startsWith("169.254.")) return true; // 链路本地
+        if (base.startsWith("172.")) {
+            int dot = base.indexOf('.', 4);
+            if (dot > 0) {
+                try {
+                    int secondOctet = Integer.parseInt(base.substring(4, dot));
+                    if (secondOctet >= 16 && secondOctet <= 31) return true;
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+        if (base.startsWith("fd") || base.startsWith("fc")) return true; // IPv6 唯一本地
+        return false;
     }
 
     public static long ipToLong(String ip) {

@@ -35,6 +35,8 @@ features:
   model: true          # 角色模型切换（/lban model）
   tp: true             # 传送（/lban tp）
   chest-ui: true       # 箱子 GUI 管理界面（/lban chest）
+  # --- 广播 ---
+  broadcast: true        # 广播封禁人数（/lban a、Web 面板触发）
   staffchat: true      # 管理专用聊天（/lban sc）
 
   # --- 聊天与过滤 ---

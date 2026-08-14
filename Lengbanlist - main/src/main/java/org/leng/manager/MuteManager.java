@@ -32,11 +32,27 @@ public class MuteManager {
         }
     }
 
-    public void mutePlayer(MuteEntry muteEntry) {
+    /**
+     * 禁言目标。若目标已被禁言且新禁言时长不同，则刷新时长并返回新时长；
+     * 时长相同或目标是已被禁言的同网段 IP 时，返回 null（未发生变更）。
+     * 玩家名匹配大小写不敏感（统一小写处理）。
+     */
+    public Long mutePlayer(MuteEntry muteEntry) {
         synchronized (muteLock) {
-            String target = muteEntry.getTarget();
-            if (isPlayerMuted(target) || (IpMatcher.isIpv4(target) && hasEquivalentIpv4Mute(target))) {
-                return;
+            String target = muteEntry.getTarget().toLowerCase();
+            Long existing = existingActiveMute(target);
+            if (existing != null) {
+                if (existing.equals(muteEntry.getTime())) {
+                    return null; // 时长未变化，避免重复广播/审计
+                }
+                db.upsertMute(muteEntry);
+                muteCache.put(target, muteEntry.getTime());
+                if (isIpTarget(target)) {
+                    ipMuteCache.put(target, muteEntry.getTime());
+                }
+                mutationGeneration++;
+                plugin.getAuditManager().log("修改禁言", muteEntry.getStaff(), muteEntry.getTarget(), muteEntry.getReason());
+                return muteEntry.getTime();
             }
             db.upsertMute(muteEntry);
             muteCache.put(target, muteEntry.getTime());
@@ -44,8 +60,36 @@ public class MuteManager {
                 ipMuteCache.put(target, muteEntry.getTime());
             }
             mutationGeneration++;
-            plugin.getAuditManager().log("禁言", muteEntry.getStaff(), target, muteEntry.getReason());
+            plugin.getAuditManager().log("禁言", muteEntry.getStaff(), muteEntry.getTarget(), muteEntry.getReason());
+            return muteEntry.getTime();
         }
+    }
+
+    /** 返回目标当前活跃禁言的结束时间，不存在返回 null。 */
+    private Long existingActiveMute(String target) {
+        Long cached = muteCache.get(target);
+        if (cached != null) {
+            if (cached == Long.MAX_VALUE || cached > System.currentTimeMillis()) {
+                return cached;
+            }
+            muteCache.remove(target, cached);
+            ipMuteCache.remove(target, cached);
+            db.deleteMuteIfExpiresAt(target, cached);
+            mutationGeneration++;
+            return null;
+        }
+        if (IpMatcher.isIpv4(target) && hasEquivalentIpv4Mute(target)) {
+            return Long.MAX_VALUE; // 同网段已有等价禁言，视为已禁言（不可叠加）
+        }
+        MuteEntry entry = db.getMute(target);
+        if (entry == null) return null;
+        if (entry.getTime() == Long.MAX_VALUE || entry.getTime() > System.currentTimeMillis()) {
+            muteCache.put(target, entry.getTime());
+            return entry.getTime();
+        }
+        db.deleteMuteIfExpiresAt(target, entry.getTime());
+        mutationGeneration++;
+        return null;
     }
 
     public void unmutePlayer(String target) {
@@ -60,16 +104,17 @@ public class MuteManager {
             targetsToDelete = new ArrayList<>(storedTargets);
             wasMuted = false;
             for (String storedTarget : storedTargets) {
-                Long cached = muteCache.get(storedTarget);
+                String cacheKey = storedTarget.toLowerCase();
+                Long cached = muteCache.get(cacheKey);
                 if (cached != null && isActive(cached)) {
                     wasMuted = true;
                 } else {
-                    MuteEntry storedEntry = db.getMute(storedTarget);
+                    MuteEntry storedEntry = db.getMute(cacheKey);
                     if (storedEntry != null && isActive(storedEntry.getTime())) {
                         wasMuted = true;
                     }
                 }
-                muteCache.remove(storedTarget);
+                muteCache.remove(cacheKey);
                 ipMuteCache.remove(storedTarget);
             }
             mutationGeneration++;
@@ -78,7 +123,7 @@ public class MuteManager {
             }
         }
         for (String storedTarget : targetsToDelete) {
-            db.deleteMute(storedTarget);
+            db.deleteMute(storedTarget.toLowerCase());
         }
     }
 
@@ -121,12 +166,13 @@ public class MuteManager {
             long now = System.currentTimeMillis();
             for (MuteEntry entry : db.loadMutesForCache()) {
                 if (entry.getTime() == Long.MAX_VALUE || entry.getTime() > now) {
-                    loadedMutes.put(entry.getTarget(), entry.getTime());
-                    if (isIpTarget(entry.getTarget())) {
-                        loadedIpMutes.put(entry.getTarget(), entry.getTime());
+                    String targetKey = entry.getTarget().toLowerCase();
+                    loadedMutes.put(targetKey, entry.getTime());
+                    if (isIpTarget(targetKey)) {
+                        loadedIpMutes.put(targetKey, entry.getTime());
                     }
                 } else {
-                    db.deleteMuteIfExpiresAt(entry.getTarget(), entry.getTime());
+                    db.deleteMuteIfExpiresAt(entry.getTarget().toLowerCase(), entry.getTime());
                 }
             }
 
@@ -150,24 +196,28 @@ public class MuteManager {
     }
 
     public boolean isPlayerMuted(String playerName) {
+        if (playerName == null) {
+            return false;
+        }
+        String normalized = playerName.toLowerCase();
         synchronized (muteLock) {
-            Long cached = muteCache.get(playerName);
+            Long cached = muteCache.get(normalized);
             if (cached != null) {
                 if (cached == Long.MAX_VALUE || cached > System.currentTimeMillis()) {
                     return true;
                 }
-                muteCache.remove(playerName, cached);
-                db.deleteMuteIfExpiresAt(playerName, cached);
+                muteCache.remove(normalized, cached);
+                db.deleteMuteIfExpiresAt(normalized, cached);
                 mutationGeneration++;
                 return false;
             }
-            MuteEntry entry = db.getMute(playerName);
+            MuteEntry entry = db.getMute(normalized);
             if (entry == null) return false;
             if (entry.getTime() == Long.MAX_VALUE || entry.getTime() > System.currentTimeMillis()) {
-                muteCache.put(playerName, entry.getTime());
+                muteCache.put(normalized, entry.getTime());
                 return true;
             }
-            db.deleteMuteIfExpiresAt(playerName, entry.getTime());
+            db.deleteMuteIfExpiresAt(normalized, entry.getTime());
             mutationGeneration++;
             return false;
         }

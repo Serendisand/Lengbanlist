@@ -37,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class WebServer {
@@ -220,7 +221,7 @@ public class WebServer {
 
 
     private static class RateLimiter {
-        private final ConcurrentHashMap<String, long[]> requests = new ConcurrentHashMap<>();
+        private final ConcurrentHashMap<String, AtomicLongArray> requests = new ConcurrentHashMap<>();
         private static final int MAX_REQUESTS = 60;
         private static final long WINDOW_MS = 60000L;
 
@@ -229,19 +230,19 @@ public class WebServer {
                 cleanup();
             }
             long now = System.currentTimeMillis();
-            long[] window = requests.compute(ip, (key, val) -> {
-                if (val == null || now - val[0] > WINDOW_MS) {
-                    return new long[]{now, 1};
+            AtomicLongArray window = requests.compute(ip, (key, val) -> {
+                if (val == null || now - val.get(0) > WINDOW_MS) {
+                    return new AtomicLongArray(new long[]{now, 1});
                 }
-                val[1]++;
+                val.getAndIncrement(1);
                 return val;
             });
-            return window[1] > MAX_REQUESTS;
+            return window.get(1) > MAX_REQUESTS;
         }
 
         void cleanup() {
             long cutoff = System.currentTimeMillis() - WINDOW_MS;
-            requests.entrySet().removeIf(e -> e.getValue()[0] < cutoff);
+            requests.entrySet().removeIf(e -> e.getValue().get(0) < cutoff);
         }
     }
 
@@ -285,7 +286,9 @@ public class WebServer {
         });
         try {
             if (!latch.await(5, TimeUnit.SECONDS)) {
-                sendError(exchange, 504, "操作超时");
+                // 注意：主线程繁忙导致超时，任务仍会继续执行完；
+                // 这里明确提示避免用户误以为操作未生效而重复执行。
+                sendError(exchange, 504, "主线程繁忙，操作仍在后台执行中，请稍后在列表中确认结果，不要重复提交");
                 return false;
             }
         } catch (InterruptedException e) {
@@ -606,6 +609,12 @@ public class WebServer {
             String feature = target.contains(".") ? "ban-ip" : "ban";
             if (!requireFeature(exchange, feature)) return;
 
+            // 校验 IP 合法性，避免非法字符串以"IP 封禁"名义入库
+            if (target.contains(".") && !org.leng.utils.IpMatcher.isValidIpOrCidrOrWildcard(target)) {
+                sendError(exchange, 400, "无效的 IP 或 CIDR 格式");
+                return;
+            }
+
             AtomicReference<String> outcome = new AtomicReference<>("ok");
             boolean completed = runSync(exchange, () -> {
                 if (!target.contains(".") && !plugin.getImmunityManager().canPunish(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
@@ -646,6 +655,11 @@ public class WebServer {
         try {
             JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
             String target = json.get("target").getAsString();
+
+            if (target.contains(".") && !org.leng.utils.IpMatcher.isValidIpOrCidrOrWildcard(target)) {
+                sendError(exchange, 400, "无效的 IP 或 CIDR 格式");
+                return;
+            }
 
             boolean completed = runSync(exchange, () -> {
                 if (target.contains(".")) {
@@ -824,11 +838,18 @@ public class WebServer {
                     outcome.set("403");
                     return;
                 }
-                plugin.getMuteManager().mutePlayer(new MuteEntry(target, finalStaff, endTime, reason));
+                Long newEnd = plugin.getMuteManager().mutePlayer(new MuteEntry(target, finalStaff, endTime, reason));
+                if (newEnd == null) {
+                    outcome.set("noop");
+                }
             });
             if (!completed) return;
             if ("403".equals(outcome.get())) {
                 sendError(exchange, 403, "目标权重高于操作者，无法执行");
+                return;
+            }
+            if ("noop".equals(outcome.get())) {
+                sendError(exchange, 409, "该目标已有相同时长的禁言记录，未重复禁言");
                 return;
             }
 
@@ -964,26 +985,26 @@ public class WebServer {
 
         try {
             boolean completed = runSync(exchange, () -> {
-            plugin.reloadConfig();
+                plugin.reloadConfig();
 
-            ModelManager.getInstance().reloadModel();
+                ModelManager.getInstance().reloadModel();
 
-            File broadcastFile = new File(plugin.getDataFolder(), "broadcast.yml");
-            if (broadcastFile.exists()) {
-                try {
-                    plugin.getBroadcastFC().load(broadcastFile);
-                } catch (Exception e) {
-                    plugin.getLogger().warning("重载broadcast.yml失败: " + e.getMessage());
+                File broadcastFile = new File(plugin.getDataFolder(), "broadcast.yml");
+                if (broadcastFile.exists()) {
+                    try {
+                        plugin.getBroadcastFC().load(broadcastFile);
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("重载broadcast.yml失败: " + e.getMessage());
+                    }
                 }
-            }
-            File chatConfigFile = new File(plugin.getDataFolder(), "chatconfig.yml");
-            if (chatConfigFile.exists()) {
-                try {
-                    plugin.getChatConfig().load(chatConfigFile);
-                } catch (Exception e) {
-                    plugin.getLogger().warning("重载chatconfig.yml失败: " + e.getMessage());
+                File chatConfigFile = new File(plugin.getDataFolder(), "chatconfig.yml");
+                if (chatConfigFile.exists()) {
+                    try {
+                        plugin.getChatConfig().load(chatConfigFile);
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("重载chatconfig.yml失败: " + e.getMessage());
+                    }
                 }
-            }
             });
             if (!completed) return;
 
@@ -995,10 +1016,13 @@ public class WebServer {
             sendError(exchange, 500, "重载失败: " + e.getMessage());
             return;
         }
-        try {
-            plugin.reloadWebServer();
-        } catch (Exception ignored) {
-        }
+        // 在当前请求已响应后重启 Web 服务，避免 stop(0) 自杀式中断正在处理的请求
+        org.leng.utils.SchedulerUtils.runTask(plugin, () -> {
+            try {
+                plugin.reloadWebServer();
+            } catch (Exception ignored) {
+            }
+        });
     }
 
     private void handleBroadcast(HttpExchange exchange) {
@@ -1007,7 +1031,7 @@ public class WebServer {
             sendError(exchange, 405, "仅支持 POST");
             return;
         }
-        if (!requireAuth(exchange)) return;
+        if (!requireAuth(exchange) || !requireFeature(exchange, "broadcast")) return;
 
         try {
             String defaultMessage = plugin.getBroadcastFC().getString("default-message");

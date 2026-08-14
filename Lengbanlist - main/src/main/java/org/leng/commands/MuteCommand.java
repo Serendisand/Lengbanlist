@@ -59,13 +59,22 @@ public class MuteCommand implements CommandExecutor {
             }
         }
         MuteEntry entry = new MuteEntry(target, sender.getName(), org.leng.utils.TimeUtils.calculateEndTime(duration), reason);
-        plugin.getMuteManager().mutePlayer(entry);
+        Long newDuration = plugin.getMuteManager().mutePlayer(entry);
+        if (newDuration == null) {
+            Utils.sendMessage(sender, plugin.prefix() + "§e该目标已有相同时长的禁言记录，未重复禁言。");
+            return true;
+        }
+        String muteMessage = currentModel().addMute(target, reason);
         if (silent) {
-            Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addMute(target, reason));
+            Utils.sendMessage(sender, muteMessage);
         } else {
-            Utils.broadcast(ModelManager.getInstance().getCurrentModel().addMute(target, reason));
+            Utils.broadcast(muteMessage);
         }
         return true;
+    }
+
+    private org.leng.models.Model currentModel() {
+        return ModelManager.getInstance().getCurrentModel();
     }
 
     private void sendUsage(CommandSender sender, String label) {

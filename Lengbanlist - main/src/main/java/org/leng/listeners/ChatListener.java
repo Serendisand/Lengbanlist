@@ -10,6 +10,7 @@ import org.leng.Lengbanlist;
 import org.leng.commands.LengbanlistCommand;
 import org.leng.object.MuteEntry;
 import org.leng.utils.SchedulerUtils;
+import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
 
 import java.util.List;
@@ -66,12 +67,18 @@ public class ChatListener implements Listener {
         }
 
         if (containsBadWord) {
-            badWordCount.put(player.getName(), badWordCount.getOrDefault(player.getName(), 0) + 1);
-
-            if (badWordCount.get(player.getName()) >= muteThreshold) {
-                String reason = "多次使用违禁词";
-                plugin.getMuteManager().mutePlayer(new MuteEntry(player.getName(), "System", Long.MAX_VALUE, reason));
-                player.sendMessage(plugin.prefix() + "§c你因多次使用违禁词被自动禁言！");
+            int violations = badWordCount.merge(player.getName(), 1, Integer::sum);
+            if (violations >= muteThreshold) {
+                long muteDurationMillis;
+                switch (violations) {
+                    case 3: muteDurationMillis = TimeUtils.hoursToMillis(1); break;
+                    case 4: muteDurationMillis = TimeUtils.hoursToMillis(12); break;
+                    case 5: muteDurationMillis = TimeUtils.daysToMillis(1); break;
+                    default: muteDurationMillis = TimeUtils.daysToMillis(7); break;
+                }
+                String reason = "多次使用违禁词（第 " + violations + " 次触发）";
+                plugin.getMuteManager().mutePlayer(new MuteEntry(player.getName(), "System", TimeUtils.calculateEndTime(muteDurationMillis), reason));
+                player.sendMessage(plugin.prefix() + "§c你因多次使用违禁词被自动禁言 " + TimeUtils.formatDuration(muteDurationMillis) + "！");
                 badWordCount.remove(player.getName());
             }
 

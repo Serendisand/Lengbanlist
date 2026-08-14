@@ -450,19 +450,20 @@ public class DatabaseManager {
     }
 
     public void upsertMute(MuteEntry entry) {
-        executeUpdate(upsertSql("mutes", "target", new String[]{"target", "staff", "end_time", "reason"}, new String[]{"staff", "end_time", "reason"}), entry.getTarget(), entry.getStaff(), entry.getTime(), entry.getReason());
+        MuteEntry normalized = new MuteEntry(entry.getTarget().toLowerCase(), entry.getStaff(), entry.getTime(), entry.getReason());
+        executeUpdate(upsertSql("mutes", "target", new String[]{"target", "staff", "end_time", "reason"}, new String[]{"staff", "end_time", "reason"}), normalized.getTarget(), normalized.getStaff(), normalized.getTime(), normalized.getReason());
     }
 
     public void deleteMute(String target) {
-        executeUpdate("DELETE FROM mutes WHERE target = ?", target);
+        executeUpdate("DELETE FROM mutes WHERE LOWER(target) = LOWER(?)", target);
     }
 
     public void deleteMuteIfExpiresAt(String target, long endTime) {
-        executeUpdate("DELETE FROM mutes WHERE target = ? AND end_time = ?", target, endTime);
+        executeUpdate("DELETE FROM mutes WHERE LOWER(target) = LOWER(?) AND end_time = ?", target, endTime);
     }
 
     public MuteEntry getMute(String target) {
-        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason FROM mutes WHERE target = ?")) {
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason FROM mutes WHERE LOWER(target) = LOWER(?)")) {
             ps.setString(1, target);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? readMute(rs) : null;

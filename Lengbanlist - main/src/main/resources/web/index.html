@@ -734,7 +734,7 @@ async function loadBanLists() {
       html += '<div class="table-wrap"><table><tr><th>玩家</th><th>处理人</th><th>原因</th><th>到期时间</th><th>剩余</th><th>类型</th></tr>';
       for (var i = 0; i < pageItems.length; i++) {
         var b = pageItems[i];
-        html += '<tr oncontextmenu="showContextMenu(event,\'ban\',\'' + escapeHtml(b.target) + '\')"><td>' + escapeHtml(b.target) + '</td><td>' + escapeHtml(b.staff) + '</td><td>' + escapeHtml(b.reason) + '</td><td>' + escapeHtml(b.end_time) + '</td><td>' + escapeHtml(b.remaining) + '</td><td>' + (b.auto?'<span class="badge badge-yellow">自动</span>':'<span class="badge badge-red">手动</span>') + '</td></tr>';
+        html += '<tr oncontextmenu="showContextMenu(event,\'ban\',\'' + jsQuote(b.target) + '\')"><td>' + escapeHtml(b.target) + '</td><td>' + escapeHtml(b.staff) + '</td><td>' + escapeHtml(b.reason) + '</td><td>' + escapeHtml(b.end_time) + '</td><td>' + escapeHtml(b.remaining) + '</td><td>' + (b.auto?'<span class="badge badge-yellow">自动</span>':'<span class="badge badge-red">手动</span>') + '</td></tr>';
       }
       html += '</table></div>' + renderPagination('bans', d.bans.length);
     } else {
@@ -754,7 +754,7 @@ async function loadBanLists() {
       html += '<div class="table-wrap"><table><tr><th>IP</th><th>处理人</th><th>原因</th><th>到期时间</th><th>剩余</th></tr>';
       for (var i = 0; i < pageItems.length; i++) {
         var b = pageItems[i];
-        html += '<tr oncontextmenu="showContextMenu(event,\'ipban\',\'' + escapeHtml(b.ip) + '\')"><td>' + escapeHtml(b.ip) + '</td><td>' + escapeHtml(b.staff) + '</td><td>' + escapeHtml(b.reason) + '</td><td>' + escapeHtml(b.end_time) + '</td><td>' + escapeHtml(b.remaining) + '</td></tr>';
+        html += '<tr oncontextmenu="showContextMenu(event,\'ipban\',\'' + jsQuote(b.ip) + '\')"><td>' + escapeHtml(b.ip) + '</td><td>' + escapeHtml(b.staff) + '</td><td>' + escapeHtml(b.reason) + '</td><td>' + escapeHtml(b.end_time) + '</td><td>' + escapeHtml(b.remaining) + '</td></tr>';
       }
       html += '</table></div>' + renderPagination('ipbans', d.bans.length);
     } else {
@@ -778,7 +778,7 @@ async function loadMuteList() {
       html += '<div class="table-wrap"><table><tr><th>玩家</th><th>处理人</th><th>原因</th><th>禁言时间</th></tr>';
       for (var i = 0; i < pageItems.length; i++) {
         var m = pageItems[i];
-        html += '<tr oncontextmenu="showContextMenu(event,\'mute\',\'' + escapeHtml(m.target) + '\')"><td>' + escapeHtml(m.target) + '</td><td>' + escapeHtml(m.staff) + '</td><td>' + escapeHtml(m.reason) + '</td><td>' + escapeHtml(m.time) + '</td></tr>';
+        html += '<tr oncontextmenu="showContextMenu(event,\'mute\',\'' + jsQuote(m.target) + '\')"><td>' + escapeHtml(m.target) + '</td><td>' + escapeHtml(m.staff) + '</td><td>' + escapeHtml(m.reason) + '</td><td>' + escapeHtml(m.time) + '</td></tr>';
       }
       html += '</table></div>' + renderPagination('mutes', d.mutes.length);
     } else {
@@ -833,8 +833,8 @@ async function loadReports() {
       html += '<div class="table-wrap"><table><tr><th>编号</th><th>被举报人</th><th>举报人</th><th>原因</th><th>时间</th><th>操作</th></tr>';
       for (var i = 0; i < pageItems.length; i++) {
         var r = pageItems[i];
-        html += '<tr oncontextmenu="showContextMenu(event,\'report\',\'' + escapeHtml(r.id) + '\')"><td>' + escapeHtml(r.id) + '</td><td>' + escapeHtml(r.target) + '</td><td>' + escapeHtml(r.reporter) + '</td><td>' + escapeHtml(r.reason) + '</td><td>' + escapeHtml(r.timestamp) + '</td>' +
-          '<td><button class="btn btn-warn btn-sm" onclick="acceptReport(\'' + r.id + '\')">受理</button> <button class="btn btn-success btn-sm" onclick="closeReport(\'' + r.id + '\')">关闭</button></td></tr>';
+        html += '<tr oncontextmenu="showContextMenu(event,\'report\',\'' + jsQuote(r.id) + '\')"><td>' + escapeHtml(r.id) + '</td><td>' + escapeHtml(r.target) + '</td><td>' + escapeHtml(r.reporter) + '</td><td>' + escapeHtml(r.reason) + '</td><td>' + escapeHtml(r.timestamp) + '</td>' +
+          '<td><button class="btn btn-warn btn-sm" onclick="acceptReport(\'' + jsQuote(r.id) + '\')">受理</button> <button class="btn btn-success btn-sm" onclick="closeReport(\'' + jsQuote(r.id) + '\')">关闭</button></td></tr>';
       }
       html += '</table></div>' + renderPagination('reports', d.reports.length);
       document.getElementById('reportsResult').innerHTML = html;
@@ -931,7 +931,7 @@ async function loadOnlinePlayers() {
   html += '<div class="table-wrap"><table><tr><th>玩家</th><th>Ping</th><th>操作</th></tr>';
   for (var i = 0; i < d.players.length; i++) {
     var p = d.players[i];
-    html += '<tr><td>' + escapeHtml(p.name) + '</td><td>' + escapeHtml(String(p.ping)) + ' ms</td><td><button class="btn btn-danger btn-sm" onclick="doKick(\'' + escapeHtml(p.name) + '\')">踢出</button></td></tr>';
+    html += '<tr><td>' + escapeHtml(p.name) + '</td><td>' + escapeHtml(String(p.ping)) + ' ms</td><td><button class="btn btn-danger btn-sm" onclick="doKick(\'' + jsQuote(p.name) + '\')">踢出</button></td></tr>';
   }
   html += '</table></div>';
   el.innerHTML = html;
@@ -988,6 +988,13 @@ function showActionMsg(msg, isError) {
 function escapeHtml(str) {
   if (!str) return '';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// 用于 JS 单引号字符串上下文（onclick/oncontextmenu 属性）的转义。
+// HTML 实体在 JS 解析前会先被解码，所以 &#39; 会被还原成 ' 造成注入，必须用 \x27。
+function jsQuote(str) {
+  if (!str) return '';
+  return String(str).replace(/\\/g,'\\\\').replace(/'/g,'\\x27');
 }
 
 function renderRecentBans(bans) {

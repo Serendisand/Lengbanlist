@@ -366,7 +366,11 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 String muteReason = String.join(" ", Arrays.copyOfRange(args, 3, args.length));
                 try {
                     MuteEntry muteEntry = new MuteEntry(muteTarget, sender.getName(), TimeUtils.calculateEndTime(muteDuration), muteReason);
-                    plugin.getMuteManager().mutePlayer(muteEntry);
+                    Long newMuteEnd = plugin.getMuteManager().mutePlayer(muteEntry);
+                    if (newMuteEnd == null) {
+                        Utils.sendMessage(sender, plugin.prefix() + "§e该目标已有相同时长的禁言记录，未重复禁言。");
+                        return true;
+                    }
                     if (muteSilent) {
                         Utils.sendMessage(sender, currentModel.addMute(muteTarget, muteReason));
                     } else {
@@ -1496,7 +1500,12 @@ private void handleIPBanWizard(Player player, String input) {
             duration = TimeUtils.parseTime(time);
         }
         MuteEntry entry = new MuteEntry(playerID, player.getName(), TimeUtils.calculateEndTime(duration), input);
-        plugin.getMuteManager().mutePlayer(entry);
+        Long newMuteEnd = plugin.getMuteManager().mutePlayer(entry);
+        if (newMuteEnd == null) {
+            Utils.sendMessage(player, plugin.prefix() + "§e该目标已有相同时长的禁言记录，未重复禁言。");
+            clearWizard(player);
+            return;
+        }
         if (player.hasMetadata("lengbanlist-silent")) {
             Utils.sendMessage(player, ModelManager.getInstance().getCurrentModel().addMute(playerID, input));
         } else {
