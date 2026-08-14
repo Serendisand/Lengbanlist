@@ -45,6 +45,7 @@ public class Klee implements Model {
                 "§e✦ §b/lban audit export §7- §3导出审计日志，可莉要存档啦！",
                 "§e✦ §b/lban audit verify §7- §3校验审计日志有没有被捣蛋鬼改过。",
                 "§e✦ §b/lban sync §7- §3查看跨服同步状态。",
+                "§e✦ §b/lban rollback <操作人> <开始时间> <结束时间> <可选>操作类型 §7- §3回滚操作，可莉来帮忙擦掉！",
                 "§6§l◆ 杂项",
                 "§e✦ §b/lban list §7- §3查看封禁名单。",
                 "§e✦ §b/lban list-mute §7- §3查看禁言列表。",
@@ -208,5 +209,20 @@ public class Klee implements Model {
     @Override
     public String getSyncStatus(String detail) {
         return "§c可莉说：§a跨服同步状态：§f" + detail;
+    }
+
+    @Override
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§c可莉说：§e嘿嘿，找到 " + actor + " 在 " + timeRange + " 留下的 " + matched + " 个可以拆掉的记录啦！";
+    }
+
+    @Override
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§c可莉说：§a蹦蹦炸弹清场完毕！匹配 " + matched + " 条，执行 " + executed + " 条，跳过 " + skipped + " 条~";
+    }
+
+    @Override
+    public String getRollbackNoRecords(String actor) {
+        return "§c可莉说：§e" + actor + " 那段时间没有留下可以拆的记录，好无聊呀~";
     }
 }

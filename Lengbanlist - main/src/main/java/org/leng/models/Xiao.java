@@ -44,6 +44,7 @@ public void showHelp(CommandSender sender) {
     Utils.sendMessage(sender, "§2✦ §b/lban audit export §7- §3导出审计日志，把证据好好收着！");
     Utils.sendMessage(sender, "§2✦ §b/lban audit verify §7- §3校验审计完整性，看看有没有人动手脚！");
     Utils.sendMessage(sender, "§2✦ §b/lban sync §7- §3查看跨服同步状态，一切尽在掌握！");
+    Utils.sendMessage(sender, "§2✦ §b/lban rollback <操作人> <开始时间> <结束时间> <可选>操作类型 §7- §3回滚操作，清除业障。");
     Utils.sendMessage(sender, "§6§l◆ 杂项");
     Utils.sendMessage(sender, "§2✦ §b/lban list §7- §3查看封禁名单，这些家伙真是麻烦！");
     Utils.sendMessage(sender, "§2✦ §b/lban list-mute §7- §3查看禁言列表");
@@ -201,5 +202,20 @@ public void showHelp(CommandSender sender) {
     @Override
     public String getSyncStatus(String detail) {
         return "§b魈说：§a跨服同步状态：§f" + detail;
+    }
+
+    @Override
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§b魈说：§e" + actor + " 在 " + timeRange + " 留了 " + matched + " 条可回滚的业障，要一并清除吗？";
+    }
+
+    @Override
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§b魈说：§a业障已净。匹配 " + matched + " 条，执行 " + executed + " 条，跳过 " + skipped + " 条。";
+    }
+
+    @Override
+    public String getRollbackNoRecords(String actor) {
+        return "§b魈说：§e" + actor + " 在那段时间并无业障，无需净化。";
     }
 }

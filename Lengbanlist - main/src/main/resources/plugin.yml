@@ -181,3 +181,6 @@ permissions:
   lengbanlist.broadcast:
     description: 允许发送插件广播
     default: op
+  lengbanlist.rollback:
+    description: 允许回滚指定管理员的操作
+    default: op

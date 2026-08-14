@@ -61,6 +61,9 @@ Check a player's or IP's current punishment status, full history, associated pla
 **Staff Chat — `/sc`**
 A private chat channel for staff only.
 
+**Operation Rollback — `/lban rollback`**
+Made a mistake? Roll it back. Based on the audit log, specify an operator and a time range, and roll back their bans, unbans, mutes, warnings etc. — unbanned targets get re-banned, bans get lifted, warnings get revoked. You can also restrict it to one operation type (e.g. bans only).
+
 **Other Bits**
 `/info` shows plugin version, memory, CPU, online players. Supports SQLite and MySQL with automatic migration from legacy YAML storage. Has bStats analytics and auto-update support.
 

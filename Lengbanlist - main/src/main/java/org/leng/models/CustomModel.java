@@ -197,4 +197,19 @@ public class CustomModel implements Model {
     public String getImmunityDenied(String target) {
         return msg("immunity-denied", placeholders("target", target));
     }
+
+    @Override
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return msg("rollback-preview", placeholders("count", String.valueOf(matched), "actor", actor, "time", timeRange));
+    }
+
+    @Override
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return msg("rollback-result", placeholders("matched", String.valueOf(matched), "executed", String.valueOf(executed), "skipped", String.valueOf(skipped)));
+    }
+
+    @Override
+    public String getRollbackNoRecords(String actor) {
+        return msg("rollback-no-records", placeholders("actor", actor));
+    }
 }

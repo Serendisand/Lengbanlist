@@ -44,6 +44,7 @@ public void showHelp(CommandSender sender) {
     Utils.sendMessage(sender, "§2✦ §b/lban audit export §7- §3导出审计日志，录入契约存档。");
     Utils.sendMessage(sender, "§2✦ §b/lban audit verify §7- §3校验审计完整性，契约不容篡改。");
     Utils.sendMessage(sender, "§2✦ §b/lban sync §7- §3查看跨服同步状态，诸服契约相通。");
+    Utils.sendMessage(sender, "§2✦ §b/lban rollback <操作人> <开始时间> <结束时间> <可选>操作类型 §7- §3回滚操作，纠偏契约之误。");
     Utils.sendMessage(sender, "§6§l◆ 杂项");
     Utils.sendMessage(sender, "§2✦ §b/lban list §7- §3查看封禁名单，一切尽在掌控。");
     Utils.sendMessage(sender, "§2✦ §b/lban list-mute §7- §3查看禁言列表");
@@ -200,5 +201,20 @@ public void showHelp(CommandSender sender) {
     @Override
     public String getImmunityDenied(String target) {
         return "§b钟离说：§c" + target + " 之位阶不在你之下，贸然出手有违契约之道。";
+    }
+
+    @Override
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§b钟离说：§e契约之印已显——操作人 " + actor + " 在 " + timeRange + " 留有 " + matched + " 条可回滚之记录。";
+    }
+
+    @Override
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§b钟离说：§a契约已成。回滚匹配 " + matched + " 条，执行 " + executed + " 条，跳过 " + skipped + " 条。";
+    }
+
+    @Override
+    public String getRollbackNoRecords(String actor) {
+        return "§b钟离说：§e" + actor + " 在那段时间并无应回滚之契约记录。";
     }
 }

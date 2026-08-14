@@ -752,6 +752,27 @@ public class DatabaseManager {
         return entries;
     }
 
+    /** 查询指定操作人在指定时间范围（含两端）内的审计记录，按时间升序（回滚按原顺序执行）。 */
+    public List<AuditEntry> getAuditLogsByActorInRange(String actor, long from, long to) {
+        List<AuditEntry> entries = new ArrayList<>();
+        if (actor == null || actor.trim().isEmpty()) {
+            return entries;
+        }
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement(
+                "SELECT id, timestamp, actor, action, target, reason, success, prev_hash FROM audit_log " +
+                        "WHERE actor = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC, id ASC")) {
+            ps.setString(1, actor.trim());
+            ps.setLong(2, from);
+            ps.setLong(3, to);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) entries.add(readAudit(rs));
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
+    }
+
     private AuditEntry readAudit(ResultSet rs) throws SQLException {
         return new AuditEntry(rs.getLong("id"), rs.getLong("timestamp"), value(rs, "actor"), value(rs, "action"), value(rs, "target"), value(rs, "reason"), rs.getBoolean("success"), value(rs, "prev_hash"));
     }

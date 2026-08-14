@@ -45,6 +45,7 @@ public class YaeMiko implements Model {
                 "§5✦ §b/lban audit export §7- §3导出审计日志。",
                 "§5✦ §b/lban audit verify §7- §3校验审计完整性。",
                 "§5✦ §b/lban sync §7- §3查看跨服同步状态。",
+                "§5✦ §b/lban rollback <操作人> <开始时间> <结束时间> <可选>操作类型 §7- §3回滚操作，有趣的事再演一次～",
                 "§6§l◆ 杂项",
                 "§5✦ §b/lban list §7- §3查看封禁名单。",
                 "§5✦ §b/lban list-mute §7- §3查看禁言列表。",
@@ -208,5 +209,20 @@ public class YaeMiko implements Model {
     @Override
     public String getImmunityDenied(String target) {
         return "§d八重神子说：§c哎呀，" + target + " 可不是你能随意处置的人呢，小心惹祸上身哦～";
+    }
+
+    @Override
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§d八重神子说：§e有趣呢～操作人 " + actor + " 在 " + timeRange + " 留下 " + matched + " 条可回滚的记录。";
+    }
+
+    @Override
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§d八重神子说：§a一切如我所料～回滚匹配 " + matched + " 条，执行 " + executed + " 条，跳过 " + skipped + " 条。";
+    }
+
+    @Override
+    public String getRollbackNoRecords(String actor) {
+        return "§d八重神子说：§e" + actor + " 在那段时间没什么可回滚的，真是遗憾呢～";
     }
 }

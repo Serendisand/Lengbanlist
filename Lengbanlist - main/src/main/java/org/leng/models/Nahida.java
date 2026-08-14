@@ -44,6 +44,7 @@ public class Nahida implements Model {
         Utils.sendMessage(sender, "§2✦ §b/lban audit export §7- §3导出审计日志，把知识整理成册。");
         Utils.sendMessage(sender, "§2✦ §b/lban audit verify §7- §3校验审计完整性，确保记忆未被改写。");
         Utils.sendMessage(sender, "§2✦ §b/lban sync §7- §3查看跨服同步状态，看看知识如何流动。");
+        Utils.sendMessage(sender, "§2✦ §b/lban rollback <操作人> <开始时间> <结束时间> <可选>操作类型 §7- §3回滚操作，修正知识的轨迹。");
         Utils.sendMessage(sender, "§6§l◆ 杂项");
         Utils.sendMessage(sender, "§2✦ §b/lban list §7- §3查看封禁名单，世界树的枝叶中藏着答案。");
         Utils.sendMessage(sender, "§2✦ §b/lban list-mute §7- §3查看禁言列表，安静也是一种思考。");
@@ -202,5 +203,20 @@ public class Nahida implements Model {
     @Override
     public String getSyncStatus(String detail) {
         return "§b纳西妲说：§a跨服同步状态：§f" + detail;
+    }
+
+    @Override
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§b纳西妲说：§e梦境之中，我看到操作人 " + actor + " 在 " + timeRange + " 有 " + matched + " 条操作可以回滚哦~";
+    }
+
+    @Override
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§b纳西妲说：§a梦境已修正。回滚匹配 " + matched + " 条，执行 " + executed + " 条，跳过 " + skipped + " 条~";
+    }
+
+    @Override
+    public String getRollbackNoRecords(String actor) {
+        return "§b纳西妲说：§e" + actor + " 在那段时间的梦境很干净，没有可回滚的记录呢~";
     }
 }

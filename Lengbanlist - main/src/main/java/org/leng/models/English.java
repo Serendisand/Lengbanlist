@@ -44,6 +44,7 @@ public class English implements Model {
         Utils.sendMessage(sender, "§2✦ §b/lban audit export §7- §3Export audit logs");
         Utils.sendMessage(sender, "§2✦ §b/lban audit verify §7- §3Verify audit integrity");
         Utils.sendMessage(sender, "§2✦ §b/lban sync §7- §3View cross-server sync status");
+        Utils.sendMessage(sender, "§2✦ §b/lban rollback <operator> <start> <end> <optional>type §7- §3Roll back admin operations");
         Utils.sendMessage(sender, "§6§l◆ Miscellaneous");
         Utils.sendMessage(sender, "§2✦ §b/lban list §7- §3View ban list");
         Utils.sendMessage(sender, "§2✦ §b/lban list-mute §7- §3View mute list");
@@ -202,5 +203,20 @@ public class English implements Model {
     @Override
     public String getImmunityDenied(String target) {
         return "§bEnglish Model: §cTarget " + target + " has equal or higher permission weight, action denied!";
+    }
+
+    @Override
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§bEnglish Model: §eOperator " + actor + " has " + matched + " rollbackable operation(s) in " + timeRange + ".";
+    }
+
+    @Override
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§bEnglish Model: §aRollback complete! Matched " + matched + ", executed " + executed + ", skipped " + skipped + ".";
+    }
+
+    @Override
+    public String getRollbackNoRecords(String actor) {
+        return "§bEnglish Model: §eOperator " + actor + " has no rollbackable records in the specified range.";
     }
 }

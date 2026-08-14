@@ -44,6 +44,7 @@ public void showHelp(CommandSender sender) {
     Utils.sendMessage(sender, "§2✦ §b/lban audit export §7- §3导出审计日志，数据归档要快！");
     Utils.sendMessage(sender, "§2✦ §b/lban audit verify §7- §3校验审计完整性，杜绝数据造假！");
     Utils.sendMessage(sender, "§2✦ §b/lban sync §7- §3查看跨服同步状态，效率第一！");
+    Utils.sendMessage(sender, "§2✦ §b/lban rollback <操作人> <开始时间> <结束时间> <可选>操作类型 §7- §3回滚操作，及时纠错！");
     Utils.sendMessage(sender, "§6§l◆ 杂项");
     Utils.sendMessage(sender, "§2✦ §b/lban list §7- §3查看封禁名单，刻晴办事效率第一！");
     Utils.sendMessage(sender, "§2✦ §b/lban list-mute §7- §3查看禁言列表");
@@ -201,5 +202,20 @@ public void showHelp(CommandSender sender) {
     @Override
     public String getImmunityDenied(String target) {
         return "§b刻晴说：§c" + target + " 权限等级不低于你，这次行动不予批准。";
+    }
+
+    @Override
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§b刻晴说：§e已核算完毕——操作人 " + actor + " 在 " + timeRange + " 有 " + matched + " 条操作待回滚。";
+    }
+
+    @Override
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§b刻晴说：§a回滚完毕。匹配 " + matched + " 条，成功 " + executed + " 条，跳过 " + skipped + " 条。";
+    }
+
+    @Override
+    public String getRollbackNoRecords(String actor) {
+        return "§b刻晴说：§e" + actor + " 在该时间段没有留下可回滚的记录。";
     }
 }

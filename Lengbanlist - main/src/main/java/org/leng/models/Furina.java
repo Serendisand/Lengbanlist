@@ -44,6 +44,7 @@ public void showHelp(CommandSender sender) {
     Utils.sendMessage(sender, "§2✦ §b/lban audit export §7- §3导出审计日志，存档以备水神审阅！");
     Utils.sendMessage(sender, "§2✦ §b/lban audit verify §7- §3校验审计完整性，不容他人篡改剧本！");
     Utils.sendMessage(sender, "§2✦ §b/lban sync §7- §3查看跨服同步状态，水酱们时刻在线！");
+    Utils.sendMessage(sender, "§2✦ §b/lban rollback <操作人> <开始时间> <结束时间> <可选>操作类型 §7- §3回滚操作，让剧情重演~");
     Utils.sendMessage(sender, "§6§l◆ 杂项");
     Utils.sendMessage(sender, "§2✦ §b/lban list §7- §3查看黑名单");
     Utils.sendMessage(sender, "§2✦ §b/lban list-mute §7- §3查看禁言列表");
@@ -201,5 +202,20 @@ public void showHelp(CommandSender sender) {
     @Override
     public String getImmunityDenied(String target) {
         return "§b芙宁娜说：§c哎哟~这场戏的主角 " + target + " 权限可不低呢，本神明可不能随意干涉！";
+    }
+
+    @Override
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§b芙宁娜说：§e哇哦~操作人 " + actor + " 在 " + timeRange + " 的戏份有 " + matched + " 幕可以重演，准备好剧本了吗？";
+    }
+
+    @Override
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§b芙宁娜说：§a完美谢幕！回滚匹配 " + matched + " 幕，成功 " + executed + " 幕，跳过 " + skipped + " 幕~";
+    }
+
+    @Override
+    public String getRollbackNoRecords(String actor) {
+        return "§b芙宁娜说：§e" + actor + " 在那段时间没有登台记录，找无可找呢~";
     }
 }

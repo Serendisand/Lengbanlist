@@ -62,4 +62,13 @@ public interface Model {
     String getSyncStatus(String detail);
 
     String getImmunityDenied(String target);
+
+    /** 回滚预览：显示查询到的可回滚操作条数。 */
+    String getRollbackPreview(int matched, String actor, String timeRange);
+
+    /** 回滚结果：显示执行/跳过条数。 */
+    String getRollbackResult(int matched, int executed, int skipped);
+
+    /** 无回滚记录提示。 */
+    String getRollbackNoRecords(String actor);
 }

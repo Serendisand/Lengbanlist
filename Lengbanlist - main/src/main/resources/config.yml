@@ -59,6 +59,7 @@ features:
   audit-chain: true    # 审计哈希链防篡改（配合 /lban audit export|verify）
   export: true         # 审计日志导出（/lban audit export）
   sync: true          # 数据同步（多服务器）
+  rollback: true      # 管理员操作回滚（/lban rollback，基于审计日志）
 
   # --- 更新 ---
   auto-update: false   # 自动下载并安装新版本（需要重启服务器生效）

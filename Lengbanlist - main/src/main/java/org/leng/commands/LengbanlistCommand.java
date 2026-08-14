@@ -703,6 +703,17 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 }
                 new org.leng.manager.SyncManager(plugin).execute(sender);
                 break;
+            case "rollback":
+                if (!plugin.isFeatureEnabled("rollback")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
+                if (!sender.hasPermission("lengbanlist.rollback")) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                    return true;
+                }
+                String[] rollbackArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
+                return new org.leng.commands.RollbackCommand(plugin).onCommand(sender, null, "lban rollback", rollbackArgs);
             default:
                 Utils.sendMessage(sender, plugin.prefix() + "§c未知子命令喵: §f" + args[0] + "§c，输入 §f/lban help §c看看能用什么喵。");
                 break;
@@ -722,7 +733,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
             String prefix = args[0].toLowerCase();
             String[] subs = {"toggle", "a", "list", "reload", "add", "remove", "help", "open",
                     "getip", "model", "mute", "unmute", "list-mute", "warn", "unwarn",
-                    "report", "admin", "check", "info", "tp", "history", "audit", "handle", "alts", "sync"};
+                    "report", "admin", "check", "info", "tp", "history", "audit", "handle", "alts", "sync", "rollback"};
             for (String s : subs) {
                 if (s.startsWith(prefix)) completions.add(s);
             }

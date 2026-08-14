@@ -44,6 +44,7 @@ public void showHelp(CommandSender sender) {
     Utils.sendMessage(sender, "§2✦ §b/lban audit export §7- §3导出审计日志");
     Utils.sendMessage(sender, "§2✦ §b/lban audit verify §7- §3校验审计完整性");
     Utils.sendMessage(sender, "§2✦ §b/lban sync §7- §3查看跨服同步状态");
+    Utils.sendMessage(sender, "§2✦ §b/lban rollback <操作人> <开始时间> <结束时间> <可选>操作类型 §7- §3回滚管理员操作");
     Utils.sendMessage(sender, "§6§l◆ 杂项");
     Utils.sendMessage(sender, "§2✦ §b/lban list §7- §3查看封禁名单");
     Utils.sendMessage(sender, "§2✦ §b/lban list-mute §7- §3查看禁言列表");
@@ -200,5 +201,20 @@ public void showHelp(CommandSender sender) {
     @Override
     public String getImmunityDenied(String target) {
         return "§b默认模型：§c目标 " + target + " 的权限等级不低于你，无法执行该操作！";
+    }
+
+    @Override
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§b默认模型：§e操作人 " + actor + " 在 " + timeRange + " 共有 " + matched + " 条可回滚操作记录。";
+    }
+
+    @Override
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§b默认模型：§a回滚完成！匹配 " + matched + " 条，成功执行 " + executed + " 条，跳过 " + skipped + " 条。";
+    }
+
+    @Override
+    public String getRollbackNoRecords(String actor) {
+        return "§b默认模型：§e操作人 " + actor + " 在指定范围内没有可回滚的操作记录。";
     }
 }
