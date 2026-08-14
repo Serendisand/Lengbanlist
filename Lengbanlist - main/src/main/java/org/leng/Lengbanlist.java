@@ -28,6 +28,7 @@ public class Lengbanlist extends JavaPlugin {
     private static Lengbanlist instance;
     public BanManager banManager;
     public MuteManager muteManager;
+    public SyncManager syncManager;
     public WarnManager warnManager;
     public AuditManager auditManager;
     public ReportManager reportManager;
@@ -108,6 +109,7 @@ public void onLoad() {
     }
 
     banManager = new BanManager(this);
+    syncManager = new SyncManager(this);
     warnManager = new WarnManager(this);
     immunityManager = new ImmunityManager(this);
     escalationManager = new EscalationManager(this);
@@ -193,7 +195,7 @@ public void onEnable() {
     getServer().getPluginManager().registerEvents(modelChoiceListener, Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new MuteCommandBlockListener(this), Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new GuiCleanupListener(this), this);
-
+    
     LengbanlistCommand lbanCmd = new LengbanlistCommand("lban", Lengbanlist.this);
     getCommand("lban").setExecutor(lbanCmd);
     getCommand("lban").setTabCompleter(lbanCmd);
@@ -262,6 +264,10 @@ public void onEnable() {
 
     startHistoryCleanupTask();
 
+    if (syncManager != null) {
+        syncManager.startAutoSync();
+    }
+    
     if (isFeatureEnabled("expiry-reminder")) {
         long periodTicks = Math.max(20L, getConfig().getInt("expiry-reminder.interval", 60) * 20L);
         expiryReminderTask = SchedulerUtils.runTaskTimerAsynchronously(this, new ExpiryReminderTask(this), 200L, periodTicks);
@@ -287,6 +293,9 @@ public void onDisable() {
     if (broadcastTask != null) broadcastTask.cancel();
     if (historyCleanupTask != null) historyCleanupTask.cancel();
     if (expiryReminderTask != null) expiryReminderTask.cancel();
+    if (syncManager != null) {
+        syncManager.stopAutoSync();
+    }
     if (webServer != null) webServer.stop();
 
     if (eulaAgreed) {
@@ -389,6 +398,10 @@ void shutdownStorage() {
         return getDescription().getVersion();
     }
 
+    public SyncManager getSyncManager() {
+        return syncManager;
+    }
+    
     public BanManager getBanManager() {
         return banManager;
     }

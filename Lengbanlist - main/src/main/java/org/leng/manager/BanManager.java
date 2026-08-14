@@ -147,6 +147,24 @@ public class BanManager {
         }
     }
 
+    public void kickOnlineIfBanned(String target, boolean isIp) {
+        if (target == null || target.isEmpty()) return;
+        for (Player online : plugin.getServer().getOnlinePlayers()) {
+            if (isIp) {
+                if (online.getAddress() == null) continue;
+                String ip = online.getAddress().getAddress().getHostAddress();
+                BanIpEntry banIp = getMatchingIpBan(ip);
+                if (banIp == null || banIp.getTime() <= System.currentTimeMillis()) continue;
+                SchedulerUtils.runTask(plugin, online, () -> online.kickPlayer("您的 IP 已被封禁，原因：" + banIp.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(banIp.getTime())));
+            } else {
+                if (!online.getName().equalsIgnoreCase(target)) continue;
+                BanEntry ban = getBanEntry(target);
+                if (ban == null || ban.getTime() <= System.currentTimeMillis()) continue;
+                SchedulerUtils.runTask(plugin, online, () -> online.kickPlayer("您已被封禁，原因：" + ban.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(ban.getTime())));
+            }
+        }
+    }
+
     public boolean isPlayerBanned(String target) {
         return db.isPlayerBanned(target);
     }

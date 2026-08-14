@@ -6,6 +6,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.leng.Lengbanlist;
 
+import java.io.File;
 import java.util.List;
 
 public class MuteCommandBlockListener implements Listener {
@@ -27,9 +28,14 @@ public class MuteCommandBlockListener implements Listener {
             return;
         }
 
+        MuteCommandBlockPolicy.migrateLegacyConfig(
+                plugin.getChatConfig(), plugin.getConfig(),
+                new File(plugin.getDataFolder(), "chatconfig.yml"));
+
         List<String> blockedCommands = MuteCommandBlockPolicy.resolveBlockedCommands(
                 plugin.getChatConfig(), plugin.getConfig());
-        if (!MuteCommandBlockPolicy.isBlocked(event.getMessage(), blockedCommands)) {
+        boolean stripNamespace = plugin.getChatConfig().getBoolean("mute-command-block-strip-namespace", true);
+        if (!MuteCommandBlockPolicy.isBlocked(event.getMessage(), blockedCommands, stripNamespace)) {
             return;
         }
 

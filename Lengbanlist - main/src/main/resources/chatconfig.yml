@@ -16,3 +16,7 @@ mute-blocked-commands:
   - "/me"
   - "/mail"
   - "/tpa"
+
+# 是否剥离命名空间（/minecraft:me 匹配 me；false 时需精确匹配 /minecraft:me）
+mute-command-block-strip-namespace: true
+

@@ -54,8 +54,10 @@ public class MuteManager {
 
     public void unmutePlayer(String target, String actor) {
         boolean wasMuted;
+        List<String> targetsToDelete;
         synchronized (muteLock) {
             List<String> storedTargets = storedTargetsFor(target);
+            targetsToDelete = new ArrayList<>(storedTargets);
             wasMuted = false;
             for (String storedTarget : storedTargets) {
                 Long cached = muteCache.get(storedTarget);
@@ -67,7 +69,6 @@ public class MuteManager {
                         wasMuted = true;
                     }
                 }
-                db.deleteMute(storedTarget);
                 muteCache.remove(storedTarget);
                 ipMuteCache.remove(storedTarget);
             }
@@ -75,6 +76,9 @@ public class MuteManager {
             if (wasMuted) {
                 plugin.getAuditManager().log("解除禁言", actor, target, "");
             }
+        }
+        for (String storedTarget : targetsToDelete) {
+            db.deleteMute(storedTarget);
         }
     }
 
@@ -161,7 +165,6 @@ public class MuteManager {
             if (entry == null) return false;
             if (entry.getTime() == Long.MAX_VALUE || entry.getTime() > System.currentTimeMillis()) {
                 muteCache.put(playerName, entry.getTime());
-                mutationGeneration++;
                 return true;
             }
             db.deleteMuteIfExpiresAt(playerName, entry.getTime());
