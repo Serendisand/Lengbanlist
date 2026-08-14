@@ -1,0 +1,6 @@
+default-message: "§d⚝ §5§oServer守护灵 §d⚝ §f当前已筑起 §d§l%t §f道防火墙 §7(§f囚禁了 §d%s §7个捣蛋ID §d%i §7个分身IP§7) §c§n请做乖孩子哦~ §f如需解疑，来群里找窝→ §bxxxxxxx"
+
+#可用变量：
+# %s 封禁玩家（ID），
+# %i 封禁IP 
+# %t 总共封禁

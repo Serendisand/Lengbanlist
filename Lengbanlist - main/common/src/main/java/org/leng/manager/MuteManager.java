@@ -1,0 +1,40 @@
+package org.leng.manager;
+
+import org.leng.platform.LengbanlistPlatform;
+import org.leng.object.MuteEntry;
+
+import java.util.List;
+
+
+public class MuteManager {
+    private final LengbanlistPlatform plugin;
+    private final DatabaseManager db;
+
+    public MuteManager(LengbanlistPlatform plugin) {
+        this.plugin = plugin;
+        this.db = plugin.getDatabaseManager();
+    }
+
+    public void mutePlayer(MuteEntry muteEntry) {
+        if (isPlayerMuted(muteEntry.getTarget())) {
+            return;
+        }
+        db.upsertMute(muteEntry);
+    }
+
+    public void unmutePlayer(String target) {
+        db.deleteMute(target);
+    }
+
+    public List<MuteEntry> getMuteList() {
+        return db.getMutes();
+    }
+
+    public boolean isPlayerMuted(String playerName) {
+        MuteEntry entry = db.getMute(playerName);
+        if (entry == null) return false;
+        if (entry.getTime() == Long.MAX_VALUE || entry.getTime() > System.currentTimeMillis()) return true;
+        unmutePlayer(playerName);
+        return false;
+    }
+}
