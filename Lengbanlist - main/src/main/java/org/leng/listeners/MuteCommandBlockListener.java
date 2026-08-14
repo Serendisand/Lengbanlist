@@ -6,6 +6,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.leng.Lengbanlist;
 
+import java.io.File;
 import java.util.List;
 
 public class MuteCommandBlockListener implements Listener {
@@ -27,25 +28,19 @@ public class MuteCommandBlockListener implements Listener {
             return;
         }
 
-        List<String> blockedCommands = plugin.getConfig().getStringList("mute-blocked-commands");
-        if (blockedCommands.isEmpty()) {
+        MuteCommandBlockPolicy.migrateLegacyConfig(
+                plugin.getChatConfig(), plugin.getConfig(),
+                new File(plugin.getDataFolder(), "chatconfig.yml"));
+
+        List<String> blockedCommands = MuteCommandBlockPolicy.resolveBlockedCommands(
+                plugin.getChatConfig(), plugin.getConfig());
+        boolean stripNamespace = plugin.getChatConfig().getBoolean("mute-command-block-strip-namespace", true);
+        if (!MuteCommandBlockPolicy.isBlocked(event.getMessage(), blockedCommands, stripNamespace)) {
             return;
         }
 
-        String message = event.getMessage().trim();
-        if (message.isEmpty()) {
-            return;
-        }
-        String firstPart = message.split("\\s+")[0];
-        String commandName = firstPart.startsWith("/") ? firstPart.substring(1) : firstPart;
-
-        for (String blocked : blockedCommands) {
-            String blockedName = blocked.startsWith("/") ? blocked.substring(1) : blocked;
-            if (blockedName.equalsIgnoreCase(commandName)) {
-                event.setCancelled(true);
-                player.sendMessage(plugin.getModelManager().getCurrentModel().onMuteCommandBlocked());
-                return;
-            }
-        }
+        event.setCancelled(true);
+        // noinspection AccessStaticViaInstance
+        player.sendMessage(plugin.getModelManager().getCurrentModel().onMuteCommandBlocked());
     }
 }

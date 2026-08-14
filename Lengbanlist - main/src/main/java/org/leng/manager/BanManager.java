@@ -9,7 +9,6 @@ import org.leng.object.BanIpEntry;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.SchedulerUtils;
 import org.leng.utils.IpMatcher;
-import org.leng.utils.SyncChannel;
 import org.leng.utils.Utils;
 
 import java.util.List;
@@ -36,9 +35,6 @@ public class BanManager {
         String banResult = currentModel.addBan(banEntry.getTarget(), durationDays, banEntry.getReason());
         updateBan(banEntry);
         plugin.getAuditManager().log("封禁", banEntry.getStaff(), banEntry.getTarget(), banEntry.getReason());
-
-        // Notify other servers
-        plugin.getSyncChannel().sendSyncNotification(SyncChannel.TYPE_PLAYER_BAN, banEntry.getTarget());
 
         Player targetPlayer = Bukkit.getPlayer(banEntry.getTarget());
         if (targetPlayer != null) {
@@ -81,9 +77,6 @@ public class BanManager {
         updateIpBan(banIpEntry);
         plugin.getAuditManager().log("封禁IP", banIpEntry.getStaff(), banIpEntry.getIp(), banIpEntry.getReason());
 
-        // Notify other servers
-        plugin.getSyncChannel().sendSyncNotification(SyncChannel.TYPE_IP_BAN, banIpEntry.getIp());
-
         if (!silent) {
             if (banIpResult != null && !banIpResult.isEmpty()) {
                 Utils.broadcast(banIpResult);
@@ -111,9 +104,6 @@ public class BanManager {
         String unbanResult = currentModel.removeBan(target);
         boolean removed = isPlayerBanned(target);
         db.deactivateBan(target);
-
-        // Notify other servers
-        plugin.getSyncChannel().sendSyncNotification(SyncChannel.TYPE_PLAYER_UNBAN, target);
 
         if (removed) {
             plugin.getAuditManager().log("解封", actor, target, "");
@@ -144,9 +134,6 @@ public class BanManager {
         String unbanIpResult = currentModel.removeBanIp(ip);
         boolean removed = isIpBanned(ip);
         db.deactivateIpBan(ip);
-
-        // Notify other servers
-        plugin.getSyncChannel().sendSyncNotification(SyncChannel.TYPE_IP_UNBAN, ip);
 
         if (removed) {
             plugin.getAuditManager().log("解封IP", actor, ip, "");

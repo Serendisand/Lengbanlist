@@ -3,37 +3,49 @@ package org.leng.manager;
 import org.leng.Lengbanlist;
 import org.leng.object.MuteEntry;
 import org.leng.utils.IpMatcher;
-import org.leng.utils.SyncChannel;
 
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 
 
 public class MuteManager {
+    private static final int MAX_RELOAD_ATTEMPTS = 3;
+
     private final Lengbanlist plugin;
     private final DatabaseManager db;
     private final Map<String, Long> muteCache = new ConcurrentHashMap<>();
     private final Map<String, Long> ipMuteCache = new ConcurrentHashMap<>();
+    private final Object muteLock = new Object();
+    private final Object reloadLock = new Object();
+    private long mutationGeneration;
 
-    public MuteManager(Lengbanlist plugin) {
+    public MuteManager(Lengbanlist plugin) throws SQLException {
         this.plugin = plugin;
         this.db = plugin.getDatabaseManager();
+        if (!reloadMuteCacheOrThrow()) {
+            throw new SQLException("初始禁言缓存在并发变更中无法加载");
+        }
     }
 
     public void mutePlayer(MuteEntry muteEntry) {
-        if (isPlayerMuted(muteEntry.getTarget())) {
-            return;
+        synchronized (muteLock) {
+            String target = muteEntry.getTarget();
+            if (isPlayerMuted(target) || (IpMatcher.isIpv4(target) && hasEquivalentIpv4Mute(target))) {
+                return;
+            }
+            db.upsertMute(muteEntry);
+            muteCache.put(target, muteEntry.getTime());
+            if (isIpTarget(target)) {
+                ipMuteCache.put(target, muteEntry.getTime());
+            }
+            mutationGeneration++;
+            plugin.getAuditManager().log("禁言", muteEntry.getStaff(), target, muteEntry.getReason());
         }
-        db.upsertMute(muteEntry);
-        muteCache.put(muteEntry.getTarget(), muteEntry.getTime());
-        if (IpMatcher.isCidr(muteEntry.getTarget())) {
-            ipMuteCache.put(muteEntry.getTarget(), muteEntry.getTime());
-        }
-        plugin.getAuditManager().log("禁言", muteEntry.getStaff(), muteEntry.getTarget(), muteEntry.getReason());
-
-        // Notify other servers
-        plugin.getSyncChannel().sendSyncNotification(SyncChannel.TYPE_PLAYER_MUTE, muteEntry.getTarget());
     }
 
     public void unmutePlayer(String target) {
@@ -41,65 +53,96 @@ public class MuteManager {
     }
 
     public void unmutePlayer(String target, String actor) {
-        boolean wasMuted = isPlayerMuted(target);
-        db.deleteMute(target);
-        muteCache.remove(target);
-        ipMuteCache.remove(target);
-        if (wasMuted) {
-            plugin.getAuditManager().log("解除禁言", actor, target, "");
+        boolean wasMuted;
+        List<String> targetsToDelete;
+        synchronized (muteLock) {
+            List<String> storedTargets = storedTargetsFor(target);
+            targetsToDelete = new ArrayList<>(storedTargets);
+            wasMuted = false;
+            for (String storedTarget : storedTargets) {
+                Long cached = muteCache.get(storedTarget);
+                if (cached != null && isActive(cached)) {
+                    wasMuted = true;
+                } else {
+                    MuteEntry storedEntry = db.getMute(storedTarget);
+                    if (storedEntry != null && isActive(storedEntry.getTime())) {
+                        wasMuted = true;
+                    }
+                }
+                muteCache.remove(storedTarget);
+                ipMuteCache.remove(storedTarget);
+            }
+            mutationGeneration++;
+            if (wasMuted) {
+                plugin.getAuditManager().log("解除禁言", actor, target, "");
+            }
         }
-
-        // Notify other servers
-        plugin.getSyncChannel().sendSyncNotification(SyncChannel.TYPE_PLAYER_UNMUTE, target);
+        for (String storedTarget : targetsToDelete) {
+            db.deleteMute(storedTarget);
+        }
     }
 
     public void clearMuteCache() {
-        muteCache.clear();
-        ipMuteCache.clear();
+        synchronized (muteLock) {
+            muteCache.clear();
+            ipMuteCache.clear();
+            mutationGeneration++;
+        }
     }
 
-    public void reloadMuteCache() {
-        muteCache.clear();
-        ipMuteCache.clear();
-        for (MuteEntry entry : db.getMutes()) {
-            if (entry.getTime() == Long.MAX_VALUE || entry.getTime() > System.currentTimeMillis()) {
-                muteCache.put(entry.getTarget(), entry.getTime());
-                if (IpMatcher.isCidr(entry.getTarget())) {
-                    ipMuteCache.put(entry.getTarget(), entry.getTime());
+    public boolean reloadMuteCache() {
+        try {
+            boolean reloaded = reloadMuteCacheOrThrow();
+            if (!reloaded) {
+                plugin.getLogger().warning("刷新禁言缓存失败：加载期间缓存持续变更");
+            }
+            return reloaded;
+        } catch (SQLException e) {
+            plugin.getLogger().log(Level.WARNING, "刷新禁言缓存失败，将保留现有缓存", e);
+            return false;
+        }
+    }
+
+    private boolean reloadMuteCacheOrThrow() throws SQLException {
+        synchronized (reloadLock) {
+            return loadStableMuteSnapshot();
+        }
+    }
+
+    private boolean loadStableMuteSnapshot() throws SQLException {
+        for (int attempt = 0; attempt < MAX_RELOAD_ATTEMPTS; attempt++) {
+            long generationBeforeLoad;
+            synchronized (muteLock) {
+                generationBeforeLoad = mutationGeneration;
+            }
+
+            Map<String, Long> loadedMutes = new HashMap<>();
+            Map<String, Long> loadedIpMutes = new HashMap<>();
+            long now = System.currentTimeMillis();
+            for (MuteEntry entry : db.loadMutesForCache()) {
+                if (entry.getTime() == Long.MAX_VALUE || entry.getTime() > now) {
+                    loadedMutes.put(entry.getTarget(), entry.getTime());
+                    if (isIpTarget(entry.getTarget())) {
+                        loadedIpMutes.put(entry.getTarget(), entry.getTime());
+                    }
+                } else {
+                    db.deleteMuteIfExpiresAt(entry.getTarget(), entry.getTime());
                 }
-            } else {
-                db.deleteMute(entry.getTarget());
             }
-        }
-    }
 
-    public void refreshPlayerMute(String target) {
-        if (target == null) return;
-        MuteEntry entry = db.getMute(target);
-        if (entry != null && (entry.getTime() == Long.MAX_VALUE || entry.getTime() > System.currentTimeMillis())) {
-            muteCache.put(target, entry.getTime());
-            if (IpMatcher.isCidr(target)) {
-                ipMuteCache.put(target, entry.getTime());
-            }
-        } else {
-            muteCache.remove(target);
-            ipMuteCache.remove(target);
-            if (entry != null) {
-                db.deleteMute(target);
+            synchronized (muteLock) {
+                if (mutationGeneration != generationBeforeLoad) {
+                    continue;
+                }
+                muteCache.clear();
+                muteCache.putAll(loadedMutes);
+                ipMuteCache.clear();
+                ipMuteCache.putAll(loadedIpMutes);
+                mutationGeneration++;
+                return true;
             }
         }
-    }
-
-    /**
-     * 跨服同步收到裸 IP（非 CIDR）禁言消息时调用：
-     * 将该 IP 登记到 ipMuteCache，使 isIpMuted 的精确匹配能够命中。
-     */
-    public void registerIpMuteFallback(String ip) {
-        if (ip == null || IpMatcher.isCidr(ip)) return;
-        MuteEntry entry = db.getMute(ip);
-        if (entry != null && (entry.getTime() == Long.MAX_VALUE || entry.getTime() > System.currentTimeMillis())) {
-            ipMuteCache.put(ip, entry.getTime());
-        }
+        return false;
     }
 
     public List<MuteEntry> getMuteList() {
@@ -107,43 +150,99 @@ public class MuteManager {
     }
 
     public boolean isPlayerMuted(String playerName) {
-        Long cached = muteCache.get(playerName);
-        if (cached != null) {
-            if (cached == Long.MAX_VALUE || cached > System.currentTimeMillis()) {
+        synchronized (muteLock) {
+            Long cached = muteCache.get(playerName);
+            if (cached != null) {
+                if (cached == Long.MAX_VALUE || cached > System.currentTimeMillis()) {
+                    return true;
+                }
+                muteCache.remove(playerName, cached);
+                db.deleteMuteIfExpiresAt(playerName, cached);
+                mutationGeneration++;
+                return false;
+            }
+            MuteEntry entry = db.getMute(playerName);
+            if (entry == null) return false;
+            if (entry.getTime() == Long.MAX_VALUE || entry.getTime() > System.currentTimeMillis()) {
+                muteCache.put(playerName, entry.getTime());
                 return true;
             }
-            muteCache.remove(playerName);
-            db.deleteMute(playerName);
+            db.deleteMuteIfExpiresAt(playerName, entry.getTime());
+            mutationGeneration++;
             return false;
         }
-        MuteEntry entry = db.getMute(playerName);
-        if (entry == null) return false;
-        if (entry.getTime() == Long.MAX_VALUE || entry.getTime() > System.currentTimeMillis()) {
-            muteCache.put(playerName, entry.getTime());
-            return true;
-        }
-        unmutePlayer(playerName);
-        return false;
     }
 
     public boolean isIpMuted(String ip) {
-        if (ip == null) return false;
+        synchronized (muteLock) {
+            if (ip == null) return false;
+            long now = System.currentTimeMillis();
+            for (Map.Entry<String, Long> entry : ipMuteCache.entrySet()) {
+                String target = entry.getKey();
+                Long time = entry.getValue();
+                boolean matches = IpMatcher.isIpv4(target)
+                        ? sameIpv4(ip, target)
+                        : IpMatcher.cidrMatches(ip, target);
+                if (matches) {
+                    if (time == Long.MAX_VALUE || time > now) {
+                        return true;
+                    }
+                    ipMuteCache.remove(target, time);
+                    muteCache.remove(target, time);
+                    db.deleteMuteIfExpiresAt(target, time);
+                    mutationGeneration++;
+                }
+            }
+            return false;
+        }
+    }
+
+    private static boolean isIpTarget(String target) {
+        return IpMatcher.isIpv4(target) || IpMatcher.isCidr(target);
+    }
+
+    private boolean hasEquivalentIpv4Mute(String target) {
         long now = System.currentTimeMillis();
-        java.util.Iterator<Map.Entry<String, Long>> it = ipMuteCache.entrySet().iterator();
-        while (it.hasNext()) {
-            Map.Entry<String, Long> entry = it.next();
-            String cidr = entry.getKey();
+        for (Map.Entry<String, Long> entry : ipMuteCache.entrySet()) {
+            String storedTarget = entry.getKey();
             Long time = entry.getValue();
-            if (cidr.equals(ip) || IpMatcher.cidrMatches(ip, cidr)) {
-                if (time == Long.MAX_VALUE || time > now) {
-                    return true;
-                } else {
-                    it.remove();
-                    db.deleteMute(cidr);
+            if (!IpMatcher.isIpv4(storedTarget) || !sameIpv4(target, storedTarget)) {
+                continue;
+            }
+            if (time == Long.MAX_VALUE || time > now) {
+                return true;
+            }
+            ipMuteCache.remove(storedTarget, time);
+            muteCache.remove(storedTarget, time);
+            db.deleteMuteIfExpiresAt(storedTarget, time);
+            mutationGeneration++;
+        }
+        return false;
+    }
+
+    private List<String> storedTargetsFor(String target) {
+        List<String> storedTargets = new ArrayList<>();
+        if (IpMatcher.isIpv4(target)) {
+            for (String storedTarget : ipMuteCache.keySet()) {
+                if (sameIpv4(target, storedTarget)) {
+                    storedTargets.add(storedTarget);
                 }
             }
         }
-        return false;
+        if (storedTargets.isEmpty()) {
+            storedTargets.add(target);
+        }
+        return storedTargets;
+    }
+
+    private static boolean sameIpv4(String first, String second) {
+        return IpMatcher.isIpv4(first)
+                && IpMatcher.isIpv4(second)
+                && IpMatcher.ipToLong(first) == IpMatcher.ipToLong(second);
+    }
+
+    private static boolean isActive(long endTime) {
+        return endTime == Long.MAX_VALUE || endTime > System.currentTimeMillis();
     }
 
     public boolean isPlayerMuted(org.bukkit.entity.Player player) {

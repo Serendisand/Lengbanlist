@@ -41,7 +41,6 @@ public class Lengbanlist extends JavaPlugin {
     private EscalationManager escalationManager;
     private GuiSessionManager guiSessionManager;
     private AltsCommand altsCommand;
-    private org.leng.utils.SyncChannel syncChannel;
     private boolean isBroadcast;
     private FileConfiguration broadcastFC;
     private FileConfiguration chatConfig;
@@ -101,6 +100,7 @@ public void onLoad() {
     try {
         databaseManager.initialize();
         new StorageMigrationManager(this, databaseManager).migrateYamlIfNeeded();
+        muteManager = new MuteManager(this);
     } catch (Exception e) {
         getLogger().severe("数据库初始化失败，插件将停止启用: " + e.getMessage());
         e.printStackTrace();
@@ -109,9 +109,7 @@ public void onLoad() {
     }
 
     banManager = new BanManager(this);
-    muteManager = new MuteManager(this);
     syncManager = new SyncManager(this);
-    syncChannel = new org.leng.utils.SyncChannel(this);
     warnManager = new WarnManager(this);
     immunityManager = new ImmunityManager(this);
     escalationManager = new EscalationManager(this);
@@ -198,9 +196,6 @@ public void onEnable() {
     getServer().getPluginManager().registerEvents(new MuteCommandBlockListener(this), Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new GuiCleanupListener(this), this);
     
-    getServer().getMessenger().registerOutgoingPluginChannel(this, "lengbanlist:sync");
-    getServer().getMessenger().registerIncomingPluginChannel(this, "lengbanlist:sync", syncChannel);
-
     LengbanlistCommand lbanCmd = new LengbanlistCommand("lban", Lengbanlist.this);
     getCommand("lban").setExecutor(lbanCmd);
     getCommand("lban").setTabCompleter(lbanCmd);
@@ -269,6 +264,10 @@ public void onEnable() {
 
     startHistoryCleanupTask();
 
+    if (syncManager != null) {
+        syncManager.startAutoSync();
+    }
+    
     if (isFeatureEnabled("expiry-reminder")) {
         long periodTicks = Math.max(20L, getConfig().getInt("expiry-reminder.interval", 60) * 20L);
         expiryReminderTask = SchedulerUtils.runTaskTimerAsynchronously(this, new ExpiryReminderTask(this), 200L, periodTicks);
@@ -294,18 +293,33 @@ public void onDisable() {
     if (broadcastTask != null) broadcastTask.cancel();
     if (historyCleanupTask != null) historyCleanupTask.cancel();
     if (expiryReminderTask != null) expiryReminderTask.cancel();
+    if (syncManager != null) {
+        syncManager.stopAutoSync();
+    }
     if (webServer != null) webServer.stop();
 
     if (eulaAgreed) {
-        try {
-            saveBroadcastConfig();
-            if (databaseManager != null) databaseManager.close();
-        } catch (Exception e) {
-            getLogger().warning("保存配置文件时出错: " + e.getMessage());
-        }
+        shutdownStorage();
     }
 
     getServer().getConsoleSender().sendMessage(prefix() + "§f期待我们的下一次相遇！");
+}
+
+void shutdownStorage() {
+    try {
+        if (broadcastFC != null) {
+            saveBroadcastConfig();
+        }
+    } catch (Exception e) {
+        getLogger().warning("保存配置文件时出错: " + e.getMessage());
+    }
+    try {
+        if (databaseManager != null) {
+            databaseManager.close();
+        }
+    } catch (Exception e) {
+        getLogger().warning("关闭数据库时出错: " + e.getMessage());
+    }
 }
 
     private void startBroadcastTask() {
@@ -387,11 +401,7 @@ public void onDisable() {
     public SyncManager getSyncManager() {
         return syncManager;
     }
-
-    public org.leng.utils.SyncChannel getSyncChannel() {
-        return syncChannel;
-    }
-
+    
     public BanManager getBanManager() {
         return banManager;
     }
