@@ -133,4 +133,68 @@ public void showHelp(MessageSink sender) {
         sb.append("§b胡桃说：§7看完了吧？记得遵纪守法哦，不然往生堂随时欢迎~");
         return sb.toString().trim();
     }
+
+    public String onMuteCommandBlocked() {
+        return "§b胡桃说：§c你还在禁言中哒！别想用命令，先安静待着吧~";
+    }
+
+    public String onWarnOffline(String player, String reason) {
+        return "§b胡桃说：§a" + player + " 不在线哒，不过警告已经记上啦，原因是：" + reason + "！等他上线再好好说道说道~";
+    }
+
+    public String getPendingWarningsNotice(int count) {
+        return "§b胡桃说：§e你有 " + count + " 条待处理警告哒！乖乖改正，不然往生堂要来找你玩咯~";
+    }
+
+    public String getExpiryReminder(String type, String target, String remaining) {
+        return "§b胡桃说：§e到期提醒哒！" + target + " 的" + type + "还剩 " + remaining + "，要不要提前放人呢？";
+    }
+
+    public String onEscalatedBan(String player, int offenseCount, String duration) {
+        return "§b胡桃说：§e" + player + " 这是第 " + offenseCount + " 次违规哒，自动升级封禁 " + duration + "！三番五次，往生堂可要好好款待了~";
+    }
+
+    public String getAltsResult(String player, int count) {
+        return "§b胡桃说：§a查到了！" + player + " 有 " + count + " 个小号同住一个IP哒，一个个都逃不过胡桃的眼睛~";
+    }
+
+    public String getNoAlts(String player) {
+        return "§b胡桃说：§a" + player + " 没查出小号哒，是个老实人，往生堂给你点赞~";
+    }
+
+    public String onReportBan(String player, String duration) {
+        return "§b胡桃说：§a举报确认哒！" + player + " 已被封禁 " + duration + "！正义的铁拳从不迟到~";
+    }
+
+    public String getExportResult(int count) {
+        return "§b胡桃说：§a审计日志导出完成哒，一共 " + count + " 条！往生堂的账本记得明明白白~";
+    }
+
+    public String getVerifyResult(boolean valid, int count) {
+        if (valid) {
+            return "§b胡桃说：§a审计哈希链校验完整哒，一共 " + count + " 条，一个都没动过~";
+        }
+        return "§b胡桃说：§c糟了糟了！审计日志被动手脚哒！校验 " + count + " 条就发现了破绽，这可不行！";
+    }
+
+    public String getSyncStatus(String detail) {
+        return "§b胡桃说：§e跨服同步状态：" + detail + "！各服务器都要乖乖听胡桃的指挥哒~";
+    }
+
+    public String getImmunityDenied(String target) {
+        return "§b胡桃说：§c这位客人 " + target + " 权限不小，客卿我也动不了手呢~";
+    }
+
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§b胡桃说：§e操作人 " + actor + " 在 " + timeRange + " 共留下 " + matched + " 条可以回滚的记录，要动手吗？";
+    }
+
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§b胡桃说：§a回滚好啦！匹配 " + matched + " 条，办成 " + executed + " 条，跳过 " + skipped + " 条~";
+    }
+
+    public String getRollbackNoRecords(String actor) {
+        return "§b胡桃说：§e" + actor + " 那段时间什么坏事都没干，找不到可回滚的记录哦~";
+    }
+
 }

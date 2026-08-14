@@ -132,4 +132,68 @@ public void showHelp(MessageSink sender) {
         }
         return sb.toString().trim();
     }
+
+    public String onMuteCommandBlocked() {
+        return "§b默认模型：§c禁言期间不能使用该命令哦~ 等禁言结束后再试试吧！";
+    }
+
+    public String onWarnOffline(String player, String reason) {
+        return "§b默认模型：§a离线玩家 " + player + " 已被警告，原因是：" + reason + "。上线后他会收到通知哦~";
+    }
+
+    public String getPendingWarningsNotice(int count) {
+        return "§b默认模型：§e你有 " + count + " 条待处理警告，记得遵守规则哦~";
+    }
+
+    public String getExpiryReminder(String type, String target, String remaining) {
+        return "§b默认模型：§a" + target + " 的" + type + "将在 " + remaining + " 后到期！";
+    }
+
+    public String onEscalatedBan(String player, int offenseCount, String duration) {
+        return "§b默认模型：§a玩家 " + player + " 因第 " + offenseCount + " 次违规，处罚已自动升级为封禁 " + duration + "！";
+    }
+
+    public String getAltsResult(String player, int count) {
+        return "§b默认模型：§a玩家 " + player + " 名下查到 " + count + " 个小号：";
+    }
+
+    public String getNoAlts(String player) {
+        return "§b默认模型：§a玩家 " + player + " 没有查到任何小号，是干净的好玩家！";
+    }
+
+    public String onReportBan(String player, String duration) {
+        return "§b默认模型：§a举报已确认！玩家 " + player + " 已被封禁 " + duration + "，维护秩序，不容破坏！§b(◕‿◕✿)";
+    }
+
+    public String getExportResult(int count) {
+        return "§b默认模型：§a审计日志导出成功，共 " + count + " 条记录。";
+    }
+
+    public String getVerifyResult(boolean valid, int count) {
+        if (valid) {
+            return "§b默认模型：§a审计校验通过！" + count + " 条记录完整无损。";
+        }
+        return "§b默认模型：§c审计校验失败！检测到 " + count + " 条记录可能被篡改！";
+    }
+
+    public String getSyncStatus(String detail) {
+        return "§b默认模型：§a跨服同步状态：§f" + detail;
+    }
+
+    public String getImmunityDenied(String target) {
+        return "§b默认模型：§c目标 " + target + " 的权限等级不低于你，无法执行该操作！";
+    }
+
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§b默认模型：§e操作人 " + actor + " 在 " + timeRange + " 共有 " + matched + " 条可回滚操作记录。";
+    }
+
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§b默认模型：§a回滚完成！匹配 " + matched + " 条，成功执行 " + executed + " 条，跳过 " + skipped + " 条。";
+    }
+
+    public String getRollbackNoRecords(String actor) {
+        return "§b默认模型：§e操作人 " + actor + " 在指定范围内没有可回滚的操作记录。";
+    }
+
 }

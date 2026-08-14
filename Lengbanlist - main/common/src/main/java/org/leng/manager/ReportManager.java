@@ -1,7 +1,9 @@
 package org.leng.manager;
 
-import org.leng.platform.LengbanlistPlatform;
+import org.leng.object.BanEntry;
 import org.leng.object.ReportEntry;
+import org.leng.platform.LengbanlistPlatform;
+import org.leng.utils.TimeUtils;
 
 import java.util.List;
 
@@ -48,5 +50,16 @@ public class ReportManager {
 
     public int getPendingReportCount() {
         return plugin.getDatabaseManager().getPendingReportCount();
+    }
+
+    public void banFromReport(ReportEntry entry, String staff, long endTime, String reason, boolean isAuto) {
+        BanEntry banEntry = new BanEntry(entry.getTarget(), staff, endTime, reason, isAuto);
+        plugin.getBanManager().banPlayer(banEntry, false);
+        entry.setStatus("已处理");
+        updateReport(entry);
+        plugin.getAuditManager().log("举报转封禁", staff, entry.getTarget(), reason);
+        long durationMillis = endTime == Long.MAX_VALUE ? Long.MAX_VALUE : endTime - System.currentTimeMillis();
+        String message = plugin.getModelManager().getCurrentModel().onReportBan(entry.getTarget(), TimeUtils.formatDuration(durationMillis));
+        plugin.getLogger().info(message);
     }
 }

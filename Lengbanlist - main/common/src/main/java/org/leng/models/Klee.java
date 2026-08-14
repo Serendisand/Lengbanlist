@@ -140,4 +140,68 @@ public class Klee implements Model {
         sb.append("§c可莉说：§7这些事情要告诉琴团长！下次不可以再犯啦！");
         return sb.toString().trim();
     }
+
+    public String onMuteCommandBlocked() {
+        return "§c可莉说：§6禁言的时候不能使用这个命令哦，要乖乖安静啦！";
+    }
+
+    public String onWarnOffline(String player, String reason) {
+        return "§c可莉说：§a" + player + " 不在线呢，警告先记下啦，原因是：" + reason + "。等他回来要好好说说哦！";
+    }
+
+    public String getPendingWarningsNotice(int count) {
+        return "§c可莉说：§e你有 " + count + " 条待处理的警告哦，要乖乖的，别被关禁闭啦！";
+    }
+
+    public String getExpiryReminder(String type, String target, String remaining) {
+        return "§c可莉说：§e" + target + " 的" + type + "还有 " + remaining + " 就到期啦，要记得处理哦！";
+    }
+
+    public String onEscalatedBan(String player, int offenseCount, String duration) {
+        return "§c可莉说：§6" + player + " 已经第 " + offenseCount + " 次捣蛋啦，蹦蹦炸弹自动升级，封禁 " + duration + " 哦！";
+    }
+
+    public String getAltsResult(String player, int count) {
+        return "§c可莉说：§e可莉找到了 " + player + " 的 " + count + " 个小号，都躲在一个 IP 后面哒！";
+    }
+
+    public String getNoAlts(String player) {
+        return "§c可莉说：§a没有找到 " + player + " 的小号哦，是独自一人的好孩子！";
+    }
+
+    public String onReportBan(String player, String duration) {
+        return "§c可莉说：§a举报确认啦，" + player + " 被封禁 " + duration + " 啦，坏孩子要好好反省哦！";
+    }
+
+    public String getExportResult(int count) {
+        return "§c可莉说：§a审计日志导出成功，一共 " + count + " 条，可莉数得很认真哦！";
+    }
+
+    public String getVerifyResult(boolean valid, int count) {
+        if (valid) {
+            return "§c可莉说：§a校验通过！" + count + " 条记录都好好的，没有坏孩子动过！";
+        }
+        return "§c可莉说：§6哎呀，有 " + count + " 条记录被篡改啦，可莉要告诉琴团长！";
+    }
+
+    public String getSyncStatus(String detail) {
+        return "§c可莉说：§a跨服同步状态：§f" + detail;
+    }
+
+    public String getImmunityDenied(String target) {
+        return "§c可莉说：§6呜……" + target + " 的来头好大，可莉帮不了你啦！";
+    }
+
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§c可莉说：§e嘿嘿，找到 " + actor + " 在 " + timeRange + " 留下的 " + matched + " 个可以拆掉的记录啦！";
+    }
+
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§c可莉说：§a蹦蹦炸弹清场完毕！匹配 " + matched + " 条，执行 " + executed + " 条，跳过 " + skipped + " 条~";
+    }
+
+    public String getRollbackNoRecords(String actor) {
+        return "§c可莉说：§e" + actor + " 那段时间没有留下可以拆的记录，好无聊呀~";
+    }
+
 }

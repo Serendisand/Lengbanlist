@@ -4,6 +4,7 @@ import org.leng.models.Model;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.platform.LengbanlistPlatform;
+import org.leng.utils.IpMatcher;
 import org.leng.utils.TimeUtils;
 
 import java.util.List;
@@ -19,12 +20,17 @@ public class BanManager {
     }
 
     public void banPlayer(BanEntry banEntry) {
+        banPlayer(banEntry, false);
+    }
+
+    public void banPlayer(BanEntry banEntry, boolean silent) {
         long durationMillis = banEntry.getEndTime() == Long.MAX_VALUE ? Long.MAX_VALUE : banEntry.getEndTime() - System.currentTimeMillis();
         int durationDays = durationMillis == Long.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(1, Math.round(durationMillis / (double)(1000 * 60 * 60 * 24)));
 
         Model currentModel = plugin.getModelManager().getCurrentModel();
         String banResult = currentModel.addBan(banEntry.getTarget(), durationDays, banEntry.getReason());
         updateBan(banEntry);
+        plugin.getAuditManager().log("封禁", banEntry.getStaff(), banEntry.getTarget(), banEntry.getReason());
 
         String kickMessage = String.format(
                 "§c您已被封禁!\n" +
@@ -37,56 +43,99 @@ public class BanManager {
         );
         plugin.runSync(() -> plugin.kickPlayerIfOnline(banEntry.getTarget(), kickMessage));
 
-        if (banResult != null && !banResult.isEmpty()) {
-            plugin.broadcastMessage(banResult);
-        } else {
-            String defaultMessage = String.format("§c玩家 %s 已被封禁！原因：%s，时长：%s", banEntry.getTarget(), banEntry.getReason(), TimeUtils.formatDuration(durationMillis));
-            plugin.broadcastMessage(defaultMessage);
+        if (!silent) {
+            if (banResult != null && !banResult.isEmpty()) {
+                plugin.broadcastMessage(banResult);
+            } else {
+                String defaultMessage = String.format("§c玩家 %s 已被封禁！原因：%s，时长：%s", banEntry.getTarget(), banEntry.getReason(), TimeUtils.formatDuration(durationMillis));
+                plugin.broadcastMessage(defaultMessage);
+            }
         }
     }
 
     public void banIp(BanIpEntry banIpEntry) {
+        banIp(banIpEntry, false);
+    }
+
+    public void banIp(BanIpEntry banIpEntry, boolean silent) {
+        if (IpMatcher.isPrivateOrReserved(banIpEntry.getIp())) {
+            plugin.getLogger().warning("已阻止封禁私有/保留 IP: " + banIpEntry.getIp() + "（staff: " + banIpEntry.getStaff() + "）");
+            return;
+        }
         long durationMillis = banIpEntry.getEndTime() == Long.MAX_VALUE ? Long.MAX_VALUE : banIpEntry.getEndTime() - System.currentTimeMillis();
         int durationDays = durationMillis == Long.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(1, Math.round(durationMillis / (double)(1000 * 60 * 60 * 24)));
 
         Model currentModel = plugin.getModelManager().getCurrentModel();
         String banIpResult = currentModel.addBanIp(banIpEntry.getIp(), durationDays, banIpEntry.getReason());
         updateIpBan(banIpEntry);
+        plugin.getAuditManager().log("封禁IP", banIpEntry.getStaff(), banIpEntry.getIp(), banIpEntry.getReason());
 
-        if (banIpResult != null && !banIpResult.isEmpty()) {
-            plugin.broadcastMessage(banIpResult);
-        } else {
-            String defaultMessage = String.format("§cIP %s 已被封禁！原因：%s，时长：%s", banIpEntry.getIp(), banIpEntry.getReason(), TimeUtils.formatDuration(durationMillis));
-            plugin.broadcastMessage(defaultMessage);
+        if (!silent) {
+            if (banIpResult != null && !banIpResult.isEmpty()) {
+                plugin.broadcastMessage(banIpResult);
+            } else {
+                String defaultMessage = String.format("§cIP %s 已被封禁！原因：%s，时长：%s", banIpEntry.getIp(), banIpEntry.getReason(), TimeUtils.formatDuration(durationMillis));
+                plugin.broadcastMessage(defaultMessage);
+            }
         }
     }
 
     public void unbanPlayer(String target) {
+        unbanPlayer(target, null, false);
+    }
+
+    public void unbanPlayer(String target, boolean silent) {
+        unbanPlayer(target, null, silent);
+    }
+
+    public void unbanPlayer(String target, String actor) {
+        unbanPlayer(target, actor, false);
+    }
+
+    public void unbanPlayer(String target, String actor, boolean silent) {
         Model currentModel = plugin.getModelManager().getCurrentModel();
         String unbanResult = currentModel.removeBan(target);
         boolean removed = isPlayerBanned(target);
         db.deactivateBan(target);
 
         if (removed) {
-            if (unbanResult != null && !unbanResult.isEmpty()) {
-                plugin.broadcastMessage(unbanResult);
-            } else {
-                plugin.broadcastMessage(String.format("§a玩家 %s 已被解封", target));
+            plugin.getAuditManager().log("解封", actor, target, "");
+            if (!silent) {
+                if (unbanResult != null && !unbanResult.isEmpty()) {
+                    plugin.broadcastMessage(unbanResult);
+                } else {
+                    plugin.broadcastMessage(String.format("§a玩家 %s 已被解封", target));
+                }
             }
         }
     }
 
     public void unbanIp(String ip) {
+        unbanIp(ip, null, false);
+    }
+
+    public void unbanIp(String ip, boolean silent) {
+        unbanIp(ip, null, silent);
+    }
+
+    public void unbanIp(String ip, String actor) {
+        unbanIp(ip, actor, false);
+    }
+
+    public void unbanIp(String ip, String actor, boolean silent) {
         Model currentModel = plugin.getModelManager().getCurrentModel();
         String unbanIpResult = currentModel.removeBanIp(ip);
         boolean removed = isIpBanned(ip);
         db.deactivateIpBan(ip);
 
         if (removed) {
-            if (unbanIpResult != null && !unbanIpResult.isEmpty()) {
-                plugin.broadcastMessage(unbanIpResult);
-            } else {
-                plugin.broadcastMessage(String.format("§aIP %s 已被解封", ip));
+            plugin.getAuditManager().log("解封IP", actor, ip, "");
+            if (!silent) {
+                if (unbanIpResult != null && !unbanIpResult.isEmpty()) {
+                    plugin.broadcastMessage(unbanIpResult);
+                } else {
+                    plugin.broadcastMessage(String.format("§aIP %s 已被解封", ip));
+                }
             }
         }
     }
@@ -121,11 +170,11 @@ public class BanManager {
         }
 
         if (plugin.isFeatureEnabled("ban-ip") && ip != null) {
-            BanIpEntry banIp = getBanIpEntry(ip);
+            BanIpEntry banIp = getMatchingIpBan(ip);
             if (banIp != null) {
                 long currentTime = System.currentTimeMillis();
                 if (banIp.getTime() <= currentTime) {
-                    unbanIp(ip);
+                    unbanIp(banIp.getIp());
                 } else {
                     return "您的 IP 仍处于封禁状态，原因：" + banIp.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(banIp.getTime());
                 }
@@ -163,6 +212,23 @@ public class BanManager {
             }
         }
         return true;
+    }
+
+    public boolean isValidIpOrCidr(String value) {
+        return IpMatcher.isValidIpOrCidr(value);
+    }
+
+    public BanIpEntry getMatchingIpBan(String ip) {
+        if (ip == null) return null;
+        for (BanIpEntry entry : getBanIpList()) {
+            if (entry.getIp().equals(ip)) return entry;
+            if (IpMatcher.cidrMatches(ip, entry.getIp())) return entry;
+        }
+        return null;
+    }
+
+    public boolean isIpBannedByCidr(String ip) {
+        return getMatchingIpBan(ip) != null;
     }
 
     public boolean isBanned(String player, String reason) {

@@ -3,8 +3,11 @@ main: org.leng.Lengbanlist
 version: ${project.version}
 api-version: 1.21
 folia-supported: true
-authors: 
-  - Ukiyograin
+softdepend:
+  - PlaceholderAPI
+  - LuckPerms
+authors:
+  - Serendisand
 description: This plugin provides a lightweight ban and query system for high-version Minecraft servers.
 commands:
   lban:
@@ -90,6 +93,10 @@ commands:
     description: 工作频道聊天
     usage: /<command> <内容>
     permission: lengbanlist.staffchat
+  alts:
+    description: 查询玩家同IP小号
+    usage: /<command> <玩家名>
+    permission: lengbanlist.alts
 permissions:
   lengbanlist.ban:
     description: 允许使用封禁玩家命令
@@ -141,4 +148,46 @@ permissions:
     default: op
   lengbanlist.staffchat:
     description: 允许使用工作频道聊天命令
+    default: op
+  lengbanlist.audit:
+    description: 允许查看审计日志
+    default: op
+  lengbanlist.alts:
+    description: 允许查询同IP小号
+    default: op
+  lengbanlist.export:
+    description: 允许导出与校验审计日志
+    default: op
+  lengbanlist.sync:
+    description: 允许查看跨服同步状态
+    default: op
+  lengbanlist.mute:
+    description: 允许使用禁言玩家命令
+    default: op
+  lengbanlist.listmute:
+    description: 允许使用查看禁言列表命令
+    default: op
+  lengbanlist.open:
+    description: 允许打开可视化操作界面
+    default: op
+  lengbanlist.model:
+    description: 允许切换插件角色模型
+    default: op
+  lengbanlist.reload:
+    description: 允许重载插件配置
+    default: op
+  lengbanlist.toggle:
+    description: 允许开关全局广播
+    default: op
+  lengbanlist.list:
+    description: 允许查看封禁/处罚列表
+    default: op
+  lengbanlist.help:
+    description: 允许查看命令帮助
+    default: op
+  lengbanlist.broadcast:
+    description: 允许发送插件广播
+    default: op
+  lengbanlist.rollback:
+    description: 允许回滚指定管理员的操作
     default: op

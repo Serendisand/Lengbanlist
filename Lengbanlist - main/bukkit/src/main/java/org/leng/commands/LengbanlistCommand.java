@@ -15,6 +15,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.leng.Lengbanlist;
+import org.leng.object.AuditEntry;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.object.MuteEntry;
@@ -480,6 +481,154 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 }
                 String[] histArgs = Arrays.copyOfRange(args, 1, args.length);
                 return new HistoryCommand(plugin).onCommand(sender, this, "history", histArgs);
+            case "audit":
+                if (!plugin.isFeatureEnabled("audit")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
+                if (!sender.hasPermission("lengbanlist.audit")) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                    return true;
+                }
+                if (args.length >= 2 && args[1].equalsIgnoreCase("export")) {
+                    if (!plugin.isFeatureEnabled("export")) {
+                        plugin.sendFeatureDisabled(sender);
+                        return true;
+                    }
+                    if (!sender.hasPermission("lengbanlist.export")) {
+                        Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                        return true;
+                    }
+                    int auditExportLimit = 0;
+                    if (args.length >= 3) {
+                        try {
+                            auditExportLimit = Integer.parseInt(args[2]);
+                        } catch (NumberFormatException e) {
+                            Utils.sendMessage(sender, plugin.prefix() + "§c§l导出数量格式不对喵，正确格式: /lban audit export [数量]");
+                            return true;
+                        }
+                    }
+                    plugin.getAuditManager().exportAudit(message -> Utils.sendMessage(sender, message), auditExportLimit);
+                    break;
+                }
+                if (args.length >= 2 && args[1].equalsIgnoreCase("verify")) {
+                    if (!sender.hasPermission("lengbanlist.export")) {
+                        Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                        return true;
+                    }
+                    plugin.getAuditManager().verifyAudit(message -> Utils.sendMessage(sender, message));
+                    break;
+                }
+                String auditFilter = args.length >= 2 ? args[1] : "";
+                List<AuditEntry> auditLogs = plugin.getAuditManager().getLogsByActor(auditFilter, 20);
+                if (auditLogs.isEmpty()) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c暂无审计记录" + (auditFilter.isEmpty() ? "" : " (操作人: " + auditFilter + ")"));
+                    return true;
+                }
+                Utils.sendMessage(sender, "§7--§bLengbanlist 审计日志" + (auditFilter.isEmpty() ? "" : " (操作人: §f" + auditFilter + "§b)") + "§7--");
+                for (AuditEntry auditEntry : auditLogs) {
+                    String mark = auditEntry.isSuccess() ? "§a[成功]" : "§c[失败]";
+                    Utils.sendMessage(sender, mark + " §7[" + TimeUtils.timestampToReadable(auditEntry.getTimestamp()) + "] §e" + auditEntry.getAction() + " §f" + auditEntry.getActor() + " → " + auditEntry.getTarget() + " §7" + auditEntry.getReason());
+                }
+                break;
+            case "handle":
+                if (!plugin.isFeatureEnabled("report")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
+                if (!sender.hasPermission("lengbanlist.admin")) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                    return true;
+                }
+                if (args.length < 3) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c§l命令格式不对喵，正确格式: /lban handle <举报ID> <时间/auto/forever> [原因]");
+                    return true;
+                }
+                ReportEntry handleReport = plugin.getReportManager().getReport(args[1]);
+                if (handleReport == null) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c未找到举报编号: " + args[1]);
+                    return true;
+                }
+                String handleStatus = handleReport.getStatus();
+                if (handleStatus != null && !handleStatus.equals("受理中") && !handleStatus.equals("已读")) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c该举报已处理，无法再次操作。");
+                    return true;
+                }
+                String handleTarget = handleReport.getTarget();
+                if (!plugin.getImmunityManager().canPunish(sender, handleTarget)) {
+                    Utils.sendMessage(sender, currentModel.getImmunityDenied(handleTarget));
+                    return true;
+                }
+                boolean handleAuto = args[2].equalsIgnoreCase("auto");
+                try {
+                    long handleEndTime;
+                    if (args[2].equalsIgnoreCase("forever")) {
+                        handleEndTime = Long.MAX_VALUE;
+                    } else if (handleAuto) {
+                        org.leng.manager.EscalationManager.EscalationResult escalationResult = handleTarget.contains(".")
+                                ? plugin.getEscalationManager().resolveIpBan(handleTarget)
+                                : plugin.getEscalationManager().resolveBan(handleTarget);
+                        if (escalationResult.offenseCount > 0) {
+                            Utils.sendMessage(sender, currentModel.onEscalatedBan(handleTarget, escalationResult.offenseCount, TimeUtils.formatDuration(escalationResult.durationMillis)));
+                        }
+                        handleEndTime = TimeUtils.calculateEndTime(escalationResult.durationMillis);
+                    } else {
+                        long handleDuration = TimeUtils.parseDurationToMillis(args[2]);
+                        if (handleDuration <= 0) {
+                            Utils.sendMessage(sender, plugin.prefix() + "§c时间格式无效喵，请使用：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever, auto");
+                            return true;
+                        }
+                        handleEndTime = TimeUtils.calculateEndTime(handleDuration);
+                    }
+                    String handleReason = args.length > 3 ? String.join(" ", Arrays.copyOfRange(args, 3, args.length)) : handleReport.getReason();
+                    plugin.getReportManager().banFromReport(handleReport, sender.getName(), handleEndTime, handleReason, handleAuto);
+                    String handleDurationText = handleEndTime == Long.MAX_VALUE ? "永久" : TimeUtils.formatDuration(handleEndTime - System.currentTimeMillis());
+                    Utils.sendMessage(sender, plugin.prefix() + "§a已处理举报 " + handleReport.getId() + "，封禁玩家 " + handleTarget + "（" + handleDurationText + "）");
+                } catch (IllegalArgumentException e) {
+                    Utils.sendMessage(sender, plugin.prefix() + e.getMessage());
+                }
+                break;
+            case "alts":
+                if (!plugin.isFeatureEnabled("alts")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
+                if (!sender.hasPermission("lengbanlist.alts")) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                    return true;
+                }
+                if (args.length < 2 || args[1].isEmpty()) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c§l命令格式不对喵，正确格式: /lban alts <玩家名>");
+                    return true;
+                }
+                if (args[1].contains(".")) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c§l参数应为玩家名，不能是 IP：/lban alts <玩家名>");
+                    return true;
+                }
+                plugin.getAltsCommand().execute(sender, args[1]);
+                break;
+            case "sync":
+                if (!plugin.isFeatureEnabled("sync")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
+                if (!sender.hasPermission("lengbanlist.sync")) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                    return true;
+                }
+                new org.leng.manager.SyncManager(plugin).execute(message -> Utils.sendMessage(sender, message));
+                break;
+            case "rollback":
+                if (!plugin.isFeatureEnabled("rollback")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
+                if (!sender.hasPermission("lengbanlist.rollback")) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                    return true;
+                }
+                String[] rollbackArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
+                return new org.leng.commands.RollbackCommand(plugin).onCommand(sender, null, "lban rollback", rollbackArgs);
             default:
                 Utils.sendMessage(sender, plugin.prefix() + "§c未知子命令喵: §f" + args[0] + "§c，输入 §f/lban help §c看看能用什么喵。");
                 break;
@@ -499,7 +648,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
             String prefix = args[0].toLowerCase();
             String[] subs = {"toggle", "a", "list", "reload", "add", "remove", "help", "open",
                     "getip", "model", "mute", "unmute", "list-mute", "warn", "unwarn",
-                    "report", "admin", "check", "info", "tp", "history"};
+                    "report", "admin", "check", "info", "tp", "history", "audit", "handle", "alts", "sync", "rollback"};
             for (String s : subs) {
                 if (s.startsWith(prefix)) completions.add(s);
             }
@@ -514,8 +663,19 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 case "getip":
                 case "tp":
                 case "history":
+                case "alts":
                     for (Player p : Bukkit.getOnlinePlayers()) {
                         if (p.getName().toLowerCase().startsWith(prefix)) completions.add(p.getName());
+                    }
+                    break;
+                case "audit":
+                    for (String s : new String[]{"export", "verify"}) {
+                        if (s.startsWith(prefix)) completions.add(s);
+                    }
+                    break;
+                case "handle":
+                    for (ReportEntry r : plugin.getReportManager().getPendingReports()) {
+                        if (r.getId().startsWith(prefix)) completions.add(r.getId());
                     }
                     break;
                 case "unmute":

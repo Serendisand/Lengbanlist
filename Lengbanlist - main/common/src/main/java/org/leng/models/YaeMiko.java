@@ -140,4 +140,68 @@ public class YaeMiko implements Model {
         sb.append("§d八重神子说：§7呵呵，这些记录若写成小说，倒也挺有看头。");
         return sb.toString().trim();
     }
+
+    public String onMuteCommandBlocked() {
+        return "§d八重神子说：§c禁言期间不能使用该命令呢。现在还是乖乖当个听众，比较有趣哦。";
+    }
+
+    public String onWarnOffline(String player, String reason) {
+        return "§d八重神子说：§a" + player + " 不在线呢，不过警告已经记下了，原因是：" + reason + "。等他上线，这故事还没讲完哦。";
+    }
+
+    public String getPendingWarningsNotice(int count) {
+        return "§d八重神子说：§e你有 " + count + " 条待处理警告哦。再不好好表现，接下来的剧情可就要变得刺激了呢。";
+    }
+
+    public String getExpiryReminder(String type, String target, String remaining) {
+        return "§d八重神子说：§e到期提醒：" + target + " 的" + type + "还剩 " + remaining + "。要不要提前放人，就看你这位观众如何安排这场戏了。";
+    }
+
+    public String onEscalatedBan(String player, int offenseCount, String duration) {
+        return "§d八重神子说：§e" + player + " 第 " + offenseCount + " 次违规，已自动升级封禁 " + duration + "。呵呵，这位主角的戏份倒是越来越精彩了呢。";
+    }
+
+    public String getAltsResult(String player, int count) {
+        return "§d八重神子说：§a查到了哦，" + player + " 名下共有 " + count + " 个同IP小号。呵呵，这些小狐狸躲得再深，也逃不过我的眼睛。";
+    }
+
+    public String getNoAlts(String player) {
+        return "§d八重神子说：§a" + player + " 名下没有查出同IP小号呢。是个老实人，倒让神子少了几分捉弄的乐趣。";
+    }
+
+    public String onReportBan(String player, String duration) {
+        return "§d八重神子说：§a举报已确认，" + player + " 已被封禁 " + duration + "。呵呵，这出戏的第一幕，就此开幕了呢。";
+    }
+
+    public String getExportResult(int count) {
+        return "§d八重神子说：§a审计日志导出完成，共 " + count + " 条。这些记录，足够我写上好一段故事了呢。";
+    }
+
+    public String getVerifyResult(boolean valid, int count) {
+        if (valid) {
+            return "§d八重神子说：§a审计哈希链校验完整，共 " + count + " 条。记录完好无损，省得我费心编排了。";
+        }
+        return "§d八重神子说：§c哎呀，审计日志被人动了手脚呢！校验 " + count + " 条数据就发现了破绽。呵呵，敢在狐狸眼皮底下做小动作？";
+    }
+
+    public String getSyncStatus(String detail) {
+        return "§d八重神子说：§e跨服同步状态：" + detail + "。数据要整整齐齐，故事才讲得下去哦。";
+    }
+
+    public String getImmunityDenied(String target) {
+        return "§d八重神子说：§c哎呀，" + target + " 可不是你能随意处置的人呢，小心惹祸上身哦～";
+    }
+
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§d八重神子说：§e有趣呢～操作人 " + actor + " 在 " + timeRange + " 留下 " + matched + " 条可回滚的记录。";
+    }
+
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§d八重神子说：§a一切如我所料～回滚匹配 " + matched + " 条，执行 " + executed + " 条，跳过 " + skipped + " 条。";
+    }
+
+    public String getRollbackNoRecords(String actor) {
+        return "§d八重神子说：§e" + actor + " 在那段时间没什么可回滚的，真是遗憾呢～";
+    }
+
 }

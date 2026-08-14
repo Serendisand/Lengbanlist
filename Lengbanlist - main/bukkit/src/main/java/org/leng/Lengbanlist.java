@@ -41,6 +41,7 @@ public class Lengbanlist extends JavaPlugin implements LengbanlistPlatform {
     public WebServer webServer;
     public SchedulerUtils.SchedulerTask broadcastTask;
     private SchedulerUtils.SchedulerTask historyCleanupTask;
+    private SchedulerUtils.SchedulerTask expiryReminderTask;
     private boolean isBroadcast;
     private FileConfiguration broadcastFC;
     private FileConfiguration chatConfig;
@@ -49,6 +50,11 @@ public class Lengbanlist extends JavaPlugin implements LengbanlistPlatform {
     private ModelManager modelManager;
     private DatabaseManager databaseManager;
     private FileConfiguration eulaFC;
+    private AuditManager auditManager;
+    private GuiSessionManager guiSessionManager;
+    private ImmunityManager immunityManager;
+    private EscalationManager escalationManager;
+    private AltsCommand altsCommand;
 
     private boolean eulaAgreed = false;
     private boolean initializationFailed = false;
@@ -79,6 +85,40 @@ public void onLoad() {
 
     saveDefaultConfig();
 
+    File configFile = new File(getDataFolder(), "config.yml");
+    boolean firstLoad = !configFile.exists();
+    if (firstLoad && getConfig().getBoolean("model-auto-detect", true)) {
+        String language = java.util.Locale.getDefault().getLanguage();
+        String detectedModel = language != null && language.toLowerCase().startsWith("zh") ? "Default" : "English";
+        getConfig().set("Model", detectedModel);
+        try {
+            getConfig().save(configFile);
+        } catch (IOException e) {
+            getLogger().warning("写入模型自动检测结果失败: " + e.getMessage());
+        }
+        getLogger().info("首次加载，根据系统语言（" + language + "）自动选择模型: " + detectedModel);
+    }
+
+    if (!getConfig().contains("update-check.enabled")) {
+        getConfig().set("update-check.enabled", true);
+        try {
+            getConfig().save(configFile);
+        } catch (IOException e) {
+            getLogger().warning("写入 update-check 配置失败: " + e.getMessage());
+        }
+    }
+
+    // 生成自定义模型目录和示例文件
+    File modelsDir = new File(getDataFolder(), "models");
+    if (!modelsDir.exists()) {
+        modelsDir.mkdirs();
+    }
+    File exampleModelFile = new File(modelsDir, "example-custom-model.yml");
+    if (!exampleModelFile.exists()) {
+        saveResource("models/example-custom-model.yml", false);
+        getLogger().info("已生成自定义模型示例文件: models/example-custom-model.yml");
+    }
+
     databaseManager = new DatabaseManager(this);
     try {
         databaseManager.initialize();
@@ -96,6 +136,10 @@ public void onLoad() {
     reportManager = new ReportManager(this);
     ipAssociationManager = new IpAssociationManager(this);
     webServer = new WebServer(this);
+    auditManager = new AuditManager(this);
+    guiSessionManager = new GuiSessionManager();
+    immunityManager = new ImmunityManager(this);
+    escalationManager = new EscalationManager(this);
     isBroadcast = getConfig().getBoolean("opensendtime");
     modelManager = ModelManager.getInstance();
 
@@ -159,6 +203,9 @@ public void onEnable() {
     getServer().getPluginManager().registerEvents(new OpJoinListener(Lengbanlist.this), Lengbanlist.this);
     modelChoiceListener = new ModelChoiceListener(Lengbanlist.this);
     getServer().getPluginManager().registerEvents(modelChoiceListener, Lengbanlist.this);
+    getServer().getPluginManager().registerEvents(new MuteCommandBlockListener(Lengbanlist.this), Lengbanlist.this);
+    getServer().getPluginManager().registerEvents(new GuiCleanupListener(Lengbanlist.this), this);
+    altsCommand = new AltsCommand(Lengbanlist.this);
 
     getCommand("lban").setExecutor(new LengbanlistCommand("lban", Lengbanlist.this));
     BanCommand banCmd = new BanCommand(Lengbanlist.this);
@@ -188,6 +235,7 @@ public void onEnable() {
     setFeatureExecutor("mute", "listmute", new ListMuteCommand(Lengbanlist.this));
     setFeatureExecutor("getip", "getip", new GetIPCommand(Lengbanlist.this));
     setFeatureExecutor("staffchat", "sc", new StaffChatCommand(Lengbanlist.this));
+    setFeatureExecutor("alts", "alts", altsCommand);
 
     getServer().getConsoleSender().sendMessage("§b  _                      ____              _      _     _   ");
     getServer().getConsoleSender().sendMessage("§6 | |                    |  _ \\            | |    (_)   | |  ");
@@ -218,6 +266,16 @@ public void onEnable() {
     }
 
     startHistoryCleanupTask();
+
+    if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
+        new org.leng.placeholder.PlaceholderAPIHook(Lengbanlist.this).register();
+        getServer().getConsoleSender().sendMessage(prefix() + "§a已接入 PlaceholderAPI，可使用 %lengbanlist_*% 占位符");
+    }
+
+    if (isFeatureEnabled("expiry-reminder")) {
+        long periodTicks = Math.max(20L, getConfig().getInt("expiry-reminder.interval", 60) * 20L);
+        expiryReminderTask = SchedulerUtils.runTaskTimerAsynchronously(this, new ExpiryReminderTask(this), 200L, periodTicks);
+    }
 }
 
 public void reloadWebServer() {
@@ -238,6 +296,7 @@ public void onDisable() {
 
     if (broadcastTask != null) broadcastTask.cancel();
     if (historyCleanupTask != null) historyCleanupTask.cancel();
+    if (expiryReminderTask != null) expiryReminderTask.cancel();
     if (webServer != null) webServer.stop();
 
     if (eulaAgreed) {
@@ -389,6 +448,26 @@ private void unregisterCommands() {
 
     public DatabaseManager getDatabaseManager() {
         return databaseManager;
+    }
+
+    public AuditManager getAuditManager() {
+        return auditManager;
+    }
+
+    public GuiSessionManager getGuiSessionManager() {
+        return guiSessionManager;
+    }
+
+    public ImmunityManager getImmunityManager() {
+        return immunityManager;
+    }
+
+    public EscalationManager getEscalationManager() {
+        return escalationManager;
+    }
+
+    public AltsCommand getAltsCommand() {
+        return altsCommand;
     }
 
     public FileConfiguration getBroadcastFC() {

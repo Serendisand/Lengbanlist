@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.logging.Logger;
 
+import org.leng.manager.AuditManager;
 import org.leng.manager.BanManager;
 import org.leng.manager.DatabaseManager;
 import org.leng.manager.IpAssociationManager;
@@ -54,6 +55,8 @@ public interface LengbanlistPlatform {
 
     ModelManager getModelManager();
 
+    AuditManager getAuditManager();
+
     void broadcastMessage(String message);
 
     default void logMessage(String message) {
@@ -61,6 +64,11 @@ public interface LengbanlistPlatform {
     }
 
     void runSync(Runnable task);
+
+    /** 异步执行任务（平台无异步调度时降级为直接执行）。 */
+    default void runAsync(Runnable task) {
+        task.run();
+    }
 
     void kickPlayerIfOnline(String playerName, String message);
 

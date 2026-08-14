@@ -4,8 +4,10 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import org.leng.common.LengbanlistConstants;
 import org.leng.config.SimpleYamlConfig;
+import org.leng.manager.AuditManager;
 import org.leng.manager.BanManager;
 import org.leng.manager.DatabaseManager;
+import org.leng.manager.EscalationManager;
 import org.leng.manager.IpAssociationManager;
 import org.leng.manager.ModelManager;
 import org.leng.manager.MuteManager;
@@ -41,6 +43,8 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
     private ReportManager reportManager;
     private IpAssociationManager ipAssociationManager;
     private ModelManager modelManager;
+    private AuditManager auditManager;
+    private EscalationManager escalationManager;
     private WebServer webServer;
     private FabricServerFeatures serverFeatures;
     private Object server;
@@ -56,6 +60,15 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
         dataFolder = FabricLoader.getInstance().getConfigDir().resolve("Lengbanlist").toFile();
         dataFolder.mkdirs();
         try {
+            // 生成自定义模型目录和示例文件
+            File modelsDir = new File(dataFolder, "models");
+            if (!modelsDir.exists()) {
+                modelsDir.mkdirs();
+            }
+            File exampleModelFile = new File(modelsDir, "example-custom-model.yml");
+            if (!exampleModelFile.exists()) {
+                copyDefault("models/example-custom-model.yml");
+            }
             loadConfigFiles();
             if (!isEulaAgreed()) {
                 logger.severe("==================================================");
@@ -71,6 +84,8 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
             warnManager = new WarnManager(this);
             reportManager = new ReportManager(this);
             ipAssociationManager = new IpAssociationManager(this);
+            auditManager = new AuditManager(this);
+            escalationManager = new EscalationManager(this);
             modelManager = ModelManager.getInstance();
             webServer = new WebServer(this);
             serverFeatures = new FabricServerFeatures(this);
@@ -238,7 +253,7 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
 
     @Override
     public String getPluginVersion() {
-        return "1.9.3";
+        return "1.9.8";
     }
 
     @Override
@@ -338,6 +353,15 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
     @Override
     public ReportManager getReportManager() {
         return reportManager;
+    }
+
+    @Override
+    public AuditManager getAuditManager() {
+        return auditManager;
+    }
+
+    public EscalationManager getEscalationManager() {
+        return escalationManager;
     }
 
     @Override

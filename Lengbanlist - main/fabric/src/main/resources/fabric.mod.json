@@ -5,7 +5,7 @@
   "name": "Lengbanlist",
   "description": "This plugin provides a lightweight ban and query system for high-version Minecraft servers.",
   "authors": [
-    "Ukiyograin"
+    "Serendisand"
   ],
   "environment": "server",
   "entrypoints": {

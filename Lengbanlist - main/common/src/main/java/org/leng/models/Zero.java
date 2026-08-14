@@ -133,4 +133,68 @@ public void showHelp(MessageSink sender) {
         sb.append("§b零说：§7秩序不容破坏，以上记录将永久存档。");
         return sb.toString().trim();
     }
+
+    public String onMuteCommandBlocked() {
+        return "§b零说：§c禁言期间不得使用该命令。静思己过，遵守秩序。";
+    }
+
+    public String onWarnOffline(String player, String reason) {
+        return "§b零说：§a离线玩家 " + player + " 已被警告，原因是：" + reason + "。上线后将收到通知，一切记录在案。";
+    }
+
+    public String getPendingWarningsNotice(int count) {
+        return "§b零说：§e你有 " + count + " 条待处理警告。正视问题，方能维护秩序。";
+    }
+
+    public String getExpiryReminder(String type, String target, String remaining) {
+        return "§b零说：§a" + target + " 的" + type + "将在 " + remaining + " 后解除，秩序回归。";
+    }
+
+    public String onEscalatedBan(String player, int offenseCount, String duration) {
+        return "§b零说：§a玩家 " + player + " 第 " + offenseCount + " 次违规，处罚已自动升级为封禁 " + duration + "。秩序不容破坏！";
+    }
+
+    public String getAltsResult(String player, int count) {
+        return "§b零说：§a玩家 " + player + " 名下查到 " + count + " 个小号，一切记录在案。";
+    }
+
+    public String getNoAlts(String player) {
+        return "§b零说：§a玩家 " + player + " 名下无任何小号，档案干净。";
+    }
+
+    public String onReportBan(String player, String duration) {
+        return "§b零说：§a举报已确认，玩家 " + player + " 已被封禁 " + duration + "。秩序不容破坏！";
+    }
+
+    public String getExportResult(int count) {
+        return "§b零说：§a审计日志已导出，共 " + count + " 条记录，一切记录在案。";
+    }
+
+    public String getVerifyResult(boolean valid, int count) {
+        if (valid) {
+            return "§b零说：§a审计校验通过，" + count + " 条记录完整无损。";
+        }
+        return "§b零说：§c审计校验失败！检测到 " + count + " 条记录被篡改，必须彻查！";
+    }
+
+    public String getSyncStatus(String detail) {
+        return "§b零说：§a跨服同步状态：§f" + detail;
+    }
+
+    public String getImmunityDenied(String target) {
+        return "§b零说：§c目标 " + target + " 权限等级不低，权限秩序不可逾越！";
+    }
+
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§b零说：§e权限审查通过——操作人 " + actor + " 在 " + timeRange + " 有 " + matched + " 条操作待回滚。";
+    }
+
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§b零说：§a权限秩序已修复。回滚匹配 " + matched + " 条，执行 " + executed + " 条，跳过 " + skipped + " 条。";
+    }
+
+    public String getRollbackNoRecords(String actor) {
+        return "§b零说：§e" + actor + " 在该时段无违规操作记录。";
+    }
+
 }

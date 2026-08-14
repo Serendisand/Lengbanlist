@@ -4,3 +4,6 @@ Lengbanlist - main/Lengbanlist.iml
 Lengbanlist - main/target/
 Lengbanlist - main/dependency-reduced-pom.xml
 
+# Maven multi-module build output
+Lengbanlist - main/*/target/
+Lengbanlist - main/*/dependency-reduced-pom.xml

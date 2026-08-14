@@ -1,8 +1,13 @@
 package org.leng.manager;
 
+import org.leng.config.SimpleYamlConfig;
+import org.leng.models.CustomModel;
 import org.leng.models.Model;
 import org.leng.platform.PlatformHolder;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -33,9 +38,57 @@ public class ModelManager {
         loadModel("Nahida");
         loadModel("Klee");
         loadModel("YaeMiko");
+        loadCustomModels();
 
         String modelName = PlatformHolder.get().getConfigString("Model", "Default");
         switchModel(modelName.toLowerCase());
+    }
+
+    private void loadCustomModels() {
+        // 重新加载前，先移除上一次加载的自定义模型（内置模型会重新注册，无需清理）
+        models.values().removeIf(model -> model instanceof CustomModel);
+
+        File modelsDir = new File(PlatformHolder.get().getDataFolder(), "models");
+        if (!modelsDir.exists() || !modelsDir.isDirectory()) {
+            return;
+        }
+
+        File[] yamlFiles = modelsDir.listFiles((dir, name) -> name.endsWith(".yml") || name.endsWith(".yaml"));
+        if (yamlFiles == null || yamlFiles.length == 0) {
+            return;
+        }
+
+        for (File file : yamlFiles) {
+            try {
+                SimpleYamlConfig yaml;
+                try (InputStream input = new FileInputStream(file)) {
+                    yaml = SimpleYamlConfig.load(input);
+                }
+                String modelName = yaml.getString("name", null);
+                if (modelName != null) {
+                    modelName = modelName.trim();
+                }
+                if (modelName == null || modelName.isEmpty()) {
+                    PlatformHolder.get().getLogger().warning("跳过模型文件 " + file.getName() + "：缺少 'name' 字段");
+                    continue;
+                }
+
+                String lowerName = modelName.toLowerCase();
+
+                // 内置模型优先：名称冲突则跳过自定义模型
+                if (models.containsKey(lowerName)) {
+                    PlatformHolder.get().getLogger().warning("跳过自定义模型 " + modelName + "（来自 " + file.getName() + "）：与内置模型 " + lowerName + " 冲突，内置模型优先");
+                    continue;
+                }
+
+                Map<String, Object> flat = yaml.getFlatMap();
+                CustomModel model = new CustomModel(modelName, flat);
+                models.put(lowerName, model);
+                PlatformHolder.get().getLogger().info("已加载自定义模型: " + modelName + "（来自 " + file.getName() + "）");
+            } catch (Exception e) {
+                PlatformHolder.get().getLogger().warning("加载自定义模型文件 " + file.getName() + " 失败：" + e.getMessage());
+            }
+        }
     }
 
     public static void loadModel(String modelName) {
@@ -74,6 +127,7 @@ public class ModelManager {
     }
 
     public void reloadModel() {
+        loadCustomModels();
         String modelName = PlatformHolder.get().getConfigString("Model", "Default");
         switchModel(modelName.toLowerCase());
         PlatformHolder.get().logMessage("§a模型已重新加载，当前模型: " + currentModel.getName());

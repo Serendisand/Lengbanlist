@@ -1,6 +1,7 @@
 package org.leng.manager;
 
 import org.leng.platform.LengbanlistPlatform;
+import org.leng.object.AuditEntry;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.object.MuteEntry;
@@ -10,12 +11,16 @@ import org.leng.object.WarnEntry;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 
 public class DatabaseManager {
+    private static final String ZERO_HASH = "0000000000000000000000000000000000000000000000000000000000000000";
     private final LengbanlistPlatform plugin;
     private HikariDataSource dataSource;
     private boolean mysql;
@@ -100,6 +105,7 @@ public class DatabaseManager {
         execute("CREATE TABLE IF NOT EXISTS mutes (target " + textPrimaryKey() + ", staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL)");
         execute("CREATE TABLE IF NOT EXISTS warnings (id " + textPrimaryKey() + ", player " + textType() + " NOT NULL, staff " + textType() + " NOT NULL, warn_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, revoked " + booleanType() + " NOT NULL DEFAULT 0)");
         execute("CREATE TABLE IF NOT EXISTS reports (id " + textPrimaryKey() + ", target " + textType() + " NOT NULL, reporter " + textType() + " NOT NULL, reason " + textType() + " NOT NULL, status " + varcharType(32) + " NOT NULL DEFAULT '未处理', timestamp " + longType() + " NOT NULL)");
+        execute("CREATE TABLE IF NOT EXISTS audit_log (id " + integerPrimaryKey() + ", timestamp " + longType() + " NOT NULL, actor " + textType() + " NOT NULL, action " + textType() + " NOT NULL, target " + textType() + " NOT NULL, reason " + textType() + " NOT NULL, success " + booleanType() + " NOT NULL DEFAULT 1)");
 
         addColumnIfMissing("schema_meta", "meta_value", nullableTextType());
         addColumnIfMissing("player_ips", "ip", nullableTextType());
@@ -133,12 +139,18 @@ public class DatabaseManager {
         createIndexIfMissing("warnings", "idx_warnings_player", "player");
         createIndexIfMissing("reports", "idx_reports_target", "target");
         createIndexIfMissing("reports", "idx_reports_reporter", "reporter");
+        createIndexIfMissing("audit_log", "idx_audit_log_timestamp", "timestamp");
+        createIndexIfMissing("audit_log", "idx_audit_log_actor", "actor");
+        createIndexIfMissing("audit_log", "idx_audit_log_target", "target");
 
         String currentVersion = getMeta("schema.version");
         if (currentVersion == null || Integer.parseInt(currentVersion) < 3) {
             migrateToV3();
         }
-        setMeta("schema.version", "3");
+        if (currentVersion == null || Integer.parseInt(currentVersion) < 4) {
+            migrateToV4();
+        }
+        setMeta("schema.version", "4");
     }
 
     private void migrateToV3() throws SQLException {
@@ -163,6 +175,27 @@ public class DatabaseManager {
             }
         }
         createIndexIfMissing(table, "idx_" + table + "_target_active", (table.equals("bans") ? "target" : "ip") + ", active");
+    }
+
+    /** 审计哈希链迁移：为 audit_log 补 prev_hash 列并按 id 升序回填整条 SHA-256 链。 */
+    private void migrateToV4() throws SQLException {
+        addColumnIfMissing("audit_log", "prev_hash", varcharType(64) + " NOT NULL DEFAULT ''");
+        if (mysql) {
+            execute("INSERT IGNORE INTO schema_meta (meta_key, meta_value) VALUES ('audit.tail', '')");
+        } else {
+            execute("INSERT OR IGNORE INTO schema_meta (meta_key, meta_value) VALUES ('audit.tail', '')");
+        }
+        String prevHash = ZERO_HASH;
+        int offset = 0;
+        List<AuditEntry> batch;
+        while (!(batch = getAuditLogsAsc(offset, 1000)).isEmpty()) {
+            for (AuditEntry row : batch) {
+                prevHash = hashRow(prevHash, row.getTimestamp(), row.getActor(), row.getAction(), row.getTarget(), row.getReason(), row.isSuccess());
+                executeUpdate("UPDATE audit_log SET prev_hash = ? WHERE id = ?", prevHash, row.getId());
+            }
+            offset += batch.size();
+        }
+        setMeta("schema.version", "4");
     }
 
     public void upsertPlayerIp(String playerName, String ip, long updatedAt) {
@@ -325,6 +358,24 @@ public class DatabaseManager {
         return entries;
     }
 
+    public int countBanHistory(String target) {
+        return count("SELECT COUNT(*) FROM bans WHERE LOWER(target) = LOWER(?)", target);
+    }
+
+    public List<BanEntry> getAllActiveBans() {
+        List<BanEntry> entries = new ArrayList<>();
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE active = 1")) {
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(readBan(rs));
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
+    }
+
     public boolean isHealthy() {
         return dataSource != null && !dataSource.isClosed();
     }
@@ -394,12 +445,34 @@ public class DatabaseManager {
         return entries;
     }
 
+    public int countIpBanHistory(String ip) {
+        return count("SELECT COUNT(*) FROM ip_bans WHERE LOWER(ip) = LOWER(?)", ip);
+    }
+
     public void upsertMute(MuteEntry entry) {
         executeUpdate(upsertSql("mutes", "target", new String[]{"target", "staff", "end_time", "reason"}, new String[]{"staff", "end_time", "reason"}), entry.getTarget(), entry.getStaff(), entry.getTime(), entry.getReason());
     }
 
     public void deleteMute(String target) {
         executeUpdate("DELETE FROM mutes WHERE target = ?", target);
+    }
+
+    public void deleteMuteIfExpiresAt(String target, long endTime) {
+        executeUpdate("DELETE FROM mutes WHERE LOWER(target) = LOWER(?) AND end_time = ?", target, endTime);
+    }
+
+    public List<MuteEntry> getAllMutes() {
+        List<MuteEntry> entries = new ArrayList<>();
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason FROM mutes")) {
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(readMute(rs));
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
     }
 
     public MuteEntry getMute(String target) {
@@ -412,6 +485,22 @@ public class DatabaseManager {
             logSql(e);
             return null;
         }
+    }
+
+    List<MuteEntry> loadMutesForCache() throws SQLException {
+        List<MuteEntry> entries = new ArrayList<>();
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason FROM mutes WHERE end_time = ? OR end_time > ? ORDER BY target")) {
+            ps.setLong(1, Long.MAX_VALUE);
+            ps.setLong(2, System.currentTimeMillis());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(readMute(rs));
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
     }
 
     public List<MuteEntry> getMutes() {
@@ -557,6 +646,160 @@ public class DatabaseManager {
         executeUpdate(upsertSql("schema_meta", "meta_key", new String[]{"meta_key", "meta_value"}, new String[]{"meta_value"}), key, value);
     }
 
+    public void addAuditLog(String actor, String action, String target, String reason, boolean success) {
+        executeUpdate("INSERT INTO audit_log (timestamp, actor, action, target, reason, success) VALUES (?, ?, ?, ?, ?, ?)",
+                System.currentTimeMillis(), actor, action, target, reason, success);
+    }
+
+    public void addAuditLogChained(String actor, String action, String target, String reason, boolean success) {
+        try (Connection connection = getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                if (mysql) {
+                    try (PreparedStatement lock = connection.prepareStatement("SELECT meta_value FROM schema_meta WHERE meta_key='audit.tail' FOR UPDATE")) {
+                        lock.executeQuery();
+                    }
+                }
+                String prevHash = ZERO_HASH;
+                try (PreparedStatement ps = connection.prepareStatement("SELECT id, timestamp, actor, action, target, reason, success, prev_hash FROM audit_log ORDER BY id DESC LIMIT 1")) {
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            prevHash = hashRow(value(rs, "prev_hash"), rs.getLong("timestamp"), value(rs, "actor"), value(rs, "action"), value(rs, "target"), value(rs, "reason"), rs.getBoolean("success"));
+                        }
+                    }
+                }
+                try (PreparedStatement ps = connection.prepareStatement("INSERT INTO audit_log (timestamp, actor, action, target, reason, success, prev_hash) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+                    ps.setLong(1, System.currentTimeMillis());
+                    ps.setString(2, actor == null ? "" : actor);
+                    ps.setString(3, action == null ? "" : action);
+                    ps.setString(4, target == null ? "" : target);
+                    ps.setString(5, reason == null ? "" : reason);
+                    ps.setBoolean(6, success);
+                    ps.setString(7, prevHash);
+                    ps.executeUpdate();
+                }
+                connection.commit();
+            } catch (SQLException e) {
+                try {
+                    connection.rollback();
+                } catch (SQLException rollbackError) {
+                    logSql(rollbackError);
+                }
+                logSql(e);
+            } finally {
+                connection.setAutoCommit(true);
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+    }
+
+    public List<AuditEntry> getAuditLogsAsc(int offset, int limit) {
+        List<AuditEntry> entries = new ArrayList<>();
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT id, timestamp, actor, action, target, reason, success, prev_hash FROM audit_log ORDER BY id ASC LIMIT ? OFFSET ?")) {
+            ps.setInt(1, limit);
+            ps.setInt(2, offset);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(readAudit(rs));
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
+    }
+
+    public static String hashRow(String prevHash, long timestamp, String actor, String action, String target, String reason, boolean success) {
+        String safePrevHash = prevHash == null ? "" : prevHash;
+        String safeActor = actor == null ? "" : actor;
+        String safeAction = action == null ? "" : action;
+        String safeTarget = target == null ? "" : target;
+        String safeReason = reason == null ? "" : reason;
+        String data = safePrevHash + timestamp + "[" + safeActor.length() + "]" + safeActor + "[" + safeAction.length() + "]" + safeAction + "[" + safeTarget.length() + "]" + safeTarget + "[" + safeReason.length() + "]" + safeReason + "[" + (success ? 1 : 0) + "]";
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(data.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder();
+            for (byte b : hash) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public List<AuditEntry> getAuditLogs(String actorOrTarget, int limit) {
+        List<AuditEntry> entries = new ArrayList<>();
+        try (Connection connection = getConnection()) {
+            if (actorOrTarget == null || actorOrTarget.isEmpty()) {
+                try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM audit_log ORDER BY timestamp DESC LIMIT ?")) {
+                    ps.setInt(1, limit);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) entries.add(readAudit(rs));
+                    }
+                }
+            } else {
+                try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM audit_log WHERE actor = ? OR target = ? ORDER BY timestamp DESC LIMIT ?")) {
+                    ps.setString(1, actorOrTarget);
+                    ps.setString(2, actorOrTarget);
+                    ps.setInt(3, limit);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) entries.add(readAudit(rs));
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
+    }
+
+    public List<AuditEntry> getAuditLogsByActor(String actor, int limit) {
+        if (actor == null || actor.isEmpty()) {
+            return getAuditLogs(null, limit);
+        }
+        List<AuditEntry> entries = new ArrayList<>();
+        try (Connection connection = getConnection()) {
+            try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM audit_log WHERE actor = ? ORDER BY timestamp DESC LIMIT ?")) {
+                ps.setString(1, actor);
+                ps.setInt(2, limit);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) entries.add(readAudit(rs));
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
+    }
+
+    /** 查询指定操作人在指定时间范围（含两端）内的审计记录，按时间升序（回滚按原顺序执行）。 */
+    public List<AuditEntry> getAuditLogsByActorInRange(String actor, long from, long to) {
+        List<AuditEntry> entries = new ArrayList<>();
+        if (actor == null || actor.trim().isEmpty()) {
+            return entries;
+        }
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement(
+                "SELECT id, timestamp, actor, action, target, reason, success, prev_hash FROM audit_log " +
+                        "WHERE actor = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC, id ASC")) {
+            ps.setString(1, actor.trim());
+            ps.setLong(2, from);
+            ps.setLong(3, to);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) entries.add(readAudit(rs));
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
+    }
+
+    private AuditEntry readAudit(ResultSet rs) throws SQLException {
+        return new AuditEntry(rs.getLong("id"), rs.getLong("timestamp"), value(rs, "actor"), value(rs, "action"), value(rs, "target"), value(rs, "reason"), rs.getBoolean("success"), value(rs, "prev_hash"));
+    }
+
     private BanEntry readBan(ResultSet rs) throws SQLException {
         return new BanEntry(value(rs, "target"), value(rs, "staff"), rs.getLong("end_time"), value(rs, "reason"), rs.getBoolean("is_auto"), rs.getBoolean("active"));
     }
@@ -570,6 +813,16 @@ public class DatabaseManager {
         long cutoff = System.currentTimeMillis() - (retentionDays * 86400000L);
         executeUpdate("DELETE FROM bans WHERE active = 0 AND end_time < ?", cutoff);
         executeUpdate("DELETE FROM ip_bans WHERE active = 0 AND end_time < ?", cutoff);
+    }
+
+    public void cleanupOldData(int retentionDays) {
+        long cutoff = System.currentTimeMillis() - (retentionDays * 86400000L);
+        executeUpdate("DELETE FROM bans WHERE active = 0 AND end_time < ?", cutoff);
+        executeUpdate("DELETE FROM ip_bans WHERE active = 0 AND end_time < ?", cutoff);
+        executeUpdate("DELETE FROM mutes WHERE end_time != " + Long.MAX_VALUE + " AND end_time < ?", cutoff);
+        executeUpdate("DELETE FROM warnings WHERE revoked = 1 AND warn_time < ?", cutoff);
+        executeUpdate("DELETE FROM reports WHERE status != '未处理' AND timestamp < ?", cutoff);
+        executeUpdate("DELETE FROM audit_log WHERE timestamp < ?", cutoff);
     }
 
 

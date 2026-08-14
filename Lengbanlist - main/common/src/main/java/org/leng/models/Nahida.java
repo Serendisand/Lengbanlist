@@ -134,4 +134,68 @@ public class Nahida implements Model {
         sb.append("§b纳西妲说：§7记忆不会责备任何人，但它会提醒我们做出更好的选择。");
         return sb.toString().trim();
     }
+
+    public String onMuteCommandBlocked() {
+        return "§b纳西妲说：§c禁言期间还不能使用这个命令哦，等思绪平静下来再说吧。";
+    }
+
+    public String onWarnOffline(String player, String reason) {
+        return "§b纳西妲说：§a" + player + " 此刻不在梦境中，警告已先记在世界树上，原因是：" + reason + "。等他回来时再慢慢告诉他吧。";
+    }
+
+    public String getPendingWarningsNotice(int count) {
+        return "§b纳西妲说：§e你还有 " + count + " 条待处理的警告哦，我们一起去面对它们，好吗？";
+    }
+
+    public String getExpiryReminder(String type, String target, String remaining) {
+        return "§b纳西妲说：§e" + target + " 的" + type + "还有 " + remaining + " 就要到期了，记得抽空处理一下哦。";
+    }
+
+    public String onEscalatedBan(String player, int offenseCount, String duration) {
+        return "§b纳西妲说：§c" + player + " 已是第 " + offenseCount + " 次触犯规则，世界树已自动将封禁升级为 " + duration + "。希望这次，他能学会与规则温柔相处。";
+    }
+
+    public String getAltsResult(String player, int count) {
+        return "§b纳西妲说：§e我在世界树里数了数，" + player + " 名下共有 " + count + " 个相同 IP 的账号，像是同一片叶子的投影。";
+    }
+
+    public String getNoAlts(String player) {
+        return "§b纳西妲说：§a我在世界树中没有找到 " + player + " 的其他账号，他是一棵独立生长的小树苗。";
+    }
+
+    public String onReportBan(String player, String duration) {
+        return "§b纳西妲说：§a举报已经确认，" + player + " 已被封禁 " + duration + "。谢谢你守护了这片梦境。";
+    }
+
+    public String getExportResult(int count) {
+        return "§b纳西妲说：§a审计日志已成功导出，共 " + count + " 条记录，都整理得清清楚楚啦。";
+    }
+
+    public String getVerifyResult(boolean valid, int count) {
+        if (valid) {
+            return "§b纳西妲说：§a校验通过，" + count + " 条记录与世界树的记忆完全一致，一切安好。";
+        }
+        return "§b纳西妲说：§c校验发现了问题，" + count + " 条记录与世界树的记忆对不上，像是被什么悄悄改动过。";
+    }
+
+    public String getSyncStatus(String detail) {
+        return "§b纳西妲说：§a跨服同步状态：§f" + detail;
+    }
+
+    public String getImmunityDenied(String target) {
+        return "§b纳西妲说：§c" + target + " 与你的位阶相当或更高，此刻出手并非明智之选。";
+    }
+
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§b纳西妲说：§e梦境之中，我看到操作人 " + actor + " 在 " + timeRange + " 有 " + matched + " 条操作可以回滚哦~";
+    }
+
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§b纳西妲说：§a梦境已修正。回滚匹配 " + matched + " 条，执行 " + executed + " 条，跳过 " + skipped + " 条~";
+    }
+
+    public String getRollbackNoRecords(String actor) {
+        return "§b纳西妲说：§e" + actor + " 在那段时间的梦境很干净，没有可回滚的记录呢~";
+    }
+
 }

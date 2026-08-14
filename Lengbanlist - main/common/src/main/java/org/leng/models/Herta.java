@@ -133,4 +133,68 @@ public void showHelp(MessageSink sender) {
         sb.append("§b希儿说：§7调皮捣蛋可是要额外收费的~下次不许再犯哦！");
         return sb.toString().trim();
     }
+
+    public String onMuteCommandBlocked() {
+        return "§b黑塔说：§c禁言期间不能使用该命令，这种蠢问题也要来打扰天才？";
+    }
+
+    public String onWarnOffline(String player, String reason) {
+        return "§b黑塔说：§a玩家 " + player + " 不在线，但警告已记录在案，原因是：" + reason + "。想逃出天才的视野？还早着呢。";
+    }
+
+    public String getPendingWarningsNotice(int count) {
+        return "§b黑塔说：§e你有 " + count + " 条待处理警告。好好反省，我可没耐心重复第二遍。";
+    }
+
+    public String getExpiryReminder(String type, String target, String remaining) {
+        return "§b黑塔说：§e到期提醒：" + target + " 的" + type + "还剩 " + remaining + "。是否提前解除，你自己决定。";
+    }
+
+    public String onEscalatedBan(String player, int offenseCount, String duration) {
+        return "§b黑塔说：§e" + player + " 第 " + offenseCount + " 次违规，已自动升级封禁 " + duration + "。一犯再犯，真当我的实验台是游乐场？";
+    }
+
+    public String getAltsResult(String player, int count) {
+        return "§b黑塔说：§a" + player + " 名下查出 " + count + " 个同IP小号。无非是些无聊的复制品，怎么可能逃过我的眼睛？";
+    }
+
+    public String getNoAlts(String player) {
+        return "§b黑塔说：§a" + player + " 没有查出同IP小号。还算干净，勉强值得一句表扬。";
+    }
+
+    public String onReportBan(String player, String duration) {
+        return "§b黑塔说：§a举报已确认，" + player + " 已被封禁 " + duration + "。这种小事，交给天才一秒就够了。";
+    }
+
+    public String getExportResult(int count) {
+        return "§b黑塔说：§a审计日志导出完成，共 " + count + " 条。数据归档得井井有条，这才是天才该有的样子。";
+    }
+
+    public String getVerifyResult(boolean valid, int count) {
+        if (valid) {
+            return "§b黑塔说：§a审计哈希链校验完整，共 " + count + " 条。没有异常，一切都在我的注视之下。";
+        }
+        return "§b黑塔说：§c审计日志被篡改了！校验 " + count + " 条数据即发现异常。敢在天才的眼皮底下动手脚？";
+    }
+
+    public String getSyncStatus(String detail) {
+        return "§b黑塔说：§e跨服同步状态：" + detail + "。所有数据都在我的掌控之中，同步绝不能出错。";
+    }
+
+    public String getImmunityDenied(String target) {
+        return "§b黑塔说：§c哼，" + target + " 的权限等级可不比你低，想动他？先掂量掂量自己够不够格。";
+    }
+
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§b黑塔说：§e数据已拉取——操作人 " + actor + " 在 " + timeRange + " 有 " + matched + " 条操作可以回滚。";
+    }
+
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§b黑塔说：§a实验结果完美。回滚匹配 " + matched + " 条，执行 " + executed + " 条，跳过 " + skipped + " 条。";
+    }
+
+    public String getRollbackNoRecords(String actor) {
+        return "§b黑塔说：§e" + actor + " 在那段时间根本没操作，白跑一趟~";
+    }
+
 }

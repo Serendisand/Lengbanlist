@@ -132,4 +132,68 @@ public void showHelp(MessageSink sender) {
         sb.append("§b钟离说：§7凡契约者，当以此为鉴。善守规则，方能长久。");
         return sb.toString().trim();
     }
+
+    public String onMuteCommandBlocked() {
+        return "§b钟离说：§c禁言期间，不宜动用此令。安分守己，方得长久。";
+    }
+
+    public String onWarnOffline(String player, String reason) {
+        return "§b钟离说：§a" + player + " 虽不在场，其过已录于契约之上，原因是：" + reason + "。待其归来，自当知晓。";
+    }
+
+    public String getPendingWarningsNotice(int count) {
+        return "§b钟离说：§e契约有载，你尚有 " + count + " 条警告待处理。前车之鉴，后事之师，望好自为之。";
+    }
+
+    public String getExpiryReminder(String type, String target, String remaining) {
+        return "§b钟离说：§e特此提醒：关于 " + target + " 的" + type + "，仅余 " + remaining + "。契约将满，届时可酌情处置。";
+    }
+
+    public String onEscalatedBan(String player, int offenseCount, String duration) {
+        return "§b钟离说：§e" + player + " 已是第 " + offenseCount + " 次违反规则，依契约之约，自动升级封禁 " + duration + "。事不过三，此乃天道。";
+    }
+
+    public String getAltsResult(String player, int count) {
+        return "§b钟离说：§a经查，" + player + " 名下共有 " + count + " 个同源账号。纸终究包不住火，天网恢恢，疏而不漏。";
+    }
+
+    public String getNoAlts(String player) {
+        return "§b钟离说：§a" + player + " 名下并无同源账号，清者自清，坦坦荡荡。";
+    }
+
+    public String onReportBan(String player, String duration) {
+        return "§b钟离说：§a举报业已确认，" + player + " 依律封禁 " + duration + "。法不容情，望诸位引以为戒。";
+    }
+
+    public String getExportResult(int count) {
+        return "§b钟离说：§a审计日志导出完毕，共 " + count + " 条，尽数封存于契约之中，以供查证。";
+    }
+
+    public String getVerifyResult(boolean valid, int count) {
+        if (valid) {
+            return "§b钟离说：§a审计哈希链校验无误，共 " + count + " 条，一毫不差。契约之重，在于诚信。";
+        }
+        return "§b钟离说：§c审计日志竟遭篡改，共 " + count + " 条记录已现破绽！契约被毁，此乃大忌，务必彻查。";
+    }
+
+    public String getSyncStatus(String detail) {
+        return "§b钟离说：§e跨服同步状态：" + detail + "。诸服如诸国，契约相通，方能长治久安。";
+    }
+
+    public String getImmunityDenied(String target) {
+        return "§b钟离说：§c" + target + " 之位阶不在你之下，贸然出手有违契约之道。";
+    }
+
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§b钟离说：§e契约之印已显——操作人 " + actor + " 在 " + timeRange + " 留有 " + matched + " 条可回滚之记录。";
+    }
+
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§b钟离说：§a契约已成。回滚匹配 " + matched + " 条，执行 " + executed + " 条，跳过 " + skipped + " 条。";
+    }
+
+    public String getRollbackNoRecords(String actor) {
+        return "§b钟离说：§e" + actor + " 在那段时间并无应回滚之契约记录。";
+    }
+
 }

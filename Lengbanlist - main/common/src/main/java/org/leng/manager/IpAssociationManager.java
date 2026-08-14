@@ -36,6 +36,38 @@ public class IpAssociationManager {
         return plugin.getDatabaseManager().getPlayersByIpFromHistory(ip);
     }
 
+    public static class AltAccount {
+        public final String name;
+        public final boolean banned;
+        public final boolean currentIp;
+
+        public AltAccount(String name, boolean banned, boolean currentIp) {
+            this.name = name;
+            this.banned = banned;
+            this.currentIp = currentIp;
+        }
+    }
+
+    public List<AltAccount> getAlts(String target) {
+        List<AltAccount> result = new ArrayList<>();
+        String ip = plugin.getDatabaseManager().getPlayerIp(target);
+        if (ip == null || ip.isEmpty()) {
+            return result;
+        }
+        Set<String> seen = new HashSet<>();
+        for (String name : plugin.getDatabaseManager().getPlayersByIp(ip)) {
+            seen.add(name.toLowerCase());
+            result.add(new AltAccount(name, plugin.getBanManager().isPlayerBanned(name), true));
+        }
+        for (String name : plugin.getDatabaseManager().getPlayersByIpFromHistory(ip)) {
+            if (!seen.contains(name.toLowerCase())) {
+                seen.add(name.toLowerCase());
+                result.add(new AltAccount(name, plugin.getBanManager().isPlayerBanned(name), false));
+            }
+        }
+        return result;
+    }
+
     public Map<String, List<String>> getAssociatedPlayers(String playerName) {
         Map<String, List<String>> result = new HashMap<>();
         List<String[]> ipHistory = getPlayerIps(playerName);

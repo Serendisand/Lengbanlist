@@ -190,4 +190,9 @@ public class SimpleYamlConfig {
     public void set(String path, Object value) {
         values.put(path, value);
     }
+
+    /** 返回扁平化的键值映射（点分路径 → 值），供 CustomModel 使用。 */
+    public Map<String, Object> getFlatMap() {
+        return values;
+    }
 }

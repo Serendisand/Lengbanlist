@@ -142,6 +142,109 @@ public final class FabricCommandBridge {
             }
             if ("add".equals(sub)) sub = args.length > 1 && args[1].contains(".") ? "ban-ip" : "ban";
             if ("remove".equals(sub)) sub = "unban";
+            if ("audit".equals(sub)) {
+                if (!requirePermission(source, sink)) return;
+                if (args.length >= 2 && "export".equalsIgnoreCase(args[1])) {
+                    int limit = 0;
+                    if (args.length >= 3) limit = parseInt(args[2], 0);
+                    plugin.getAuditManager().exportAudit(sink, limit);
+                    return;
+                }
+                if (args.length >= 2 && "verify".equalsIgnoreCase(args[1])) {
+                    plugin.getAuditManager().verifyAudit(sink);
+                    return;
+                }
+                String auditFilter = args.length >= 2 ? args[1] : "";
+                List<org.leng.object.AuditEntry> auditLogs = plugin.getAuditManager().getLogsByActor(auditFilter, 20);
+                if (auditLogs.isEmpty()) {
+                    sink.sendMessage(plugin.prefix() + "§c暂无审计记录" + (auditFilter.isEmpty() ? "" : " (操作人: " + auditFilter + ")"));
+                    return;
+                }
+                sink.sendMessage("§7--§bLengbanlist 审计日志" + (auditFilter.isEmpty() ? "" : " (操作人: §f" + auditFilter + "§b)") + "§7--");
+                for (org.leng.object.AuditEntry auditEntry : auditLogs) {
+                    String mark = auditEntry.isSuccess() ? "§a[成功]" : "§c[失败]";
+                    sink.sendMessage(mark + " §7[" + TimeUtils.timestampToReadable(auditEntry.getTimestamp()) + "] §e" + auditEntry.getAction() + " §f" + auditEntry.getActor() + " → " + auditEntry.getTarget() + " §7" + auditEntry.getReason());
+                }
+                return;
+            }
+            if ("handle".equals(sub)) {
+                if (!requirePermission(source, sink)) return;
+                if (args.length < 3) {
+                    sink.sendMessage(plugin.prefix() + "§c§l命令格式不对喵，正确格式: /lban handle <举报ID> <时间/auto/forever> [原因]");
+                    return;
+                }
+                ReportEntry handleReport = plugin.getReportManager().getReport(args[1]);
+                if (handleReport == null) {
+                    sink.sendMessage(plugin.prefix() + "§c未找到举报编号: " + args[1]);
+                    return;
+                }
+                String handleStatus = handleReport.getStatus();
+                if (handleStatus != null && !handleStatus.equals("受理中") && !handleStatus.equals("已读")) {
+                    sink.sendMessage(plugin.prefix() + "§c该举报已处理，无法再次操作。");
+                    return;
+                }
+                String handleTarget = handleReport.getTarget();
+                boolean handleAuto = args[2].equalsIgnoreCase("auto");
+                long handleEndTime;
+                if (args[2].equalsIgnoreCase("forever")) {
+                    handleEndTime = Long.MAX_VALUE;
+                } else if (handleAuto) {
+                    org.leng.manager.EscalationManager.EscalationResult escalationResult = handleTarget.contains(".")
+                            ? plugin.getEscalationManager().resolveIpBan(handleTarget)
+                            : plugin.getEscalationManager().resolveBan(handleTarget);
+                    handleEndTime = TimeUtils.calculateEndTime(escalationResult.durationMillis);
+                } else {
+                    long handleDuration = TimeUtils.parseDurationToMillis(args[2]);
+                    if (handleDuration <= 0) {
+                        sink.sendMessage(plugin.prefix() + "§c时间格式无效喵，请使用：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever, auto");
+                        return;
+                    }
+                    handleEndTime = TimeUtils.calculateEndTime(handleDuration);
+                }
+                String handleReason = args.length > 3 ? String.join(" ", Arrays.copyOfRange(args, 3, args.length)) : handleReport.getReason();
+                plugin.getReportManager().banFromReport(handleReport, sourceName(source), handleEndTime, handleReason, handleAuto);
+                String handleDurationText = handleEndTime == Long.MAX_VALUE ? "永久" : TimeUtils.formatDuration(handleEndTime - System.currentTimeMillis());
+                sink.sendMessage(plugin.prefix() + "§a已处理举报 " + handleReport.getId() + "，封禁玩家 " + handleTarget + "（" + handleDurationText + "）");
+                return;
+            }
+            if ("sync".equals(sub)) {
+                if (!requirePermission(source, sink)) return;
+                new org.leng.manager.SyncManager(plugin).execute(sink);
+                return;
+            }
+            if ("rollback".equals(sub)) {
+                if (!requirePermission(source, sink)) return;
+                if (args.length < 4) {
+                    sink.sendMessage(plugin.prefix() + "§c用法错误喵: /lban rollback <操作人> <开始时间> <结束时间> [操作类型]");
+                    return;
+                }
+                String actor = args[1];
+                Long from = parseTime(args[2], true);
+                Long to = parseTime(args[3], false);
+                if (from == null || to == null) {
+                    sink.sendMessage(plugin.prefix() + "§c时间格式无效喵，请使用：YYYY-MM-DD 或 YYYY-MM-DD HH:mm:ss");
+                    return;
+                }
+                if (from > to) {
+                    sink.sendMessage(plugin.prefix() + "§c开始时间不能晚于结束时间。");
+                    return;
+                }
+                String type = args.length >= 5 ? args[4] : null;
+                sink.sendMessage(plugin.prefix() + "§e正在回滚 " + actor + " 的操作...");
+                plugin.runAsync(() -> {
+                    org.leng.manager.RollbackManager.RollbackResult result = new org.leng.manager.RollbackManager(plugin).rollback(actor, from, to, type);
+                    plugin.runSync(() -> {
+                        sink.sendMessage(model.getRollbackResult(result.matched, result.executed, result.skipped));
+                        for (String detail : result.details) {
+                            sink.sendMessage(" §7" + detail);
+                        }
+                        if (result.details.isEmpty()) {
+                            sink.sendMessage(plugin.prefix() + "§7没有找到可回滚的操作记录。");
+                        }
+                    });
+                });
+                return;
+            }
             commandName = sub;
             args = Arrays.copyOfRange(args, 1, args.length);
         }
@@ -276,6 +379,39 @@ public final class FabricCommandBridge {
         } catch (NumberFormatException e) {
             return def;
         }
+    }
+
+    /** 解析时间字符串。isStart 为 true 时，纯日期按当天 00:00:00 处理；否则按当天 23:59:59 处理。 */
+    private static Long parseTime(String text, boolean isStart) {
+        if (text == null || text.trim().isEmpty()) {
+            return null;
+        }
+        String trimmed = text.trim();
+        java.util.regex.Matcher dt = java.util.regex.Pattern.compile("^(\\d{4})-(\\d{1,2})-(\\d{1,2})[ T](\\d{1,2}):(\\d{1,2})(?::(\\d{1,2}))?$").matcher(trimmed);
+        if (dt.matches()) {
+            try {
+                java.util.Calendar cal = java.util.Calendar.getInstance();
+                cal.clear();
+                cal.set(Integer.parseInt(dt.group(1)), Integer.parseInt(dt.group(2)) - 1, Integer.parseInt(dt.group(3)),
+                        Integer.parseInt(dt.group(4)), Integer.parseInt(dt.group(5)), dt.group(6) != null ? Integer.parseInt(dt.group(6)) : 0);
+                return cal.getTimeInMillis();
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        java.util.regex.Matcher d = java.util.regex.Pattern.compile("^(\\d{4})-(\\d{1,2})-(\\d{1,2})$").matcher(trimmed);
+        if (d.matches()) {
+            try {
+                java.util.Calendar cal = java.util.Calendar.getInstance();
+                cal.clear();
+                cal.set(Integer.parseInt(d.group(1)), Integer.parseInt(d.group(2)) - 1, Integer.parseInt(d.group(3)),
+                        isStart ? 0 : 23, isStart ? 0 : 59, isStart ? 0 : 59);
+                return cal.getTimeInMillis();
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        return null;
     }
 
     private static void ban(FabricLengbanlist plugin, MessageSink sink, String staff, String target, String timeArg, String reason, boolean ip) {

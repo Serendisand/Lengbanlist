@@ -134,4 +134,68 @@ public class English implements Model {
         }
         return sb.toString().trim();
     }
+
+    public String onMuteCommandBlocked() {
+        return "§bEnglish Model: §cYou cannot use this command while muted. Please wait until your mute expires~";
+    }
+
+    public String onWarnOffline(String player, String reason) {
+        return "§bEnglish Model: §aOffline player " + player + " has been warned, reason: " + reason + ". They will be notified when they come online~";
+    }
+
+    public String getPendingWarningsNotice(int count) {
+        return "§bEnglish Model: §eYou have " + count + " pending warning(s). Please follow the rules~";
+    }
+
+    public String getExpiryReminder(String type, String target, String remaining) {
+        return "§bEnglish Model: §a" + target + "'s " + type + " will expire in " + remaining + "!";
+    }
+
+    public String onEscalatedBan(String player, int offenseCount, String duration) {
+        return "§bEnglish Model: §aPlayer " + player + " has been automatically banned for " + duration + " after " + offenseCount + " offense(s)!";
+    }
+
+    public String getAltsResult(String player, int count) {
+        return "§bEnglish Model: §aFound " + count + " alt account(s) for player " + player + ":";
+    }
+
+    public String getNoAlts(String player) {
+        return "§bEnglish Model: §aNo alt accounts found for player " + player + ". Clean record!";
+    }
+
+    public String onReportBan(String player, String duration) {
+        return "§bEnglish Model: §aReport confirmed! Player " + player + " has been banned for " + duration + "! Maintaining order, no disruption allowed! §b(◕‿◕✿)";
+    }
+
+    public String getExportResult(int count) {
+        return "§bEnglish Model: §aAudit log exported successfully, total: " + count + " entries.";
+    }
+
+    public String getVerifyResult(boolean valid, int count) {
+        if (valid) {
+            return "§bEnglish Model: §aAudit verification passed! All " + count + " entries are intact.";
+        }
+        return "§bEnglish Model: §cAudit verification failed! Detected " + count + " entries that may have been tampered with!";
+    }
+
+    public String getSyncStatus(String detail) {
+        return "§bEnglish Model: §aCross-server sync status: §f" + detail;
+    }
+
+    public String getImmunityDenied(String target) {
+        return "§bEnglish Model: §cTarget " + target + " has equal or higher permission weight, action denied!";
+    }
+
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§bEnglish Model: §eOperator " + actor + " has " + matched + " rollbackable operation(s) in " + timeRange + ".";
+    }
+
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§bEnglish Model: §aRollback complete! Matched " + matched + ", executed " + executed + ", skipped " + skipped + ".";
+    }
+
+    public String getRollbackNoRecords(String actor) {
+        return "§bEnglish Model: §eOperator " + actor + " has no rollbackable records in the specified range.";
+    }
+
 }

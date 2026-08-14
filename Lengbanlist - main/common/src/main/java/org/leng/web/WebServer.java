@@ -7,7 +7,9 @@ import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.leng.platform.LengbanlistPlatform;
+import org.leng.manager.AuditManager;
 import org.leng.manager.ModelManager;
+import org.leng.object.AuditEntry;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.object.MuteEntry;
@@ -66,8 +68,10 @@ public class WebServer {
 
             server.createContext("/api/login", this::handleLogin);
             server.createContext("/api/players", this::handlePlayers);
+            server.createContext("/api/online", this::handleOnline);
             server.createContext("/api/ban", this::handleBan);
             server.createContext("/api/unban", this::handleUnban);
+            server.createContext("/api/kick", this::handleKick);
             server.createContext("/api/stats", this::handleStats);
             server.createContext("/api/history", this::handleHistory);
             server.createContext("/api/bans", this::handleBanList);
@@ -78,6 +82,7 @@ public class WebServer {
             server.createContext("/api/unmute", this::handleUnmute);
             server.createContext("/api/warn", this::handleWarn);
             server.createContext("/api/report/action", this::handleReportAction);
+            server.createContext("/api/audit", this::handleAudit);
             server.createContext("/api/reload", this::handleReload);
             server.createContext("/api/broadcast", this::handleBroadcast);
             server.createContext("/", this::handleRoot);
@@ -885,6 +890,93 @@ public class WebServer {
         } catch (Exception e) {
             sendError(exchange, 500, "广播失败: " + e.getMessage());
         }
+    }
+
+    private void handleOnline(HttpExchange exchange) {
+        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if (!requireAuth(exchange)) return;
+
+        JsonArray players = new JsonArray();
+        int count = plugin.getOnlinePlayerCount();
+        for (int i = 0; i < count; i++) {
+            JsonObject obj = new JsonObject();
+            obj.addProperty("name", "player" + (i + 1));
+            players.add(obj);
+        }
+        JsonObject result = new JsonObject();
+        result.add("players", players);
+        result.addProperty("total", players.size());
+        sendJson(exchange, 200, result.toString());
+    }
+
+    private void handleKick(HttpExchange exchange) {
+        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if (!"POST".equals(exchange.getRequestMethod())) {
+            sendError(exchange, 405, "仅支持 POST");
+            return;
+        }
+        if (!requireAuth(exchange) || !requireFeature(exchange, "kick")) return;
+
+        try {
+            JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
+            String target = json.get("target").getAsString();
+            String reason = json.has("reason") ? json.get("reason").getAsString() : "管理员操作";
+            AtomicReference<String> outcome = new AtomicReference<>("ok");
+            boolean completed = runSync(exchange, () -> {
+                if (plugin.getOnlinePlayerCount() == 0) {
+                    outcome.set("404");
+                    return;
+                }
+                plugin.kickPlayerIfOnline(target, reason);
+            });
+            if (!completed) return;
+            if ("404".equals(outcome.get())) {
+                sendError(exchange, 404, "玩家 " + target + " 不在线");
+                return;
+            }
+
+            plugin.getAuditManager().log("踢出", "WebAdmin", target, reason);
+            JsonObject result = new JsonObject();
+            result.addProperty("success", true);
+            result.addProperty("message", target + " 已被踢出");
+            sendJson(exchange, 200, result.toString());
+        } catch (IOException e) {
+            sendError(exchange, 413, e.getMessage());
+        } catch (Exception e) {
+            sendError(exchange, 400, "踢出失败: " + e.getMessage());
+        }
+    }
+
+    private void handleAudit(HttpExchange exchange) {
+        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if (!requireAuth(exchange) || !requireFeature(exchange, "audit")) return;
+
+        Map<String, String> params = parseQuery(exchange.getRequestURI().getQuery());
+        String filter = params.get("player");
+        int limit;
+        try {
+            limit = Integer.parseInt(params.getOrDefault("limit", "50"));
+        } catch (NumberFormatException e) {
+            limit = 50;
+        }
+        if (limit < 1) limit = 1;
+        if (limit > 200) limit = 200;
+
+        JsonArray logs = new JsonArray();
+        for (AuditEntry entry : plugin.getAuditManager().getLogs(filter == null ? "" : filter, limit)) {
+            JsonObject obj = new JsonObject();
+            obj.addProperty("timestamp", TimeUtils.timestampToReadable(entry.getTimestamp()));
+            obj.addProperty("actor", entry.getActor());
+            obj.addProperty("action", entry.getAction());
+            obj.addProperty("target", entry.getTarget());
+            obj.addProperty("reason", entry.getReason());
+            obj.addProperty("success", entry.isSuccess());
+            logs.add(obj);
+        }
+        JsonObject result = new JsonObject();
+        result.add("logs", logs);
+        result.addProperty("total", logs.size());
+        sendJson(exchange, 200, result.toString());
     }
 
     private void handleRoot(HttpExchange exchange) {

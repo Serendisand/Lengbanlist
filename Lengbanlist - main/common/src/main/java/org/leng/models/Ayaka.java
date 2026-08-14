@@ -133,4 +133,68 @@ public void showHelp(MessageSink sender) {
         sb.append("§b绫华说：§7望阁下以此为戒，优雅地遵守规则，方显贵族风范。");
         return sb.toString().trim();
     }
+
+    public String onMuteCommandBlocked() {
+        return "§b绫华说：§c禁言期间无法使用该命令，还请您静心等候。";
+    }
+
+    public String onWarnOffline(String player, String reason) {
+        return "§b绫华说：§a" + player + " 此刻不在线，警告已代为记下，原因是：" + reason + "。待他归来时请多加留意。";
+    }
+
+    public String getPendingWarningsNotice(int count) {
+        return "§b绫华说：§e您有 " + count + " 条待处理的警告，还望多加注意。";
+    }
+
+    public String getExpiryReminder(String type, String target, String remaining) {
+        return "§b绫华说：§e" + target + " 的" + type + "将于 " + remaining + " 后到期，请阁下留意处理。";
+    }
+
+    public String onEscalatedBan(String player, int offenseCount, String duration) {
+        return "§b绫华说：§c" + player + " 已是第 " + offenseCount + " 次违规，系统已自动升级封禁至 " + duration + "。规矩面前，还请自律。";
+    }
+
+    public String getAltsResult(String player, int count) {
+        return "§b绫华说：§e经查，" + player + " 名下共有 " + count + " 个相同 IP 的账号，请酌情处理。";
+    }
+
+    public String getNoAlts(String player) {
+        return "§b绫华说：§a" + player + " 名下未发现其他账号，一身清白。";
+    }
+
+    public String onReportBan(String player, String duration) {
+        return "§b绫华说：§a举报已确认，" + player + " 已被封禁 " + duration + "。感谢您为维护秩序所做的努力。";
+    }
+
+    public String getExportResult(int count) {
+        return "§b绫华说：§a审计日志已成功导出，共 " + count + " 条记录，请过目。";
+    }
+
+    public String getVerifyResult(boolean valid, int count) {
+        if (valid) {
+            return "§b绫华说：§a审计完整性校验通过，" + count + " 条记录完好无损。";
+        }
+        return "§b绫华说：§c校验未通过，" + count + " 条记录疑似被篡改，还请您及时核查。";
+    }
+
+    public String getSyncStatus(String detail) {
+        return "§b绫华说：§a跨服同步状态：§f" + detail;
+    }
+
+    public String getImmunityDenied(String target) {
+        return "§b绫华说：§c" + target + " 身份尊贵，恐非我等可轻易责罚，还请三思。";
+    }
+
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§b绫华说：§e已清点完毕——操作人 " + actor + " 在 " + timeRange + " 有 " + matched + " 条操作可待回滚。";
+    }
+
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§b绫华说：§a回滚之事已办妥。匹配 " + matched + " 条，执行 " + executed + " 条，跳过 " + skipped + " 条。";
+    }
+
+    public String getRollbackNoRecords(String actor) {
+        return "§b绫华说：§e" + actor + " 在那段时间并无需要回滚的记录。";
+    }
+
 }

@@ -133,4 +133,68 @@ public void showHelp(MessageSink sender) {
         sb.append("§b魈说：§7这些业障我已记下。若再犯，我不会袖手旁观。");
         return sb.toString().trim();
     }
+
+    public String onMuteCommandBlocked() {
+        return "§b魈说：§c禁言期间不能使用该命令。安静待着，别添乱。";
+    }
+
+    public String onWarnOffline(String player, String reason) {
+        return "§b魈说：§a" + player + " 不在线，警告已记下，原因是：" + reason + "。等他回来再算账！";
+    }
+
+    public String getPendingWarningsNotice(int count) {
+        return "§b魈说：§e你身上有 " + count + " 条待处理的业障，最好放在心上。";
+    }
+
+    public String getExpiryReminder(String type, String target, String remaining) {
+        return "§b魈说：§e" + target + " 的" + type + "还有 " + remaining + " 就要到期，别忘了处理。";
+    }
+
+    public String onEscalatedBan(String player, int offenseCount, String duration) {
+        return "§b魈说：§c" + player + " 第 " + offenseCount + " 次违规，已自动升级封禁 " + duration + "。屡教不改，就别怪魈无情！";
+    }
+
+    public String getAltsResult(String player, int count) {
+        return "§b魈说：§e查到 " + player + " 有 " + count + " 个同 IP 小号，都在魈的视线之内。";
+    }
+
+    public String getNoAlts(String player) {
+        return "§b魈说：§a" + player + " 没有同 IP 小号，孤身一人，无可疑之处。";
+    }
+
+    public String onReportBan(String player, String duration) {
+        return "§b魈说：§a举报属实，" + player + " 已被封禁 " + duration + "。正义不会缺席！";
+    }
+
+    public String getExportResult(int count) {
+        return "§b魈说：§a审计日志已导出，共 " + count + " 条记录。";
+    }
+
+    public String getVerifyResult(boolean valid, int count) {
+        if (valid) {
+            return "§b魈说：§a校验通过，" + count + " 条记录完整无缺。";
+        }
+        return "§b魈说：§c校验失败！检测到 " + count + " 条记录被篡改，有人动了手脚！";
+    }
+
+    public String getSyncStatus(String detail) {
+        return "§b魈说：§a跨服同步状态：§f" + detail;
+    }
+
+    public String getImmunityDenied(String target) {
+        return "§b魈说：§c" + target + " 位阶在你之上，我不奉陪。";
+    }
+
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§b魈说：§e" + actor + " 在 " + timeRange + " 留了 " + matched + " 条可回滚的业障，要一并清除吗？";
+    }
+
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§b魈说：§a业障已净。匹配 " + matched + " 条，执行 " + executed + " 条，跳过 " + skipped + " 条。";
+    }
+
+    public String getRollbackNoRecords(String actor) {
+        return "§b魈说：§e" + actor + " 在那段时间并无业障，无需净化。";
+    }
+
 }

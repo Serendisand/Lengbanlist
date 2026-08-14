@@ -8,6 +8,8 @@ import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 
+import java.util.List;
+
 public class BroadCastBanCountMessage implements Runnable {
     @Override
     public void run() {
@@ -20,20 +22,29 @@ public class BroadCastBanCountMessage implements Runnable {
         }
 
         try {
-                final String defaultMessage = Lengbanlist.getInstance().getBroadcastFC().getString("default-message");
+                final List<String> messages = Lengbanlist.getInstance().getBroadcastFC().getStringList("messages");
+                String template;
+                if (messages != null && !messages.isEmpty()) {
+                    template = messages.get(new java.util.Random().nextInt(messages.size()));
+                } else {
+                    template = Lengbanlist.getInstance().getBroadcastFC().getString("default-message");
+                }
+                if (template == null || template.isEmpty()) {
+                    return;
+                }
 
                 int banCount = Lengbanlist.getInstance().getBanManager().getBanList().size();
                 int banIpCount = Lengbanlist.getInstance().getBanManager().getBanIpList().size();
                 int totalBans = banCount + banIpCount;
 
-                final String replacedMessage = defaultMessage
+                final String replacedMessage = template
                         .replace("%s", String.valueOf(banCount))
                         .replace("%i", String.valueOf(banIpCount))
                         .replace("%t", String.valueOf(totalBans));
 
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     org.leng.utils.SchedulerUtils.runTask(Lengbanlist.getInstance(), player, () -> {
-                        TextComponent mainMessage = new TextComponent(ChatColor.translateAlternateColorCodes('&', replacedMessage));
+                        TextComponent mainMessage = new TextComponent(ChatColor.translateAlternateColorCodes('&', Lengbanlist.getInstance().prefix() + " " + replacedMessage));
                         mainMessage.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
                                 new ComponentBuilder("§a绳§b之§c于§d法§e！").create()));
 

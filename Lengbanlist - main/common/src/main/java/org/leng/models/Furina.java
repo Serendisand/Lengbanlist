@@ -133,4 +133,68 @@ public void showHelp(MessageSink sender) {
         sb.append("§b芙宁娜说：§7审判结束！希望此人能改过自新，否则下次审判就不止于此了~");
         return sb.toString().trim();
     }
+
+    public String onMuteCommandBlocked() {
+        return "§b芙宁娜说：§c禁言期间还想动用命令？本水神的舞台，不欢迎不守规矩的观众！";
+    }
+
+    public String onWarnOffline(String player, String reason) {
+        return "§b芙宁娜说：§a" + player + " 竟敢缺席，不过本水神的警告已然送达，原因是：" + reason + "。待他归来，再上演一场好戏吧！";
+    }
+
+    public String getPendingWarningsNotice(int count) {
+        return "§b芙宁娜说：§e幕布即将拉开！你有 " + count + " 条待处理警告等待登场，请好好表现哦~";
+    }
+
+    public String getExpiryReminder(String type, String target, String remaining) {
+        return "§b芙宁娜说：§e演出提示：关于 " + target + " 的" + type + "，还有 " + remaining + " 便要落幕，请管理员做好准备！";
+    }
+
+    public String onEscalatedBan(String player, int offenseCount, String duration) {
+        return "§b芙宁娜说：§e好戏上演！" + player + " 第 " + offenseCount + " 次违规，自动升级封禁 " + duration + "！这般反复的表演，本水神已经看腻了！";
+    }
+
+    public String getAltsResult(String player, int count) {
+        return "§b芙宁娜说：§a本水神轻轻一挥手，便揪出了 " + player + " 的 " + count + " 个小号！聚光灯下，谁也藏不住~";
+    }
+
+    public String getNoAlts(String player) {
+        return "§b芙宁娜说：§a" + player + " 名下并无小号，干净得像一张白纸，值得喝彩~";
+    }
+
+    public String onReportBan(String player, String duration) {
+        return "§b芙宁娜说：§a举报确认！本水神宣判：" + player + " 封禁 " + duration + "！退场吧，这场戏不再需要你了！";
+    }
+
+    public String getExportResult(int count) {
+        return "§b芙宁娜说：§a审计日志导出完毕，共 " + count + " 条，本水神已尽数收入囊中，供后世品鉴~";
+    }
+
+    public String getVerifyResult(boolean valid, int count) {
+        if (valid) {
+            return "§b芙宁娜说：§a审计哈希链完整无缺，共 " + count + " 条，本水神的账目滴水不漏！";
+        }
+        return "§b芙宁娜说：§c竟有宵小胆敢篡改！审计日志已现破绽，共 " + count + " 条记录，本水神绝不轻饶！";
+    }
+
+    public String getSyncStatus(String detail) {
+        return "§b芙宁娜说：§e跨服同步状态：" + detail + "。各服的水酱们，请配合本水神的演出~";
+    }
+
+    public String getImmunityDenied(String target) {
+        return "§b芙宁娜说：§c哎哟~这场戏的主角 " + target + " 权限可不低呢，本神明可不能随意干涉！";
+    }
+
+    public String getRollbackPreview(int matched, String actor, String timeRange) {
+        return "§b芙宁娜说：§e哇哦~操作人 " + actor + " 在 " + timeRange + " 的戏份有 " + matched + " 幕可以重演，准备好剧本了吗？";
+    }
+
+    public String getRollbackResult(int matched, int executed, int skipped) {
+        return "§b芙宁娜说：§a完美谢幕！回滚匹配 " + matched + " 幕，成功 " + executed + " 幕，跳过 " + skipped + " 幕~";
+    }
+
+    public String getRollbackNoRecords(String actor) {
+        return "§b芙宁娜说：§e" + actor + " 在那段时间没有登台记录，找无可找呢~";
+    }
+
 }
