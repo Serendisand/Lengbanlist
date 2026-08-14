@@ -6,6 +6,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
+import org.leng.manager.BanManager;
 import org.leng.manager.EscalationManager.EscalationResult;
 import org.leng.utils.IpMatcher;
 import org.leng.utils.TimeUtils;
@@ -69,13 +70,11 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
 
         boolean isAuto = args[1].equalsIgnoreCase("auto");
         long banDuration;
+        EscalationResult escalationResult = null;
 
         if (isAuto) {
-            EscalationResult r = plugin.getEscalationManager().resolveIpBan(args[0]);
-            banDuration = r.durationMillis;
-            if (r.offenseCount > 0) {
-                Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(args[0], r.offenseCount, TimeUtils.formatDuration(banDuration)));
-            }
+            escalationResult = plugin.getEscalationManager().resolveIpBan(args[0]);
+            banDuration = escalationResult.durationMillis;
         } else {
             banDuration = TimeUtils.parseDurationToMillis(args[1]);
             if (banDuration <= 0) {
@@ -89,10 +88,19 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
         String reason = resolvePresetReason(rawReason);
 
 
-        plugin.getBanManager().banIp(
-            new org.leng.object.BanIpEntry(args[0], sender.getName(), banEndTime, reason, isAuto),
-            silent
+        BanManager.BanMutationResult result = plugin.getBanManager().tryBanIp(
+                new org.leng.object.BanIpEntry(args[0], sender.getName(), banEndTime, reason, isAuto),
+                silent
         );
+        if (!result.isApplied()) {
+            BanMutationFeedback.sendFailure(sender, result, args[0], true);
+            return true;
+        }
+
+        if (escalationResult != null && escalationResult.offenseCount > 0) {
+            Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(
+                    args[0], escalationResult.offenseCount, TimeUtils.formatDuration(banDuration)));
+        }
         return true;
     }
 

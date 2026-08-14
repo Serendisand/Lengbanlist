@@ -69,16 +69,14 @@ public class SetBanCommand implements CommandExecutor, TabCompleter {
 
         long banDuration;
         boolean isAuto = false;
+        EscalationResult escalationResult = null;
 
         if (timeArg.equalsIgnoreCase("forever")) {
             banDuration = Long.MAX_VALUE;
         } else if (timeArg.equalsIgnoreCase("auto")) {
             isAuto = true;
-            EscalationResult r = plugin.getEscalationManager().resolveBan(target);
-            banDuration = r.durationMillis;
-            if (r.offenseCount > 0) {
-                Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(target, r.offenseCount, TimeUtils.formatDuration(banDuration)));
-            }
+            escalationResult = plugin.getEscalationManager().resolveBan(target);
+            banDuration = escalationResult.durationMillis;
         } else {
             banDuration = TimeUtils.parseDurationToMillis(timeArg);
             if (banDuration <= 0) {
@@ -88,6 +86,7 @@ public class SetBanCommand implements CommandExecutor, TabCompleter {
         }
 
 
+        BanManager.BanMutationResult result;
         if (isIp) {
 
             BanIpEntry existingBanIp = banManager.getBanIpEntry(target);
@@ -98,7 +97,7 @@ public class SetBanCommand implements CommandExecutor, TabCompleter {
             existingBanIp.setEndTime(TimeUtils.calculateEndTime(banDuration));
             existingBanIp.setReason(reason);
             existingBanIp.setAuto(isAuto);
-            banManager.updateIpBan(existingBanIp);
+            result = banManager.tryUpdateIpBan(existingBanIp);
         } else {
 
             BanEntry existingBan = banManager.getBanEntry(target);
@@ -109,7 +108,12 @@ public class SetBanCommand implements CommandExecutor, TabCompleter {
             existingBan.setEndTime(TimeUtils.calculateEndTime(banDuration));
             existingBan.setReason(reason);
             existingBan.setAuto(isAuto);
-            banManager.updateBan(existingBan);
+            result = banManager.tryUpdateBan(existingBan);
+        }
+
+        if (!result.isApplied()) {
+            BanMutationFeedback.sendFailure(sender, result, target, isIp);
+            return true;
         }
 
 
@@ -120,6 +124,10 @@ public class SetBanCommand implements CommandExecutor, TabCompleter {
             durationStr = TimeUtils.formatDuration(banDuration);
         }
 
+        if (escalationResult != null && escalationResult.offenseCount > 0) {
+            Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(
+                    target, escalationResult.offenseCount, TimeUtils.formatDuration(banDuration)));
+        }
         Utils.sendMessage(sender, plugin.prefix() + "§a成功更新目标 " + target + " 的封禁时间，新的封禁时长为: §e" + durationStr + "§a，理由: §e" + reason);
         plugin.getAuditManager().log("设置封禁时间", sender.getName(), target, durationStr + " - " + reason);
 

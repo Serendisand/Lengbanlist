@@ -15,6 +15,18 @@ import java.util.List;
 
 
 public class BanManager {
+    public enum BanMutationResult {
+        APPLIED,
+        NOT_ACTIVE,
+        STATE_CHANGED,
+        REJECTED_PRIVATE_OR_RESERVED_IP,
+        DATABASE_ERROR;
+
+        public boolean isApplied() {
+            return this == APPLIED;
+        }
+    }
+
     private final Lengbanlist plugin;
     private final DatabaseManager db;
 
@@ -24,16 +36,33 @@ public class BanManager {
     }
 
     public void banPlayer(BanEntry banEntry) {
-        banPlayer(banEntry, false);
+        tryBanPlayer(banEntry);
     }
 
     public void banPlayer(BanEntry banEntry, boolean silent) {
+        tryBanPlayer(banEntry, silent);
+    }
+
+    public BanMutationResult tryBanPlayer(BanEntry banEntry) {
+        return tryBanPlayer(banEntry, false);
+    }
+
+    public BanMutationResult tryBanPlayer(BanEntry banEntry, boolean silent) {
+        BanMutationResult writeResult = tryUpdateBan(banEntry);
+        if (!writeResult.isApplied()) {
+            return writeResult;
+        }
+
+        publishAppliedPlayerBan(banEntry, silent);
+        return BanMutationResult.APPLIED;
+    }
+
+    void publishAppliedPlayerBan(BanEntry banEntry, boolean silent) {
         long durationMillis = banEntry.getEndTime() == Long.MAX_VALUE ? Long.MAX_VALUE : banEntry.getEndTime() - System.currentTimeMillis();
         int durationDays = durationMillis == Long.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(1, Math.round(durationMillis / (double)(1000 * 60 * 60 * 24)));
 
         Model currentModel = plugin.getModelManager().getCurrentModel();
         String banResult = currentModel.addBan(banEntry.getTarget(), durationDays, banEntry.getReason());
-        updateBan(banEntry);
         plugin.getAuditManager().log("封禁", banEntry.getStaff(), banEntry.getTarget(), banEntry.getReason());
 
         Player targetPlayer = Bukkit.getPlayer(banEntry.getTarget());
@@ -61,20 +90,27 @@ public class BanManager {
     }
 
     public void banIp(BanIpEntry banIpEntry) {
-        banIp(banIpEntry, false);
+        tryBanIp(banIpEntry);
     }
 
     public void banIp(BanIpEntry banIpEntry, boolean silent) {
-        if (IpMatcher.isPrivateOrReserved(banIpEntry.getIp())) {
-            plugin.getLogger().warning("已阻止封禁私有/保留 IP: " + banIpEntry.getIp() + "（staff: " + banIpEntry.getStaff() + "）");
-            return;
+        tryBanIp(banIpEntry, silent);
+    }
+
+    public BanMutationResult tryBanIp(BanIpEntry banIpEntry) {
+        return tryBanIp(banIpEntry, false);
+    }
+
+    public BanMutationResult tryBanIp(BanIpEntry banIpEntry, boolean silent) {
+        BanMutationResult writeResult = tryUpdateIpBan(banIpEntry);
+        if (!writeResult.isApplied()) {
+            return writeResult;
         }
         long durationMillis = banIpEntry.getEndTime() == Long.MAX_VALUE ? Long.MAX_VALUE : banIpEntry.getEndTime() - System.currentTimeMillis();
         int durationDays = durationMillis == Long.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(1, Math.round(durationMillis / (double)(1000 * 60 * 60 * 24)));
 
         Model currentModel = plugin.getModelManager().getCurrentModel();
         String banIpResult = currentModel.addBanIp(banIpEntry.getIp(), durationDays, banIpEntry.getReason());
-        updateIpBan(banIpEntry);
         plugin.getAuditManager().log("封禁IP", banIpEntry.getStaff(), banIpEntry.getIp(), banIpEntry.getReason());
 
         if (!silent) {
@@ -85,27 +121,34 @@ public class BanManager {
                 Utils.broadcast(defaultMessage);
             }
         }
+        return BanMutationResult.APPLIED;
     }
 
     public void unbanPlayer(String target) {
-        unbanPlayer(target, null, false);
+        tryUnbanPlayer(target, null, false);
     }
 
     public void unbanPlayer(String target, boolean silent) {
-        unbanPlayer(target, null, silent);
+        tryUnbanPlayer(target, null, silent);
     }
 
     public void unbanPlayer(String target, String actor) {
-        unbanPlayer(target, actor, false);
+        tryUnbanPlayer(target, actor, false);
     }
 
     public void unbanPlayer(String target, String actor, boolean silent) {
-        Model currentModel = plugin.getModelManager().getCurrentModel();
-        String unbanResult = currentModel.removeBan(target);
-        boolean removed = isPlayerBanned(target);
-        db.deactivateBan(target);
+        tryUnbanPlayer(target, actor, silent);
+    }
 
-        if (removed) {
+    public BanMutationResult tryUnbanPlayer(String target, String actor, boolean silent) {
+        long now = System.currentTimeMillis();
+        BanMutationResult effectiveResult = mapWriteResult(db.deactivateEffectiveBan(target, now));
+        if (effectiveResult == BanMutationResult.DATABASE_ERROR) {
+            return BanMutationResult.DATABASE_ERROR;
+        }
+        if (effectiveResult.isApplied()) {
+            Model currentModel = plugin.getModelManager().getCurrentModel();
+            String unbanResult = currentModel.removeBan(target);
             plugin.getAuditManager().log("解封", actor, target, "");
             if (!silent) {
                 if (unbanResult != null && !unbanResult.isEmpty()) {
@@ -114,28 +157,37 @@ public class BanManager {
                     Utils.broadcast(String.format("§a玩家 %s 已被解封", target));
                 }
             }
+            return BanMutationResult.APPLIED;
         }
+        return db.deactivateExpiredBan(target, now) == DatabaseManager.WriteResult.DATABASE_ERROR
+                ? BanMutationResult.DATABASE_ERROR : BanMutationResult.NOT_ACTIVE;
     }
 
     public void unbanIp(String ip) {
-        unbanIp(ip, null, false);
+        tryUnbanIp(ip, null, false);
     }
 
     public void unbanIp(String ip, boolean silent) {
-        unbanIp(ip, null, silent);
+        tryUnbanIp(ip, null, silent);
     }
 
     public void unbanIp(String ip, String actor) {
-        unbanIp(ip, actor, false);
+        tryUnbanIp(ip, actor, false);
     }
 
     public void unbanIp(String ip, String actor, boolean silent) {
-        Model currentModel = plugin.getModelManager().getCurrentModel();
-        String unbanIpResult = currentModel.removeBanIp(ip);
-        boolean removed = isIpBanned(ip);
-        db.deactivateIpBan(ip);
+        tryUnbanIp(ip, actor, silent);
+    }
 
-        if (removed) {
+    public BanMutationResult tryUnbanIp(String ip, String actor, boolean silent) {
+        long now = System.currentTimeMillis();
+        BanMutationResult effectiveResult = mapWriteResult(db.deactivateEffectiveIpBan(ip, now));
+        if (effectiveResult == BanMutationResult.DATABASE_ERROR) {
+            return BanMutationResult.DATABASE_ERROR;
+        }
+        if (effectiveResult.isApplied()) {
+            Model currentModel = plugin.getModelManager().getCurrentModel();
+            String unbanIpResult = currentModel.removeBanIp(ip);
             plugin.getAuditManager().log("解封IP", actor, ip, "");
             if (!silent) {
                 if (unbanIpResult != null && !unbanIpResult.isEmpty()) {
@@ -144,7 +196,10 @@ public class BanManager {
                     Utils.broadcast(String.format("§aIP %s 已被解封", ip));
                 }
             }
+            return BanMutationResult.APPLIED;
         }
+        return db.deactivateExpiredIpBan(ip, now) == DatabaseManager.WriteResult.DATABASE_ERROR
+                ? BanMutationResult.DATABASE_ERROR : BanMutationResult.NOT_ACTIVE;
     }
 
     public void kickOnlineIfBanned(String target, boolean isIp) {
@@ -218,11 +273,40 @@ public class BanManager {
     }
 
     public void updateBan(BanEntry entry) {
-        db.upsertBan(entry);
+        tryUpdateBan(entry);
     }
 
     public void updateIpBan(BanIpEntry entry) {
-        db.upsertIpBan(entry);
+        tryUpdateIpBan(entry);
+    }
+
+    public BanMutationResult tryUpdateBan(BanEntry entry) {
+        return mapWriteResult(db.replaceActiveBan(entry));
+    }
+
+    public BanMutationResult tryUpdateIpBan(BanIpEntry entry) {
+        if (isPrivateOrReservedIp(entry)) {
+            return BanMutationResult.REJECTED_PRIVATE_OR_RESERVED_IP;
+        }
+        return mapWriteResult(db.replaceActiveIpBan(entry));
+    }
+
+    private boolean isPrivateOrReservedIp(BanIpEntry entry) {
+        if (!IpMatcher.isPrivateOrReserved(entry.getIp())) {
+            return false;
+        }
+        plugin.getLogger().warning("已阻止封禁私有/保留 IP: " + entry.getIp() + "（staff: " + entry.getStaff() + "）");
+        return true;
+    }
+
+    private BanMutationResult mapWriteResult(DatabaseManager.WriteResult writeResult) {
+        if (writeResult == DatabaseManager.WriteResult.APPLIED) {
+            return BanMutationResult.APPLIED;
+        }
+        if (writeResult == DatabaseManager.WriteResult.NO_CHANGE) {
+            return BanMutationResult.NOT_ACTIVE;
+        }
+        return BanMutationResult.DATABASE_ERROR;
     }
 
     public boolean isValidIp(String ip) {

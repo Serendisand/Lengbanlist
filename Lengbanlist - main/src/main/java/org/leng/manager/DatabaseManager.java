@@ -22,6 +22,17 @@ import java.util.logging.Level;
 @SuppressWarnings("SqlResolve")
 public class DatabaseManager {
     private static final String ZERO_HASH = "0000000000000000000000000000000000000000000000000000000000000000";
+
+    public enum WriteResult {
+        APPLIED,
+        NO_CHANGE,
+        DATABASE_ERROR;
+
+        public boolean isApplied() {
+            return this == APPLIED;
+        }
+    }
+
     private final Lengbanlist plugin;
     private HikariDataSource dataSource;
     private boolean mysql;
@@ -280,17 +291,53 @@ public class DatabaseManager {
 
 
     public void addBan(BanEntry entry) {
-        deactivateBan(entry.getTarget());
-        executeUpdate("INSERT INTO bans (target, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)", entry.getTarget(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive());
+        replaceActiveBan(entry);
     }
 
 
     public void upsertBan(BanEntry entry) {
-        addBan(entry);
+        replaceActiveBan(entry);
     }
 
     public void deactivateBan(String target) {
-        executeUpdate("UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1", target);
+        deactivateActiveBan(target);
+    }
+
+    public WriteResult replaceActiveBan(BanEntry entry) {
+        return replaceActiveEntry(
+                "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1",
+                new Object[]{entry.getTarget()},
+                "INSERT INTO bans (target, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
+                new Object[]{entry.getTarget(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()});
+    }
+
+    public WriteResult replaceActiveBanAndUpdateReport(BanEntry banEntry, ReportEntry reportEntry,
+                                                       String reportStatus) {
+        return replaceActiveEntry(
+                "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1",
+                new Object[]{banEntry.getTarget()},
+                "INSERT INTO bans (target, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
+                new Object[]{banEntry.getTarget(), banEntry.getStaff(), banEntry.getTime(), banEntry.getReason(),
+                        banEntry.isAuto(), banEntry.isActive()},
+                "UPDATE reports SET status = ? WHERE id = ? AND status = ?",
+                new Object[]{status(reportStatus), reportEntry.getId(), status(reportEntry.getStatus())});
+    }
+
+    public WriteResult deactivateActiveBan(String target) {
+        return deactivateActiveEntry(
+                "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1", target);
+    }
+
+    public WriteResult deactivateEffectiveBan(String target, long now) {
+        return deactivateActiveEntry(
+                "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1 AND end_time > ?",
+                target, now);
+    }
+
+    public WriteResult deactivateExpiredBan(String target, long now) {
+        return deactivateActiveEntry(
+                "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1 AND end_time <= ?",
+                target, now);
     }
 
     public void deleteBan(String target) {
@@ -382,17 +429,38 @@ public class DatabaseManager {
 
 
     public void addIpBan(BanIpEntry entry) {
-        deactivateIpBan(entry.getIp());
-        executeUpdate("INSERT INTO ip_bans (ip, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)", entry.getIp(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive());
+        replaceActiveIpBan(entry);
     }
 
 
     public void upsertIpBan(BanIpEntry entry) {
-        addIpBan(entry);
+        replaceActiveIpBan(entry);
     }
 
     public void deactivateIpBan(String ip) {
-        executeUpdate("UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1", ip);
+        deactivateActiveIpBan(ip);
+    }
+
+    public WriteResult replaceActiveIpBan(BanIpEntry entry) {
+        return replaceActiveEntry(
+                "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1",
+                new Object[]{entry.getIp()},
+                "INSERT INTO ip_bans (ip, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
+                new Object[]{entry.getIp(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()});
+    }
+
+    public WriteResult deactivateActiveIpBan(String ip) {
+        return deactivateActiveEntry("UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1", ip);
+    }
+
+    public WriteResult deactivateEffectiveIpBan(String ip, long now) {
+        return deactivateActiveEntry(
+                "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1 AND end_time > ?", ip, now);
+    }
+
+    public WriteResult deactivateExpiredIpBan(String ip, long now) {
+        return deactivateActiveEntry(
+                "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1 AND end_time <= ?", ip, now);
     }
 
     public void deleteIpBan(String ip) {
@@ -857,6 +925,108 @@ public class DatabaseManager {
             }
         }
         return sql.toString();
+    }
+
+    private WriteResult replaceActiveEntry(String deactivateSql, Object[] deactivateValues,
+                                           String insertSql, Object[] insertValues) {
+        return replaceActiveEntry(deactivateSql, deactivateValues, insertSql, insertValues, null, null);
+    }
+
+    private WriteResult replaceActiveEntry(String deactivateSql, Object[] deactivateValues,
+                                           String insertSql, Object[] insertValues,
+                                           String followUpSql, Object[] followUpValues) {
+        Connection connection = null;
+        try {
+            connection = getConnection();
+            boolean originalAutoCommit = connection.getAutoCommit();
+            boolean autoCommitChanged = false;
+            boolean restoreAutoCommit = false;
+            try {
+                connection.setAutoCommit(false);
+                autoCommitChanged = true;
+                try (PreparedStatement deactivate = connection.prepareStatement(deactivateSql);
+                     PreparedStatement insert = connection.prepareStatement(insertSql)) {
+                    setValues(deactivate, deactivateValues);
+                    deactivate.executeUpdate();
+                    setValues(insert, insertValues);
+                    insert.executeUpdate();
+                }
+                if (followUpSql != null) {
+                    try (PreparedStatement followUp = connection.prepareStatement(followUpSql)) {
+                        setValues(followUp, followUpValues);
+                        if (followUp.executeUpdate() == 0) {
+                            connection.rollback();
+                            restoreAutoCommit = true;
+                            return WriteResult.NO_CHANGE;
+                        }
+                    }
+                }
+                connection.commit();
+                restoreAutoCommit = true;
+                return WriteResult.APPLIED;
+            } catch (SQLException e) {
+                try {
+                    connection.rollback();
+                    restoreAutoCommit = true;
+                } catch (SQLException rollbackError) {
+                    logSql(rollbackError);
+                }
+                logSql(e);
+                return WriteResult.DATABASE_ERROR;
+            } finally {
+                if (autoCommitChanged && restoreAutoCommit) {
+                    try {
+                        connection.setAutoCommit(originalAutoCommit);
+                    } catch (SQLException e) {
+                        logSql(e);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+            return WriteResult.DATABASE_ERROR;
+        } finally {
+            closeConnection(connection);
+        }
+    }
+
+    private WriteResult deactivateActiveEntry(String sql, Object... values) {
+        Connection connection = null;
+        PreparedStatement statement = null;
+        try {
+            connection = getConnection();
+            statement = connection.prepareStatement(sql);
+            setValues(statement, values);
+            return statement.executeUpdate() > 0 ? WriteResult.APPLIED : WriteResult.NO_CHANGE;
+        } catch (SQLException e) {
+            logSql(e);
+            return WriteResult.DATABASE_ERROR;
+        } finally {
+            closeStatement(statement);
+            closeConnection(connection);
+        }
+    }
+
+    private void closeStatement(PreparedStatement statement) {
+        if (statement == null) {
+            return;
+        }
+        try {
+            statement.close();
+        } catch (SQLException e) {
+            logSql(e);
+        }
+    }
+
+    private void closeConnection(Connection connection) {
+        if (connection == null) {
+            return;
+        }
+        try {
+            connection.close();
+        } catch (SQLException e) {
+            logSql(e);
+        }
     }
 
     private void executeUpdate(String sql, Object... values) {

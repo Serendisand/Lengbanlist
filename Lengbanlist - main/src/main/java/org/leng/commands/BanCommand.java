@@ -7,6 +7,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
+import org.leng.manager.BanManager;
 import org.leng.manager.EscalationManager.EscalationResult;
 import org.leng.object.BanEntry;
 import org.leng.utils.TimeUtils;
@@ -69,14 +70,12 @@ public class BanCommand implements CommandExecutor, TabCompleter {
 
         long banDuration;
         boolean isAuto = false;
+        EscalationResult escalationResult = null;
 
         if (timeArg.equalsIgnoreCase("auto")) {
             isAuto = true;
-            EscalationResult r = plugin.getEscalationManager().resolveBan(target);
-            banDuration = r.durationMillis;
-            if (r.offenseCount > 0) {
-                Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(target, r.offenseCount, TimeUtils.formatDuration(banDuration)));
-            }
+            escalationResult = plugin.getEscalationManager().resolveBan(target);
+            banDuration = escalationResult.durationMillis;
         } else {
             banDuration = TimeUtils.parseDurationToMillis(timeArg);
             if (banDuration <= 0) {
@@ -96,7 +95,16 @@ public class BanCommand implements CommandExecutor, TabCompleter {
             isAuto
         );
 
-        plugin.getBanManager().banPlayer(entry, silent);
+        BanManager.BanMutationResult result = plugin.getBanManager().tryBanPlayer(entry, silent);
+        if (!result.isApplied()) {
+            BanMutationFeedback.sendFailure(sender, result, target, false);
+            return true;
+        }
+
+        if (escalationResult != null && escalationResult.offenseCount > 0) {
+            Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(
+                    target, escalationResult.offenseCount, TimeUtils.formatDuration(banDuration)));
+        }
         return true;
     }
 

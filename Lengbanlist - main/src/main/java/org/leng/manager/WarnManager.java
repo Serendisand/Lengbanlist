@@ -101,9 +101,10 @@ public class WarnManager {
                         true
                 );
 
-                plugin.getBanManager().banIp(ipBanEntry);
-                String message = String.format("§6[LBAC] §e%s §c因30天内累计%d次警告被自动封禁§a%s §6<此封禁由系统决定>", player, validWarnings.size(), formattedDuration);
-                plugin.getServer().broadcastMessage(message);
+                if (plugin.getBanManager().tryBanIp(ipBanEntry).isApplied()) {
+                    String message = String.format("§6[LBAC] §e%s §c因30天内累计%d次警告被自动封禁§a%s §6<此封禁由系统决定>", player, validWarnings.size(), formattedDuration);
+                    plugin.getServer().broadcastMessage(message);
+                }
             } else {
                 BanEntry existingBan = plugin.getBanManager().getBanEntry(player);
                 if (existingBan != null && existingBan.getReason().contains("LBAC")) {
@@ -121,9 +122,10 @@ public class WarnManager {
                         true
                 );
 
-                plugin.getBanManager().banPlayer(banEntry);
-                String message = String.format("§6[LBAC] §e%s §c因30天内累计%d次警告被自动封禁§a%s §6<此封禁由系统决定>", player, validWarnings.size(), formattedDuration);
-                plugin.getServer().broadcastMessage(message);
+                if (plugin.getBanManager().tryBanPlayer(banEntry).isApplied()) {
+                    String message = String.format("§6[LBAC] §e%s §c因30天内累计%d次警告被自动封禁§a%s §6<此封禁由系统决定>", player, validWarnings.size(), formattedDuration);
+                    plugin.getServer().broadcastMessage(message);
+                }
             }
         }
     }
@@ -151,14 +153,16 @@ public class WarnManager {
         if (validWarnings.size() < 3) {
             if (IpMatcher.isValidIpOrCidr(player)) {
                 if (plugin.getBanManager().isIpBanned(player)) {
-                    plugin.getBanManager().unbanIp(player);
+                    if (plugin.getBanManager().tryUnbanIp(player, null, false).isApplied()) {
+                        String message = String.format("§6[LBAC] §e%s §a因警告次数减少至%d次，自动解封", player, validWarnings.size());
+                        plugin.getServer().broadcastMessage(message);
+                    }
+                }
+            } else if (plugin.getBanManager().isBanned(player, "LBAC")) {
+                if (plugin.getBanManager().tryUnbanPlayer(player, null, false).isApplied()) {
                     String message = String.format("§6[LBAC] §e%s §a因警告次数减少至%d次，自动解封", player, validWarnings.size());
                     plugin.getServer().broadcastMessage(message);
                 }
-            } else if (plugin.getBanManager().isBanned(player, "LBAC")) {
-                plugin.getBanManager().unbanPlayer(player);
-                String message = String.format("§6[LBAC] §e%s §a因警告次数减少至%d次，自动解封", player, validWarnings.size());
-                plugin.getServer().broadcastMessage(message);
             }
         }
     }

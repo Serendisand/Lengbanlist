@@ -98,7 +98,9 @@ public class PlayerJoinListener implements Listener {
                 long duration = TimeUtils.parseTime(banDurationStr);
                 if (duration <= 0) duration = TimeUtils.daysToMillis(7);
                 long endTime = TimeUtils.calculateEndTime(duration);
-                plugin.getBanManager().banIp(new BanIpEntry(ip, "VPN-Detection", endTime, banReason, false));
+                if (!plugin.getBanManager().tryBanIp(new BanIpEntry(ip, "VPN-Detection", endTime, banReason, false)).isApplied()) {
+                    break;
+                }
                 player.kickPlayer("§c检测到代理/VPN 连接\n\n§f" + banReason + "\n§e请联系管理员解决");
                 for (Player online : Bukkit.getOnlinePlayers()) {
                     if (online.hasPermission("lengbanlist.check") || online.isOp()) {

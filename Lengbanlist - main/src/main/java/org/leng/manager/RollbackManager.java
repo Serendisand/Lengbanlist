@@ -214,8 +214,7 @@ public class RollbackManager {
         if (!plugin.getBanManager().isPlayerBanned(target)) {
             return false;
         }
-        plugin.getBanManager().unbanPlayer(target, ROLLBACK_ACTOR, true);
-        return true;
+        return plugin.getBanManager().tryUnbanPlayer(target, ROLLBACK_ACTOR, true).isApplied();
     }
 
     /** 封禁IP → 解封。 */
@@ -225,8 +224,7 @@ public class RollbackManager {
         if (!bannedExact && !bannedCidr) {
             return false;
         }
-        plugin.getBanManager().unbanIp(target, ROLLBACK_ACTOR, true);
-        return true;
+        return plugin.getBanManager().tryUnbanIp(target, ROLLBACK_ACTOR, true).isApplied();
     }
 
     /** 解封 → 恢复封禁（30 天）。 */
@@ -235,8 +233,8 @@ public class RollbackManager {
             return false;
         }
         long endTime = TimeUtils.calculateEndTime(DEFAULT_BAN_MILLIS);
-        plugin.getBanManager().banPlayer(new BanEntry(target, ROLLBACK_ACTOR, endTime, "管理员操作回滚（原解封）", false), true);
-        return true;
+        return plugin.getBanManager().tryBanPlayer(
+                new BanEntry(target, ROLLBACK_ACTOR, endTime, "管理员操作回滚（原解封）", false), true).isApplied();
     }
 
     /** 解封IP → 恢复封禁 IP（30 天）。 */
@@ -245,8 +243,8 @@ public class RollbackManager {
             return false;
         }
         long endTime = TimeUtils.calculateEndTime(DEFAULT_BAN_MILLIS);
-        plugin.getBanManager().banIp(new BanIpEntry(target, ROLLBACK_ACTOR, endTime, "管理员操作回滚（原解封IP）", false), true);
-        return true;
+        return plugin.getBanManager().tryBanIp(
+                new BanIpEntry(target, ROLLBACK_ACTOR, endTime, "管理员操作回滚（原解封IP）", false), true).isApplied();
     }
 
     /** 禁言 → 解除禁言。 */

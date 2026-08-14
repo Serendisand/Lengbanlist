@@ -8,6 +8,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
+import org.leng.manager.BanManager;
 import org.leng.manager.ModelManager;
 import org.leng.object.AuditEntry;
 import org.leng.object.BanEntry;
@@ -615,23 +616,28 @@ public class WebServer {
                 return;
             }
 
-            AtomicReference<String> outcome = new AtomicReference<>("ok");
+            AtomicReference<Boolean> permissionDenied = new AtomicReference<>(false);
+            AtomicReference<BanManager.BanMutationResult> mutationResult =
+                    new AtomicReference<>(BanManager.BanMutationResult.DATABASE_ERROR);
             boolean completed = runSync(exchange, () -> {
                 if (!target.contains(".") && !plugin.getImmunityManager().canPunish(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
-                    outcome.set("403");
+                    permissionDenied.set(true);
                     return;
                 }
                 if (target.contains(".")) {
-                    plugin.getBanManager().banIp(new BanIpEntry(target, finalStaff, endTime, reason, false));
+                    mutationResult.set(plugin.getBanManager().tryBanIp(
+                            new BanIpEntry(target, finalStaff, endTime, reason, false), false));
                 } else {
-                    plugin.getBanManager().banPlayer(new BanEntry(target, finalStaff, endTime, reason, false));
+                    mutationResult.set(plugin.getBanManager().tryBanPlayer(
+                            new BanEntry(target, finalStaff, endTime, reason, false), false));
                 }
             });
             if (!completed) return;
-            if ("403".equals(outcome.get())) {
+            if (permissionDenied.get()) {
                 sendError(exchange, 403, "目标权重高于操作者，无法执行");
                 return;
             }
+            if (sendMutationFailure(exchange, mutationResult.get(), target)) return;
 
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
@@ -661,14 +667,17 @@ public class WebServer {
                 return;
             }
 
+            AtomicReference<BanManager.BanMutationResult> mutationResult =
+                    new AtomicReference<>(BanManager.BanMutationResult.DATABASE_ERROR);
             boolean completed = runSync(exchange, () -> {
                 if (target.contains(".")) {
-                    plugin.getBanManager().unbanIp(target, "WebAdmin");
+                    mutationResult.set(plugin.getBanManager().tryUnbanIp(target, "WebAdmin", false));
                 } else {
-                    plugin.getBanManager().unbanPlayer(target, "WebAdmin");
+                    mutationResult.set(plugin.getBanManager().tryUnbanPlayer(target, "WebAdmin", false));
                 }
             });
             if (!completed) return;
+            if (sendMutationFailure(exchange, mutationResult.get(), target)) return;
 
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
@@ -679,6 +688,20 @@ public class WebServer {
         } catch (Exception e) {
             sendError(exchange, 400, "解封失败: " + e.getMessage());
         }
+    }
+
+    private boolean sendMutationFailure(HttpExchange exchange, BanManager.BanMutationResult result, String target) {
+        if (result == BanManager.BanMutationResult.APPLIED) return false;
+        if (result == BanManager.BanMutationResult.NOT_ACTIVE) {
+            sendError(exchange, 404, target + " 未被封禁或状态已变化");
+        } else if (result == BanManager.BanMutationResult.STATE_CHANGED) {
+            sendError(exchange, 409, "数据状态已变化，请刷新后重试");
+        } else if (result == BanManager.BanMutationResult.REJECTED_PRIVATE_OR_RESERVED_IP) {
+            sendError(exchange, 400, "私有或保留 IP 不允许执行此操作");
+        } else {
+            sendError(exchange, 500, "数据库操作失败，操作未完成");
+        }
+        return true;
     }
 
     private void handleStats(HttpExchange exchange) {

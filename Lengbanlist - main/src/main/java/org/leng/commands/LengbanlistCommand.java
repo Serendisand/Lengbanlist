@@ -22,6 +22,7 @@ import org.leng.object.MuteEntry;
 import org.leng.object.ReportEntry;
 import org.leng.object.WarnEntry;
 import org.leng.manager.EscalationManager.EscalationResult;
+import org.leng.manager.BanManager;
 import org.leng.manager.GuiSessionManager;
 import org.leng.manager.ModelManager;
 import org.leng.models.Model;
@@ -173,14 +174,12 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 try {
                     long durationLong;
                     boolean isAuto = args[2].equalsIgnoreCase("auto");
+                    EscalationResult escalationResult = null;
                     if (isAuto) {
-                        EscalationResult escalationResult = args[1].contains(".")
+                        escalationResult = args[1].contains(".")
                                 ? plugin.getEscalationManager().resolveIpBan(args[1])
                                 : plugin.getEscalationManager().resolveBan(args[1]);
                         durationLong = escalationResult.durationMillis;
-                        if (escalationResult.offenseCount > 0) {
-                            Utils.sendMessage(sender, currentModel.onEscalatedBan(args[1], escalationResult.offenseCount, TimeUtils.formatDuration(durationLong)));
-                        }
                     } else {
                         durationLong = TimeUtils.parseTime(args[2]);
                         if (durationLong <= 0) {
@@ -192,14 +191,26 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     int durationDays = durationMillis == Long.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(1, Math.round(durationMillis / (double)(1000 * 60 * 60 * 24)));
 
                     if (args[1].contains(".")) {
-                        plugin.getBanManager().banIp(new BanIpEntry(args[1], sender.getName(), endTime, args[3], isAuto), addSilent);
-                        if (addSilent) {
+                        BanManager.BanMutationResult result = plugin.getBanManager().tryBanIp(new BanIpEntry(args[1], sender.getName(), endTime, args[3], isAuto), addSilent);
+                        if (result.isApplied() && isAuto && escalationResult.offenseCount > 0) {
+                            Utils.sendMessage(sender, currentModel.onEscalatedBan(args[1], escalationResult.offenseCount, TimeUtils.formatDuration(durationLong)));
+                        }
+                        if (result.isApplied() && addSilent) {
                             Utils.sendMessage(sender, currentModel.addBanIp(args[1], durationDays, args[3]));
                         }
+                        if (!result.isApplied()) {
+                            BanMutationFeedback.sendFailure(sender, result, args[1], true);
+                        }
                     } else {
-                        plugin.getBanManager().banPlayer(new BanEntry(args[1], sender.getName(), endTime, args[3], isAuto), addSilent);
-                        if (addSilent) {
+                        BanManager.BanMutationResult result = plugin.getBanManager().tryBanPlayer(new BanEntry(args[1], sender.getName(), endTime, args[3], isAuto), addSilent);
+                        if (result.isApplied() && isAuto && escalationResult.offenseCount > 0) {
+                            Utils.sendMessage(sender, currentModel.onEscalatedBan(args[1], escalationResult.offenseCount, TimeUtils.formatDuration(durationLong)));
+                        }
+                        if (result.isApplied() && addSilent) {
                             Utils.sendMessage(sender, currentModel.addBan(args[1], durationDays, args[3]));
+                        }
+                        if (!result.isApplied()) {
+                            BanMutationFeedback.sendFailure(sender, result, args[1], false);
                         }
                     }
                 } catch (IllegalArgumentException e) {
@@ -222,16 +233,14 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 if (args[1].contains(".")) {
                     String normalizedIp = IpMatcher.normalizeIpOrCidr(args[1]);
                     if (normalizedIp != null) args[1] = normalizedIp;
-                    if (plugin.getBanManager().isIpBanned(args[1])) {
-                        plugin.getBanManager().unbanIp(args[1], sender.getName());
-                    } else {
-                        Utils.sendMessage(sender, plugin.prefix() + "§cIP " + args[1] + " 未被封禁或封禁已过期");
+                    BanManager.BanMutationResult result = plugin.getBanManager().tryUnbanIp(args[1], sender.getName(), false);
+                    if (!result.isApplied()) {
+                        BanMutationFeedback.sendFailure(sender, result, args[1], true);
                     }
                 } else {
-                    if (plugin.getBanManager().isPlayerBanned(args[1])) {
-                        plugin.getBanManager().unbanPlayer(args[1], sender.getName());
-                    } else {
-                        Utils.sendMessage(sender, plugin.prefix() + "§c玩家 " + args[1] + " 未被封禁或封禁已过期");
+                    BanManager.BanMutationResult result = plugin.getBanManager().tryUnbanPlayer(args[1], sender.getName(), false);
+                    if (!result.isApplied()) {
+                        BanMutationFeedback.sendFailure(sender, result, args[1], false);
                     }
                 }
                 break;
@@ -647,16 +656,14 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 boolean handleAuto = args[2].equalsIgnoreCase("auto");
                 try {
                     long handleEndTime;
+                    EscalationResult handleEscalationResult = null;
                     if (args[2].equalsIgnoreCase("forever")) {
                         handleEndTime = Long.MAX_VALUE;
                     } else if (handleAuto) {
-                        EscalationResult escalationResult = handleTarget.contains(".")
+                        handleEscalationResult = handleTarget.contains(".")
                                 ? plugin.getEscalationManager().resolveIpBan(handleTarget)
                                 : plugin.getEscalationManager().resolveBan(handleTarget);
-                        if (escalationResult.offenseCount > 0) {
-                            Utils.sendMessage(sender, currentModel.onEscalatedBan(handleTarget, escalationResult.offenseCount, TimeUtils.formatDuration(escalationResult.durationMillis)));
-                        }
-                        handleEndTime = TimeUtils.calculateEndTime(escalationResult.durationMillis);
+                        handleEndTime = TimeUtils.calculateEndTime(handleEscalationResult.durationMillis);
                     } else {
                         long handleDuration = TimeUtils.parseDurationToMillis(args[2]);
                         if (handleDuration <= 0) {
@@ -666,7 +673,17 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                         handleEndTime = TimeUtils.calculateEndTime(handleDuration);
                     }
                     String handleReason = args.length > 3 ? String.join(" ", Arrays.copyOfRange(args, 3, args.length)) : handleReport.getReason();
-                    plugin.getReportManager().banFromReport(handleReport, sender.getName(), handleEndTime, handleReason, handleAuto);
+                    BanManager.BanMutationResult handleResult = plugin.getReportManager().tryBanFromReport(
+                            handleReport, sender.getName(), handleEndTime, handleReason, handleAuto);
+                    if (!handleResult.isApplied()) {
+                        BanMutationFeedback.sendFailure(sender, handleResult, handleTarget, handleTarget.contains("."));
+                        break;
+                    }
+                    if (handleEscalationResult != null && handleEscalationResult.offenseCount > 0) {
+                        Utils.sendMessage(sender, currentModel.onEscalatedBan(handleTarget,
+                                handleEscalationResult.offenseCount,
+                                TimeUtils.formatDuration(handleEscalationResult.durationMillis)));
+                    }
                     String handleDurationText = handleEndTime == Long.MAX_VALUE ? "永久" : TimeUtils.formatDuration(handleEndTime - System.currentTimeMillis());
                     Utils.sendMessage(sender, plugin.prefix() + "§a已处理举报 " + handleReport.getId() + "，封禁玩家 " + handleTarget + "（" + handleDurationText + "）");
                 } catch (IllegalArgumentException e) {
@@ -713,7 +730,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     return true;
                 }
                 String[] rollbackArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
-                return new org.leng.commands.RollbackCommand(plugin).onCommand(sender, null, "lban rollback", rollbackArgs);
+                return new RollbackCommand(plugin).onCommand(sender, null, "lban rollback", rollbackArgs);
             default:
                 Utils.sendMessage(sender, plugin.prefix() + "§c未知子命令喵: §f" + args[0] + "§c，输入 §f/lban help §c看看能用什么喵。");
                 break;
@@ -1344,10 +1361,17 @@ public void handleChatWizard(Player player, String input) {
                 clearWizard(player);
                 return;
             }
+            BanManager.BanMutationResult unbanResult;
             if (input.contains(".")) {
-                plugin.getBanManager().unbanIp(input, player.getName());
+                unbanResult = plugin.getBanManager().tryUnbanIp(input, player.getName(), false);
             } else {
-                plugin.getBanManager().unbanPlayer(input, player.getName());
+                unbanResult = plugin.getBanManager().tryUnbanPlayer(input, player.getName(), false);
+            }
+            if (!unbanResult.isApplied()) {
+                BanMutationFeedback.sendFailure(player, unbanResult, input, input.contains("."));
+                if (unbanResult == BanManager.BanMutationResult.DATABASE_ERROR) {
+                    return;
+                }
             }
             clearWizard(player);
             break;
@@ -1417,15 +1441,22 @@ private void handleBanWizard(Player player, String input) {
             return;
         }
         long endTime = TimeUtils.calculateEndTime(duration);
+        BanManager.BanMutationResult banResult;
         if (playerID.contains(".")) {
             if (!plugin.isFeatureEnabled("ban-ip")) {
                 plugin.sendFeatureDisabled(player);
                 clearWizard(player);
                 return;
             }
-            plugin.getBanManager().banIp(new BanIpEntry(playerID, player.getName(), endTime, input, isAuto));
+            banResult = plugin.getBanManager().tryBanIp(new BanIpEntry(playerID, player.getName(), endTime, input, isAuto));
         } else {
-            plugin.getBanManager().banPlayer(new BanEntry(playerID, player.getName(), endTime, input, isAuto));
+            banResult = plugin.getBanManager().tryBanPlayer(new BanEntry(playerID, player.getName(), endTime, input, isAuto));
+        }
+        if (!banResult.isApplied()) {
+            BanMutationFeedback.sendFailure(player, banResult, playerID, playerID.contains("."));
+            if (banResult == BanManager.BanMutationResult.DATABASE_ERROR) {
+                return;
+            }
         }
         clearWizard(player);
     }
@@ -1471,9 +1502,17 @@ private void handleIPBanWizard(Player player, String input) {
         }
         long endTime = TimeUtils.calculateEndTime(duration);
         boolean silent = player.hasMetadata("lengbanlist-silent");
-        plugin.getBanManager().banIp(new BanIpEntry(ip, player.getName(), endTime, input, isAuto), silent);
-        Utils.sendMessage(player, plugin.prefix() + "§a封禁IP成功：" + ip);
-        clearWizard(player);
+        BanManager.BanMutationResult banResult = plugin.getBanManager().tryBanIp(new BanIpEntry(ip, player.getName(), endTime, input, isAuto), silent);
+        if (banResult.isApplied()) {
+            Utils.sendMessage(player, plugin.prefix() + "§a封禁IP成功：" + ip);
+            clearWizard(player);
+        } else {
+            BanMutationFeedback.sendFailure(player, banResult, ip, true);
+            if (banResult == BanManager.BanMutationResult.DATABASE_ERROR) {
+                return;
+            }
+            clearWizard(player);
+        }
     }
 }
 
