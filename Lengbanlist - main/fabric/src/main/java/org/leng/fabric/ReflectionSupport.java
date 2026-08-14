@@ -1,0 +1,245 @@
+package org.leng.fabric;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.net.InetSocketAddress;
+import java.util.Collection;
+
+public final class ReflectionSupport {
+    private ReflectionSupport() {
+    }
+
+    public static String playerName(Object player) {
+        try {
+            Object profile = player.getClass().getMethod("getGameProfile").invoke(player);
+            return String.valueOf(profile.getClass().getMethod("getName").invoke(profile));
+        } catch (Exception e) {
+            try {
+                Object name = player.getClass().getMethod("getName").invoke(player);
+                return String.valueOf(name);
+            } catch (Exception ignored) {
+                return "Unknown";
+            }
+        }
+    }
+
+    public static String playerIp(Object player) {
+        try {
+            Object address = player.getClass().getMethod("getIp").invoke(player);
+            return String.valueOf(address);
+        } catch (Exception ignored) {
+        }
+        try {
+            Object networkHandler = field(player, "networkHandler");
+            Object connection = field(networkHandler, "connection");
+            Object address = connection.getClass().getMethod("getAddress").invoke(connection);
+            if (address instanceof InetSocketAddress) {
+                InetSocketAddress inet = (InetSocketAddress) address;
+                return inet.getAddress().getHostAddress();
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    public static void kick(Object player, String message) {
+        try {
+            Class<?> textClass = Class.forName("net.minecraft.text.Text");
+            Object text = textClass.getMethod("literal", String.class).invoke(null, message);
+            Object networkHandler = field(player, "networkHandler");
+            Method disconnect = method(networkHandler.getClass(), "disconnect", textClass);
+            if (disconnect != null) {
+                disconnect.invoke(networkHandler, text);
+                return;
+            }
+            Method disconnectPacket = method(networkHandler.getClass(), "disconnect", String.class);
+            if (disconnectPacket != null) {
+                disconnectPacket.invoke(networkHandler, message);
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    public static Object findPlayer(Object server, String playerName) {
+        try {
+            Object playerManager = server.getClass().getMethod("getPlayerManager").invoke(server);
+            return playerManager.getClass().getMethod("getPlayer", String.class).invoke(playerManager, playerName);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    public static Object playerFromHandler(Object handler) {
+        try {
+            return handler.getClass().getMethod("getPlayer").invoke(handler);
+        } catch (Exception ignored) {
+        }
+        try {
+            return field(handler, "player");
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    public static void broadcast(Object server, String message) {
+        try {
+            Class<?> textClass = Class.forName("net.minecraft.text.Text");
+            Object text = textClass.getMethod("literal", String.class).invoke(null, message);
+            for (Object player : onlinePlayers(server)) {
+                sendText(player, textClass, text);
+            }
+            Object commandSource = server.getClass().getMethod("getCommandSource").invoke(server);
+            sendText(commandSource, textClass, text);
+        } catch (Exception ignored) {
+        }
+    }
+
+    public static void sendMessage(Object source, String message) {
+        try {
+            Class<?> textClass = Class.forName("net.minecraft.text.Text");
+            Object text = textClass.getMethod("literal", String.class).invoke(null, message);
+            sendText(source, textClass, text);
+        } catch (Exception ignored) {
+        }
+    }
+
+    public static void sendConsoleMessage(Object server, String message) {
+        try {
+            Object commandSource = server.getClass().getMethod("getCommandSource").invoke(server);
+            sendMessage(commandSource, message);
+        } catch (Exception ignored) {
+        }
+    }
+
+    public static String chatMessageContent(Object message) {
+        try {
+            Object content = message.getClass().getMethod("getContent").invoke(message);
+            return String.valueOf(content);
+        } catch (Exception ignored) {
+        }
+        try {
+            return String.valueOf(message.getClass().getMethod("getString").invoke(message));
+        } catch (Exception ignored) {
+            return String.valueOf(message);
+        }
+    }
+
+    public static void registerCallback(Object event, Object callback) throws Exception {
+        Method register = null;
+        for (Method candidate : event.getClass().getMethods()) {
+            if ("register".equals(candidate.getName()) && candidate.getParameterTypes().length == 1) {
+                register = candidate;
+                break;
+            }
+        }
+        if (register == null) {
+            throw new NoSuchMethodException("register");
+        }
+        register.invoke(event, callback);
+    }
+
+    public static void execute(Object server, Runnable task) {
+        try {
+            server.getClass().getMethod("execute", Runnable.class).invoke(server, task);
+        } catch (Exception ignored) {
+            task.run();
+        }
+    }
+
+    public static void schedule(Object server, long delayMillis, Runnable task) {
+        new Thread(() -> {
+            try {
+                Thread.sleep(delayMillis);
+                execute(server, task);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
+        }, "Lengbanlist Scheduler").start();
+    }
+
+    private static void sendText(Object target, Class<?> textClass, Object text) throws Exception {
+        Method send = method(target.getClass(), "sendMessage", textClass);
+        if (send != null) {
+            send.invoke(target, text);
+            return;
+        }
+        Method sendWithOverlay = method(target.getClass(), "sendMessage", textClass, boolean.class);
+        if (sendWithOverlay != null) {
+            sendWithOverlay.invoke(target, text, false);
+        }
+    }
+
+    public static boolean hasPermission(Object source, int level) {
+        try {
+            Method hasPermissionLevel = method(source.getClass(), "hasPermissionLevel", int.class);
+            if (hasPermissionLevel != null) {
+                return Boolean.TRUE.equals(hasPermissionLevel.invoke(source, level));
+            }
+        } catch (Exception ignored) {
+        }
+        try {
+            Object entity = source.getClass().getMethod("getEntity").invoke(source);
+            if (entity == null) return true;
+            Method hasPermissionLevel = method(entity.getClass(), "hasPermissionLevel", int.class);
+            if (hasPermissionLevel != null) {
+                return Boolean.TRUE.equals(hasPermissionLevel.invoke(entity, level));
+            }
+        } catch (Exception ignored) {
+        }
+        try {
+            source.getClass().getMethod("getEntity").invoke(source);
+        } catch (Exception ignored) {
+            return true;
+        }
+        return false;
+    }
+
+    public static int onlineCount(Object server) {
+        return onlinePlayers(server).size();
+    }
+
+    public static int maxPlayers(Object server) {
+        try {
+            Object playerManager = server.getClass().getMethod("getPlayerManager").invoke(server);
+            return (Integer) playerManager.getClass().getMethod("getMaxPlayerCount").invoke(playerManager);
+        } catch (Exception ignored) {
+            return 0;
+        }
+    }
+
+    public static Collection<?> onlinePlayers(Object server) {
+        try {
+            Object playerManager = server.getClass().getMethod("getPlayerManager").invoke(server);
+            Object players = playerManager.getClass().getMethod("getPlayerList").invoke(playerManager);
+            return (Collection<?>) players;
+        } catch (Exception ignored) {
+            return java.util.Collections.emptyList();
+        }
+    }
+
+    public static Object field(Object target, String name) throws Exception {
+        Class<?> type = target.getClass();
+        while (type != null) {
+            try {
+                Field field = type.getDeclaredField(name);
+                field.setAccessible(true);
+                return field.get(target);
+            } catch (NoSuchFieldException ignored) {
+                type = type.getSuperclass();
+            }
+        }
+        Field field = target.getClass().getField(name);
+        field.setAccessible(true);
+        return field.get(target);
+    }
+
+    private static Method method(Class<?> type, String name, Class<?>... args) {
+        try {
+            Method method = type.getMethod(name, args);
+            method.setAccessible(true);
+            return method;
+        } catch (NoSuchMethodException e) {
+            return null;
+        }
+    }
+}

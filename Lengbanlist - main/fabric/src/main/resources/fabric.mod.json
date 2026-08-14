@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "lengbanlist",
+  "version": "${project.version}",
+  "name": "Lengbanlist",
+  "description": "This plugin provides a lightweight ban and query system for high-version Minecraft servers.",
+  "authors": [
+    "Ukiyograin"
+  ],
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "org.leng.fabric.FabricLengbanlist"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.9",
+    "fabric-api": "*",
+    "minecraft": ">=1.21"
+  }
+}
