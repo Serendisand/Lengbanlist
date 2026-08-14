@@ -54,6 +54,9 @@ public class ModelManager {
     }
 
     private void loadCustomModels() {
+        // 重新加载前，先移除上一次加载的自定义模型（内置模型会重新注册，无需清理）
+        models.values().removeIf(model -> model instanceof CustomModel);
+
         File modelsDir = new File(Lengbanlist.getInstance().getDataFolder(), "models");
         if (!modelsDir.exists() || !modelsDir.isDirectory()) {
             return;
@@ -133,6 +136,9 @@ public class ModelManager {
     }
 
     public void reloadModel() {
+        // 重新加载自定义模型文件（新增/删除/修改的模型在 /lban reload 时生效，无需重启服务器）
+        loadCustomModels();
+
         String modelName = Lengbanlist.getInstance().getConfig().getString("Model", "Default");
         switchModel(modelName.toLowerCase());
         Lengbanlist.getInstance().getServer().getConsoleSender().sendMessage("§a模型已重新加载，当前模型: " + currentModel.getName());
