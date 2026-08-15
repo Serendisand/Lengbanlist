@@ -8,6 +8,7 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.manager.BanManager;
+import org.leng.manager.BanMutationFeedback;
 import org.leng.manager.EscalationManager.EscalationResult;
 import org.leng.object.BanEntry;
 import org.leng.utils.TimeUtils;
@@ -18,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BanCommand implements CommandExecutor, TabCompleter {
+
     private final Lengbanlist plugin;
 
     public BanCommand(Lengbanlist plugin) {
@@ -88,11 +90,11 @@ public class BanCommand implements CommandExecutor, TabCompleter {
         long banEndTime = TimeUtils.calculateEndTime(banDuration);
 
         BanEntry entry = new BanEntry(
-            target,
-            sender.getName(),
-            banEndTime,
-            reason,
-            isAuto
+                target,
+                sender.getName(),
+                banEndTime,
+                reason,
+                isAuto
         );
 
         BanManager.BanMutationResult result = plugin.getBanManager().tryBanPlayer(entry, silent);
@@ -161,4 +163,5 @@ public class BanCommand implements CommandExecutor, TabCompleter {
         String value = plugin.getConfig().getString("preset-reasons." + input.toLowerCase());
         return value != null ? value : input;
     }
+
 }

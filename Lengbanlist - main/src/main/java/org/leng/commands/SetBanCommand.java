@@ -10,6 +10,7 @@ import org.leng.manager.EscalationManager.EscalationResult;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.manager.BanManager;
+import org.leng.manager.BanMutationFeedback;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
 
@@ -18,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SetBanCommand implements CommandExecutor, TabCompleter {
+
     private final Lengbanlist plugin;
 
     public SetBanCommand(Lengbanlist plugin) {
@@ -167,4 +169,5 @@ public class SetBanCommand implements CommandExecutor, TabCompleter {
         }
         return completions;
     }
+
 }

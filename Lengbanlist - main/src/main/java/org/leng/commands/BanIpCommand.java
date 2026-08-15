@@ -7,6 +7,7 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.manager.BanManager;
+import org.leng.manager.BanMutationFeedback;
 import org.leng.manager.EscalationManager.EscalationResult;
 import org.leng.utils.IpMatcher;
 import org.leng.utils.TimeUtils;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BanIpCommand extends Command implements CommandExecutor, TabCompleter {
+
     private final Lengbanlist plugin;
 
     public BanIpCommand(Lengbanlist plugin) {
@@ -153,4 +155,5 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
         String value = plugin.getConfig().getString("preset-reasons." + input.toLowerCase());
         return value != null ? value : input;
     }
+
 }

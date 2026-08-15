@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 
 
 public class WarnManager {
+
     private final Lengbanlist plugin;
     private final DatabaseManager db;
 
@@ -101,9 +102,12 @@ public class WarnManager {
                         true
                 );
 
-                if (plugin.getBanManager().tryBanIp(ipBanEntry).isApplied()) {
+                BanManager.BanMutationResult result = plugin.getBanManager().tryBanIp(ipBanEntry);
+                if (result.isApplied()) {
                     String message = String.format("§6[LBAC] §e%s §c因30天内累计%d次警告被自动封禁§a%s §6<此封禁由系统决定>", player, validWarnings.size(), formattedDuration);
                     plugin.getServer().broadcastMessage(message);
+                } else {
+                    logAutomaticMutationFailure("封禁 IP", player, result);
                 }
             } else {
                 BanEntry existingBan = plugin.getBanManager().getBanEntry(player);
@@ -122,9 +126,12 @@ public class WarnManager {
                         true
                 );
 
-                if (plugin.getBanManager().tryBanPlayer(banEntry).isApplied()) {
+                BanManager.BanMutationResult result = plugin.getBanManager().tryBanPlayer(banEntry);
+                if (result.isApplied()) {
                     String message = String.format("§6[LBAC] §e%s §c因30天内累计%d次警告被自动封禁§a%s §6<此封禁由系统决定>", player, validWarnings.size(), formattedDuration);
                     plugin.getServer().broadcastMessage(message);
+                } else {
+                    logAutomaticMutationFailure("封禁玩家", player, result);
                 }
             }
         }
@@ -137,7 +144,8 @@ public class WarnManager {
             if (start > 0 && end > start) {
                 return Integer.parseInt(reason.substring(start, end));
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
         return 0;
     }
 
@@ -153,28 +161,50 @@ public class WarnManager {
         if (validWarnings.size() < 3) {
             if (IpMatcher.isValidIpOrCidr(player)) {
                 if (plugin.getBanManager().isIpBanned(player)) {
-                    if (plugin.getBanManager().tryUnbanIp(player, null, false).isApplied()) {
+                    BanManager.BanMutationResult result = plugin.getBanManager()
+                            .tryUnbanIp(player, null, false);
+                    if (result.isApplied()) {
                         String message = String.format("§6[LBAC] §e%s §a因警告次数减少至%d次，自动解封", player, validWarnings.size());
                         plugin.getServer().broadcastMessage(message);
+                    } else {
+                        logAutomaticMutationFailure("解封 IP", player, result);
                     }
                 }
             } else if (plugin.getBanManager().isBanned(player, "LBAC")) {
-                if (plugin.getBanManager().tryUnbanPlayer(player, null, false).isApplied()) {
+                BanManager.BanMutationResult result = plugin.getBanManager()
+                        .tryUnbanPlayer(player, null, false);
+                if (result.isApplied()) {
                     String message = String.format("§6[LBAC] §e%s §a因警告次数减少至%d次，自动解封", player, validWarnings.size());
                     plugin.getServer().broadcastMessage(message);
+                } else {
+                    logAutomaticMutationFailure("解封玩家", player, result);
                 }
             }
         }
     }
 
+    private void logAutomaticMutationFailure(String action, String target,
+                                             BanManager.BanMutationResult result) {
+        if (result == BanManager.BanMutationResult.DATABASE_ERROR) {
+            plugin.getLogger().warning("LBAC 自动" + action + "失败: target=" + target
+                    + ", result=" + result);
+        }
+    }
+
     public long calculateBanDuration(int triggerCount) {
         switch (triggerCount) {
-            case 1: return TimeUtils.daysToMillis(1);
-            case 2: return TimeUtils.daysToMillis(7);
-            case 3: return TimeUtils.daysToMillis(30);
-            case 4: return TimeUtils.daysToMillis(90);
-            case 5: return TimeUtils.daysToMillis(180);
-            default: return TimeUtils.daysToMillis(365);
+            case 1:
+                return TimeUtils.daysToMillis(1);
+            case 2:
+                return TimeUtils.daysToMillis(7);
+            case 3:
+                return TimeUtils.daysToMillis(30);
+            case 4:
+                return TimeUtils.daysToMillis(90);
+            case 5:
+                return TimeUtils.daysToMillis(180);
+            default:
+                return TimeUtils.daysToMillis(365);
         }
     }
 
@@ -191,5 +221,7 @@ public class WarnManager {
         }
     }
 
-    public void saveToConfig(org.bukkit.configuration.file.FileConfiguration config) {}
+    public void saveToConfig(org.bukkit.configuration.file.FileConfiguration config) {
+    }
+
 }

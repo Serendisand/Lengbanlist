@@ -42,6 +42,7 @@ import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class WebServer {
+
     private final Lengbanlist plugin;
     private final Gson gson = new Gson();
     private HttpServer server;
@@ -131,6 +132,7 @@ public class WebServer {
 
 
     private static class AuthManager {
+
         private final String secret;
         private final String username;
         private final String passwordHash;
@@ -218,10 +220,12 @@ public class WebServer {
         private static String b64url(byte[] data) {
             return Base64.getUrlEncoder().withoutPadding().encodeToString(data);
         }
+
     }
 
 
     private static class RateLimiter {
+
         private final ConcurrentHashMap<String, AtomicLongArray> requests = new ConcurrentHashMap<>();
         private static final int MAX_REQUESTS = 60;
         private static final long WINDOW_MS = 60000L;
@@ -245,6 +249,7 @@ public class WebServer {
             long cutoff = System.currentTimeMillis() - WINDOW_MS;
             requests.entrySet().removeIf(e -> e.getValue().get(0) < cutoff);
         }
+
     }
 
     private final RateLimiter rateLimiter = new RateLimiter();
@@ -383,7 +388,10 @@ public class WebServer {
 
 
     private void handleLogin(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!"POST".equals(exchange.getRequestMethod())) {
             sendError(exchange, 405, "仅支持 POST");
             return;
@@ -405,6 +413,7 @@ public class WebServer {
     }
 
     private static class LoginResponse {
+
         private final String token;
         private final String username;
 
@@ -412,10 +421,14 @@ public class WebServer {
             this.token = token;
             this.username = username;
         }
+
     }
 
     private void handlePlayers(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!requireAuth(exchange)) return;
 
         Map<String, String> params = parseQuery(exchange.getRequestURI().getQuery());
@@ -458,7 +471,10 @@ public class WebServer {
     }
 
     private void handleOnline(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!requireAuth(exchange)) return;
 
         AtomicReference<JsonArray> playersRef = new AtomicReference<>(new JsonArray());
@@ -483,7 +499,10 @@ public class WebServer {
     }
 
     private void handleKick(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!"POST".equals(exchange.getRequestMethod())) {
             sendError(exchange, 405, "仅支持 POST");
             return;
@@ -531,7 +550,10 @@ public class WebServer {
     }
 
     private void handleHistory(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!requireAuth(exchange)) return;
 
         Map<String, String> params = parseQuery(exchange.getRequestURI().getQuery());
@@ -586,7 +608,10 @@ public class WebServer {
     }
 
     private void handleBan(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!"POST".equals(exchange.getRequestMethod())) {
             sendError(exchange, 405, "仅支持 POST");
             return;
@@ -651,7 +676,10 @@ public class WebServer {
     }
 
     private void handleUnban(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!"POST".equals(exchange.getRequestMethod())) {
             sendError(exchange, 405, "仅支持 POST");
             return;
@@ -705,7 +733,10 @@ public class WebServer {
     }
 
     private void handleStats(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!requireAuth(exchange)) return;
 
         AtomicReference<Integer> onlineRef = new AtomicReference<>(0);
@@ -753,7 +784,10 @@ public class WebServer {
     }
 
     private void handleBanList(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!requireAuth(exchange)) return;
 
         JsonArray bans = new JsonArray();
@@ -774,7 +808,10 @@ public class WebServer {
     }
 
     private void handleIpBanList(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!requireAuth(exchange)) return;
 
         JsonArray bans = new JsonArray();
@@ -795,7 +832,10 @@ public class WebServer {
     }
 
     private void handleMuteList(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!requireAuth(exchange)) return;
 
         JsonArray mutes = new JsonArray();
@@ -814,7 +854,10 @@ public class WebServer {
     }
 
     private void handleReports(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!requireAuth(exchange)) return;
 
         JsonArray reports = new JsonArray();
@@ -835,7 +878,10 @@ public class WebServer {
     }
 
     private void handleMute(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!"POST".equals(exchange.getRequestMethod())) {
             sendError(exchange, 405, "仅支持 POST");
             return;
@@ -888,7 +934,10 @@ public class WebServer {
     }
 
     private void handleUnmute(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!"POST".equals(exchange.getRequestMethod())) {
             sendError(exchange, 405, "仅支持 POST");
             return;
@@ -913,7 +962,10 @@ public class WebServer {
     }
 
     private void handleWarn(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!"POST".equals(exchange.getRequestMethod())) {
             sendError(exchange, 405, "仅支持 POST");
             return;
@@ -954,7 +1006,10 @@ public class WebServer {
     }
 
     private void handleReportAction(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!"POST".equals(exchange.getRequestMethod())) {
             sendError(exchange, 405, "仅支持 POST");
             return;
@@ -999,7 +1054,10 @@ public class WebServer {
     }
 
     private void handleReload(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!"POST".equals(exchange.getRequestMethod())) {
             sendError(exchange, 405, "仅支持 POST");
             return;
@@ -1049,7 +1107,10 @@ public class WebServer {
     }
 
     private void handleBroadcast(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!"POST".equals(exchange.getRequestMethod())) {
             sendError(exchange, 405, "仅支持 POST");
             return;
@@ -1081,7 +1142,10 @@ public class WebServer {
     }
 
     private void handleAudit(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         if (!requireAuth(exchange) || !requireFeature(exchange, "audit")) return;
 
         Map<String, String> params = parseQuery(exchange.getRequestURI().getQuery());
@@ -1113,7 +1177,10 @@ public class WebServer {
     }
 
     private void handleRoot(HttpExchange exchange) {
-        if ("OPTIONS".equals(exchange.getRequestMethod())) { handleOptions(exchange); return; }
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
         try {
             String path = exchange.getRequestURI().getPath();
             if (path == null || path.equals("/")) path = "/index.html";
@@ -1165,4 +1232,5 @@ public class WebServer {
         if (path.endsWith(".svg")) return "image/svg+xml";
         return "application/octet-stream";
     }
+
 }

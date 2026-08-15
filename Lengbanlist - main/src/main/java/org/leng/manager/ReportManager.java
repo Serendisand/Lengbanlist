@@ -10,6 +10,7 @@ import org.leng.utils.Utils;
 import java.util.List;
 
 public class ReportManager {
+
     private final Lengbanlist plugin;
 
     public ReportManager(Lengbanlist plugin) {
@@ -54,10 +55,6 @@ public class ReportManager {
         return plugin.getDatabaseManager().getPendingReportCount();
     }
 
-    public void banFromReport(ReportEntry entry, String staff, long endTime, String reason, boolean isAuto) {
-        tryBanFromReport(entry, staff, endTime, reason, isAuto);
-    }
-
     public BanManager.BanMutationResult tryBanFromReport(ReportEntry entry, String staff, long endTime, String reason, boolean isAuto) {
         BanEntry banEntry = new BanEntry(entry.getTarget(), staff, endTime, reason, isAuto);
         DatabaseManager.WriteResult writeResult = plugin.getDatabaseManager()
@@ -78,4 +75,5 @@ public class ReportManager {
         }
         return BanManager.BanMutationResult.APPLIED;
     }
+
 }
