@@ -192,7 +192,7 @@ public class BanManager {
                 if (ban.getTime() <= currentTime) {
                     BanMutationResult result = tryUnbanPlayer(player.getName(), null, true);
                     if (result == BanMutationResult.DATABASE_ERROR) {
-                        plugin.getLogger().warning("清理玩家过期封禁失败: " + player.getName());
+                        plugin.getLogger().warning("清理玩家过期封禁失败，玩家将被拦截: " + player.getName());
                     }
                 } else {
                     SchedulerUtils.runTask(plugin, player, () -> player.kickPlayer("您仍处于封禁状态，原因：" + ban.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(ban.getTime())));
@@ -209,7 +209,7 @@ public class BanManager {
                 if (banIp.getTime() <= currentTime) {
                     BanMutationResult result = tryUnbanIp(banIp.getIp(), null, true);
                     if (result == BanMutationResult.DATABASE_ERROR) {
-                        plugin.getLogger().warning("清理过期 IP 封禁失败: " + banIp.getIp());
+                        plugin.getLogger().warning("清理过期 IP 封禁失败，玩家将被拦截: " + banIp.getIp());
                     }
                 } else {
                     SchedulerUtils.runTask(plugin, player, () -> player.kickPlayer("您的 IP 仍处于封禁状态，原因：" + banIp.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(banIp.getTime())));

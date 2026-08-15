@@ -126,6 +126,11 @@ public class IpMatcher {
         if (value == null) return false;
         String normalized = normalizeIpOrCidr(value);
         if (normalized == null) return false;
+        // IPv6：唯一本地地址 (fc00::/7) 与环回地址禁止封禁
+        if (normalized.contains(":")) {
+            String base = isCidr(normalized) ? normalized.substring(0, normalized.indexOf('/')) : normalized;
+            return base.startsWith("fc") || base.startsWith("fd") || base.equals("::1");
+        }
         String candidateCidr = isCidr(normalized) ? normalized : normalized + "/32";
         for (String restrictedCidr : PRIVATE_OR_RESERVED_CIDRS) {
             if (cidrOverlaps(candidateCidr, restrictedCidr)) return true;

@@ -291,17 +291,13 @@ public class DatabaseManager {
     }
 
 
-    public void addBan(BanEntry entry) {
-        replaceActiveBan(entry);
+    public WriteResult addBan(BanEntry entry) {
+        return replaceActiveBan(entry);
     }
 
 
-    public void upsertBan(BanEntry entry) {
-        replaceActiveBan(entry);
-    }
-
-    public void deactivateBan(String target) {
-        deactivateActiveBan(target);
+    public WriteResult upsertBan(BanEntry entry) {
+        return replaceActiveBan(entry);
     }
 
     public WriteResult replaceActiveBan(BanEntry entry) {
@@ -330,11 +326,6 @@ public class DatabaseManager {
                         banEntry.isAuto(), banEntry.isActive()},
                 "UPDATE reports SET status = ? WHERE id = ? AND status = ?",
                 new Object[]{status(reportStatus), reportEntry.getId(), status(reportEntry.getStatus())});
-    }
-
-    public WriteResult deactivateActiveBan(String target) {
-        return deactivateActiveEntry(
-                "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1", target);
     }
 
     public WriteResult deactivateBanForUnban(String target, long now) {
@@ -432,17 +423,13 @@ public class DatabaseManager {
     }
 
 
-    public void addIpBan(BanIpEntry entry) {
-        replaceActiveIpBan(entry);
+    public WriteResult addIpBan(BanIpEntry entry) {
+        return replaceActiveIpBan(entry);
     }
 
 
-    public void upsertIpBan(BanIpEntry entry) {
-        replaceActiveIpBan(entry);
-    }
-
-    public void deactivateIpBan(String ip) {
-        deactivateActiveIpBan(ip);
+    public WriteResult upsertIpBan(BanIpEntry entry) {
+        return replaceActiveIpBan(entry);
     }
 
     public WriteResult replaceActiveIpBan(BanIpEntry entry) {
@@ -459,10 +446,6 @@ public class DatabaseManager {
                 new Object[]{entry.getIp()},
                 "INSERT INTO ip_bans (ip, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
                 new Object[]{entry.getIp(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()});
-    }
-
-    public WriteResult deactivateActiveIpBan(String ip) {
-        return deactivateActiveEntry("UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1", ip);
     }
 
     public WriteResult deactivateIpBanForUnban(String ip, long now) {
@@ -1071,23 +1054,6 @@ public class DatabaseManager {
             logSql(e);
             return WriteResult.DATABASE_ERROR;
         } finally {
-            closeConnection(connection);
-        }
-    }
-
-    private WriteResult deactivateActiveEntry(String sql, Object... values) {
-        Connection connection = null;
-        PreparedStatement statement = null;
-        try {
-            connection = getConnection();
-            statement = connection.prepareStatement(sql);
-            setValues(statement, values);
-            return statement.executeUpdate() > 0 ? WriteResult.APPLIED : WriteResult.NO_CHANGE;
-        } catch (SQLException e) {
-            logSql(e);
-            return WriteResult.DATABASE_ERROR;
-        } finally {
-            closeStatement(statement);
             closeConnection(connection);
         }
     }

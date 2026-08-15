@@ -13,7 +13,7 @@ public final class BanMutationFeedback {
         String label = ipTarget ? "IP " : "玩家 ";
         switch (result) {
             case NOT_ACTIVE:
-                Utils.sendMessage(sender, "§c" + label + target + " 未被封禁或状态已变化，操作未完成。");
+                Utils.sendMessage(sender, "§c" + label + target + " 未被封禁或封禁已过期，操作未完成。");
                 break;
             case STATE_CHANGED:
                 Utils.sendMessage(sender, "§c数据状态已变化，请刷新后重试。");
