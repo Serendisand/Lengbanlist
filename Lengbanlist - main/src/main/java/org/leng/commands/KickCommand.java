@@ -59,7 +59,7 @@ public class KickCommand implements CommandExecutor, TabCompleter {
 
 
         SchedulerUtils.runTask(plugin, target, () -> target.kickPlayer(model.getKickMessage(reason)));
-        plugin.getAuditManager().log("踢出", sender.getName(), target.getName(), reason);
+        plugin.getAuditManager().log("踢出", Utils.getSenderName(sender), target.getName(), reason);
         Utils.sendMessage(sender, plugin.prefix() + model.onKickSuccess(target.getName(), reason));
 
         return true;

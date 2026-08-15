@@ -91,7 +91,7 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
 
 
         BanManager.BanMutationResult result = plugin.getBanManager().tryBanIp(
-                new org.leng.object.BanIpEntry(args[0], sender.getName(), banEndTime, reason, isAuto),
+                new org.leng.object.BanIpEntry(args[0], Utils.getSenderName(sender), banEndTime, reason, isAuto),
                 silent
         );
         if (!result.isApplied()) {

@@ -60,8 +60,9 @@ public class RollbackCommand implements CommandExecutor {
                 " 的操作" + (type == null ? "（全部类型）" : "（类型: " + type + "）") + "...");
 
         // 回滚涉及多个数据库写操作，放到异步线程执行，完成后回到主线程提示
+        final String rollbackActor = Utils.getSenderName(sender);
         org.leng.utils.SchedulerUtils.runAsync(plugin, () -> {
-            RollbackManager.RollbackResult result = new RollbackManager(plugin).rollback(actor, from, to, type);
+            RollbackManager.RollbackResult result = new RollbackManager(plugin).rollback(actor, from, to, type, rollbackActor);
             org.leng.utils.SchedulerUtils.runTask(plugin, sender, () -> {
                 Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getRollbackResult(
                         result.matched, result.executed, result.skipped));

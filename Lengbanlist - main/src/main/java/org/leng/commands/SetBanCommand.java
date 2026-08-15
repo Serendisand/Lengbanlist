@@ -131,7 +131,7 @@ public class SetBanCommand implements CommandExecutor, TabCompleter {
                     target, escalationResult.offenseCount, TimeUtils.formatDuration(banDuration)));
         }
         Utils.sendMessage(sender, plugin.prefix() + "§a成功更新目标 " + target + " 的封禁时间，新的封禁时长为: §e" + durationStr + "§a，理由: §e" + reason);
-        plugin.getAuditManager().log("设置封禁时间", sender.getName(), target, durationStr + " - " + reason);
+        plugin.getAuditManager().log("设置封禁时间", Utils.getSenderName(sender), target, durationStr + " - " + reason);
 
         return true;
     }

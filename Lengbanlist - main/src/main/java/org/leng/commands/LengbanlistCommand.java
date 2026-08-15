@@ -193,7 +193,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     int durationDays = durationMillis == Long.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(1, Math.round(durationMillis / (double) (1000 * 60 * 60 * 24)));
 
                     if (args[1].contains(".")) {
-                        BanManager.BanMutationResult result = plugin.getBanManager().tryBanIp(new BanIpEntry(args[1], sender.getName(), endTime, args[3], isAuto), addSilent);
+                        BanManager.BanMutationResult result = plugin.getBanManager().tryBanIp(new BanIpEntry(args[1], Utils.getSenderName(sender), endTime, args[3], isAuto), addSilent);
                         if (result.isApplied() && isAuto && escalationResult.offenseCount > 0) {
                             Utils.sendMessage(sender, currentModel.onEscalatedBan(args[1], escalationResult.offenseCount, TimeUtils.formatDuration(durationLong)));
                         }
@@ -204,7 +204,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                             BanMutationFeedback.sendFailure(sender, result, args[1], true);
                         }
                     } else {
-                        BanManager.BanMutationResult result = plugin.getBanManager().tryBanPlayer(new BanEntry(args[1], sender.getName(), endTime, args[3], isAuto), addSilent);
+                        BanManager.BanMutationResult result = plugin.getBanManager().tryBanPlayer(new BanEntry(args[1], Utils.getSenderName(sender), endTime, args[3], isAuto), addSilent);
                         if (result.isApplied() && isAuto && escalationResult.offenseCount > 0) {
                             Utils.sendMessage(sender, currentModel.onEscalatedBan(args[1], escalationResult.offenseCount, TimeUtils.formatDuration(durationLong)));
                         }
@@ -235,12 +235,12 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 if (args[1].contains(".")) {
                     String normalizedIp = IpMatcher.normalizeIpOrCidr(args[1]);
                     if (normalizedIp != null) args[1] = normalizedIp;
-                    BanManager.BanMutationResult result = plugin.getBanManager().tryUnbanIp(args[1], sender.getName(), false);
+                    BanManager.BanMutationResult result = plugin.getBanManager().tryUnbanIp(args[1], Utils.getSenderName(sender), false);
                     if (!result.isApplied()) {
                         BanMutationFeedback.sendFailure(sender, result, args[1], true);
                     }
                 } else {
-                    BanManager.BanMutationResult result = plugin.getBanManager().tryUnbanPlayer(args[1], sender.getName(), false);
+                    BanManager.BanMutationResult result = plugin.getBanManager().tryUnbanPlayer(args[1], Utils.getSenderName(sender), false);
                     if (!result.isApplied()) {
                         BanMutationFeedback.sendFailure(sender, result, args[1], false);
                     }
@@ -376,7 +376,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 }
                 String muteReason = String.join(" ", Arrays.copyOfRange(args, 3, args.length));
                 try {
-                    MuteEntry muteEntry = new MuteEntry(muteTarget, sender.getName(), TimeUtils.calculateEndTime(muteDuration), muteReason);
+                    MuteEntry muteEntry = new MuteEntry(muteTarget, Utils.getSenderName(sender), TimeUtils.calculateEndTime(muteDuration), muteReason);
                     Long newMuteEnd = plugin.getMuteManager().mutePlayer(muteEntry);
                     if (newMuteEnd == null) {
                         Utils.sendMessage(sender, plugin.prefix() + "§e该目标已有相同时长的禁言记录，未重复禁言。");
@@ -412,7 +412,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 String unmuteTarget = args[1];
                 String normalizedUnmute = IpMatcher.normalizeIpOrCidr(unmuteTarget);
                 if (normalizedUnmute != null) unmuteTarget = normalizedUnmute;
-                plugin.getMuteManager().unmutePlayer(unmuteTarget, sender.getName());
+                plugin.getMuteManager().unmutePlayer(unmuteTarget, Utils.getSenderName(sender));
                 if (unmuteSilent) {
                     Utils.sendMessage(sender, currentModel.removeMute(unmuteTarget));
                 } else {
@@ -452,7 +452,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     return true;
                 }
                 String reason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
-                plugin.getWarnManager().warnPlayer(warnTarget, sender.getName(), reason);
+                plugin.getWarnManager().warnPlayer(warnTarget, Utils.getSenderName(sender), reason);
                 Utils.sendMessage(sender, currentModel.addWarn(warnTarget, reason));
                 break;
             case "unwarn":
@@ -479,7 +479,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     }
                 }
                 if (!warnings.isEmpty()) {
-                    plugin.getAuditManager().log("取消警告", sender.getName(), unwarnTarget, "全部警告");
+                    plugin.getAuditManager().log("取消警告", Utils.getSenderName(sender), unwarnTarget, "全部警告");
                     plugin.getWarnManager().checkUnbanIfNecessary(unwarnTarget);
                 }
                 Utils.sendMessage(sender, currentModel.removeWarn(unwarnTarget));
@@ -676,7 +676,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     }
                     String handleReason = args.length > 3 ? String.join(" ", Arrays.copyOfRange(args, 3, args.length)) : handleReport.getReason();
                     BanManager.BanMutationResult handleResult = plugin.getReportManager().tryBanFromReport(
-                            handleReport, sender.getName(), handleEndTime, handleReason, handleAuto);
+                            handleReport, Utils.getSenderName(sender), handleEndTime, handleReason, handleAuto);
                     if (!handleResult.isApplied()) {
                         BanMutationFeedback.sendFailure(sender, handleResult, handleTarget, handleTarget.contains("."));
                         break;

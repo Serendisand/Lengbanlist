@@ -43,6 +43,17 @@ public class Utils {
         return component;
     }
 
+    /**
+     * 返回操作者名称：玩家返回玩家名，控制台/其他来源统一返回 "CONSOLE"。
+     * 用于审计日志、封禁/禁言/警告等记录的 staff 字段，保证执行人可区分。
+     */
+    public static String getSenderName(CommandSender sender) {
+        if (sender instanceof Player) {
+            return sender.getName();
+        }
+        return "CONSOLE";
+    }
+
     public static TextComponent clickableUrl(String text, String url) {
         TextComponent component = new TextComponent(ChatColor.translateAlternateColorCodes('&', text));
         component.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url));

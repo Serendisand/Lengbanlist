@@ -38,7 +38,7 @@ public class UnmuteCommand implements CommandExecutor {
         }
         String normalized = IpMatcher.normalizeIpOrCidr(args[0]);
         if (normalized != null) args[0] = normalized;
-        plugin.getMuteManager().unmutePlayer(args[0], sender.getName());
+        plugin.getMuteManager().unmutePlayer(args[0], Utils.getSenderName(sender));
         String message = ModelManager.getInstance().getCurrentModel().removeMute(args[0]);
         if (silent) {
             Utils.sendMessage(sender, message);

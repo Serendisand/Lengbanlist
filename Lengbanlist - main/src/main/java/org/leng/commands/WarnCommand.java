@@ -68,13 +68,13 @@ public class WarnCommand extends Command implements CommandExecutor, TabComplete
 
             String normalized = IpMatcher.normalizeIpOrCidr(target);
             if (normalized != null) target = normalized;
-            warnManager.warnPlayer(target, sender.getName(), reason);
+            warnManager.warnPlayer(target, Utils.getSenderName(sender), reason);
             Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addWarn(target, reason));
             return true;
         }
 
 
-        warnManager.warnPlayer(target, sender.getName(), reason);
+        warnManager.warnPlayer(target, Utils.getSenderName(sender), reason);
         Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addWarn(target, reason));
 
         return true;

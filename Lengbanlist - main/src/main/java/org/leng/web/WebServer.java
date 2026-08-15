@@ -168,6 +168,15 @@ public class WebServer {
             return payload != null ? payload.get("sub").getAsString() : null;
         }
 
+        /** 解析当前会话操作者：正常返回登录用户名；默认 admin 等非玩家身份统一记为 CONSOLE。 */
+        String resolveActor(String token) {
+            String name = getUsernameFromToken(token);
+            if (name == null || name.trim().isEmpty()) {
+                return "CONSOLE";
+            }
+            return "admin".equals(name) ? "CONSOLE" : name.trim();
+        }
+
         private String createToken(String subject) {
             JsonObject header = new JsonObject();
             header.addProperty("alg", "HS256");
@@ -586,7 +595,7 @@ public class WebServer {
                 return;
             }
 
-            plugin.getAuditManager().log("踢出", "WebAdmin", target, reason);
+            plugin.getAuditManager().log("踢出", authManager.resolveActor(extractToken(exchange)), target, reason);
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
             result.addProperty("message", target + " 已被踢出");
@@ -673,8 +682,7 @@ public class WebServer {
             String duration = json.has("duration") ? json.get("duration").getAsString() : "7d";
             String reason = json.has("reason") ? json.get("reason").getAsString() : "管理员操作";
 
-            String staff = authManager.getUsernameFromToken(extractToken(exchange));
-            if (staff == null) staff = "WebAdmin";
+            String staff = authManager.resolveActor(extractToken(exchange));
             final String finalStaff = staff;
 
             long durationMs = TimeUtils.parseTime(duration);
@@ -738,6 +746,8 @@ public class WebServer {
         try {
             JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
             String target = json.get("target").getAsString();
+            String actor = authManager.resolveActor(extractToken(exchange));
+            final String finalActor = actor;
 
             if (target.contains(".") && !org.leng.utils.IpMatcher.isValidIpOrCidrOrWildcard(target)) {
                 sendError(exchange, 400, "无效的 IP 或 CIDR 格式");
@@ -753,9 +763,9 @@ public class WebServer {
                     return;
                 }
                 if (target.contains(".")) {
-                    mutationResult.set(plugin.getBanManager().tryUnbanIp(target, "WebAdmin", false));
+                    mutationResult.set(plugin.getBanManager().tryUnbanIp(target, finalActor, false));
                 } else {
-                    mutationResult.set(plugin.getBanManager().tryUnbanPlayer(target, "WebAdmin", false));
+                    mutationResult.set(plugin.getBanManager().tryUnbanPlayer(target, finalActor, false));
                 }
             });
             if (!completed) return;
@@ -951,8 +961,7 @@ public class WebServer {
             String target = json.get("target").getAsString();
             String duration = json.has("duration") ? json.get("duration").getAsString() : "7d";
             String reason = json.has("reason") ? json.get("reason").getAsString() : "管理员操作";
-            String staff = authManager.getUsernameFromToken(extractToken(exchange));
-            if (staff == null) staff = "WebAdmin";
+            String staff = authManager.resolveActor(extractToken(exchange));
             final String finalStaff = staff;
 
             long durationMs = TimeUtils.parseTime(duration);
@@ -1005,6 +1014,7 @@ public class WebServer {
         try {
             JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
             String target = json.get("target").getAsString();
+            final String finalActor = authManager.resolveActor(extractToken(exchange));
 
             AtomicReference<Boolean> permissionDenied = new AtomicReference<>(false);
             boolean completed = runSync(exchange, () -> {
@@ -1012,7 +1022,7 @@ public class WebServer {
                     permissionDenied.set(true);
                     return;
                 }
-                plugin.getMuteManager().unmutePlayer(target, "WebAdmin");
+                plugin.getMuteManager().unmutePlayer(target, finalActor);
             });
             if (!completed) return;
             if (permissionDenied.get()) {
@@ -1046,8 +1056,7 @@ public class WebServer {
             JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
             String target = json.get("target").getAsString();
             String reason = json.has("reason") ? json.get("reason").getAsString() : "管理员操作";
-            String staff = authManager.getUsernameFromToken(extractToken(exchange));
-            if (staff == null) staff = "WebAdmin";
+            String staff = authManager.resolveActor(extractToken(exchange));
             final String finalStaff = staff;
 
             AtomicReference<String> outcome = new AtomicReference<>("ok");
@@ -1100,7 +1109,7 @@ public class WebServer {
             if ("accept".equalsIgnoreCase(action)) {
                 report.setStatus("受理中");
                 plugin.getReportManager().updateReport(report);
-                plugin.getAuditManager().log("受理举报", "WebAdmin", report.getTarget(), "编号: " + id + " - " + report.getReason());
+                plugin.getAuditManager().log("受理举报", authManager.resolveActor(extractToken(exchange)), report.getTarget(), "编号: " + id + " - " + report.getReason());
                 JsonObject result = new JsonObject();
                 result.addProperty("success", true);
                 result.addProperty("message", "举报 " + id + " 已受理");
@@ -1108,7 +1117,7 @@ public class WebServer {
             } else if ("close".equalsIgnoreCase(action)) {
                 report.setStatus("已关闭");
                 plugin.getReportManager().updateReport(report);
-                plugin.getAuditManager().log("关闭举报", "WebAdmin", report.getTarget(), "编号: " + id + " - " + report.getReason());
+                plugin.getAuditManager().log("关闭举报", authManager.resolveActor(extractToken(exchange)), report.getTarget(), "编号: " + id + " - " + report.getReason());
                 JsonObject result = new JsonObject();
                 result.addProperty("success", true);
                 result.addProperty("message", "举报 " + id + " 已关闭");

@@ -91,7 +91,7 @@ public class BanCommand implements CommandExecutor, TabCompleter {
 
         BanEntry entry = new BanEntry(
                 target,
-                sender.getName(),
+                Utils.getSenderName(sender),
                 banEndTime,
                 reason,
                 isAuto

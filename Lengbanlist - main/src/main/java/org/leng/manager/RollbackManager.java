@@ -21,22 +21,21 @@ import java.util.regex.Pattern;
  * 支持的操作类型（type）：
  *   ban      封禁玩家         → 回滚为解封该玩家
  *   ban-ip   封禁IP           → 回滚为解封该 IP
- *   unban    解封玩家         → 回滚为恢复封禁（时长 30 天，记为 rollback 操作人）
- *   unban-ip 解封IP           → 回滚为恢复封禁 IP（时长 30 天，记为 rollback 操作人）
+ *   unban    解封玩家         → 回滚为恢复封禁（时长 30 天）
+ *   unban-ip 解封IP           → 回滚为恢复封禁 IP（时长 30 天）
  *   mute     禁言玩家         → 回滚为解除禁言
- *   unmute   解除禁言         → 回滚为恢复禁言（时长 7 天，记为 rollback 操作人）
+ *   unmute   解除禁言         → 回滚为恢复禁言（时长 7 天）
  *   warn     警告玩家         → 回滚为撤销该警告
  *   unwarn   取消警告         → 回滚为恢复该警告
  *   kick     踢出玩家         → 无法回滚，跳过并计入跳过数
  * 其余操作类型一律跳过。
  *
  * 说明：审计日志中的目标（target）同时用于玩家名与 IP；
- * 解封/解除禁言等操作的审计记录不包含原封禁时长，恢复时使用固定时长并记为 "rollback"。
+ * 解封/解除禁言等操作的审计记录不包含原封禁时长，恢复时使用固定时长，
+ * 恢复操作的执行人记录为发起回滚的管理员（rollback 的 executor 参数）。
  */
 public class RollbackManager {
 
-    /** 回滚操作的记录操作人（出现在后续审计日志中，便于追溯回滚来源）。 */
-    public static final String ROLLBACK_ACTOR = "rollback";
     /** 恢复封禁/禁言时使用的默认时长。 */
     public static final long DEFAULT_BAN_MILLIS = TimeUtils.daysToMillis(30);
     public static final long DEFAULT_MUTE_MILLIS = TimeUtils.daysToMillis(7);
@@ -64,10 +63,12 @@ public class RollbackManager {
      * @param fromMillis 开始时间戳（含）
      * @param toMillis 结束时间戳（含）
      * @param type 操作类型，null 或空表示全部
+     * @param executor 发起回滚的管理员（记录为恢复操作的执行人，出现在审计日志中）
      * @return 回滚结果统计
      */
-    public RollbackResult rollback(String actor, long fromMillis, long toMillis, String type) {
+    public RollbackResult rollback(String actor, long fromMillis, long toMillis, String type, String executor) {
         RollbackResult result = new RollbackResult();
+        String rollbackActor = executor == null || executor.trim().isEmpty() ? "CONSOLE" : executor.trim();
         if (actor == null || actor.trim().isEmpty()) {
             result.details.add("§c操作人不能为空");
             return result;
@@ -108,27 +109,27 @@ public class RollbackManager {
             try {
                 switch (action) {
                     case "封禁":
-                        ok = rollbackBan(target);
+                        ok = rollbackBan(target, rollbackActor);
                         detail = "§a回滚封禁：解封 " + target;
                         break;
                     case "封禁IP":
-                        ok = rollbackBanIp(target);
+                        ok = rollbackBanIp(target, rollbackActor);
                         detail = "§a回滚封禁IP：解封 " + target;
                         break;
                     case "解封":
-                        ok = rollbackUnban(target);
+                        ok = rollbackUnban(target, rollbackActor);
                         detail = "§a回滚解封：重新封禁 " + target + "（" + TimeUtils.formatDuration(DEFAULT_BAN_MILLIS) + "）";
                         break;
                     case "解封IP":
-                        ok = rollbackUnbanIp(target);
+                        ok = rollbackUnbanIp(target, rollbackActor);
                         detail = "§a回滚解封IP：重新封禁 " + target + "（" + TimeUtils.formatDuration(DEFAULT_BAN_MILLIS) + "）";
                         break;
                     case "禁言":
-                        ok = rollbackMute(target);
+                        ok = rollbackMute(target, rollbackActor);
                         detail = "§a回滚禁言：解除 " + target + " 的禁言";
                         break;
                     case "解除禁言":
-                        ok = rollbackUnmute(target);
+                        ok = rollbackUnmute(target, rollbackActor);
                         detail = "§a回滚解除禁言：重新禁言 " + target + "（" + TimeUtils.formatDuration(DEFAULT_MUTE_MILLIS) + "）";
                         break;
                     case "警告":
@@ -210,41 +211,41 @@ public class RollbackManager {
     }
 
     /** 封禁 → 解封。 */
-    private boolean rollbackBan(String target) {
+    private boolean rollbackBan(String target, String actor) {
         if (!plugin.getBanManager().isPlayerBanned(target)) {
             return false;
         }
-        return plugin.getBanManager().tryUnbanPlayer(target, ROLLBACK_ACTOR, true).isApplied();
+        return plugin.getBanManager().tryUnbanPlayer(target, actor, true).isApplied();
     }
 
     /** 封禁IP → 解封。 */
-    private boolean rollbackBanIp(String target) {
+    private boolean rollbackBanIp(String target, String actor) {
         boolean bannedExact = plugin.getBanManager().isIpBanned(target);
         boolean bannedCidr = !IpMatcher.isIpv4(target) && plugin.getBanManager().isIpBannedByCidr(target);
         if (!bannedExact && !bannedCidr) {
             return false;
         }
-        return plugin.getBanManager().tryUnbanIp(target, ROLLBACK_ACTOR, true).isApplied();
+        return plugin.getBanManager().tryUnbanIp(target, actor, true).isApplied();
     }
 
     /** 解封 → 恢复封禁（30 天）。 */
-    private boolean rollbackUnban(String target) {
+    private boolean rollbackUnban(String target, String actor) {
         if (plugin.getBanManager().isPlayerBanned(target)) {
             return false;
         }
         long endTime = TimeUtils.calculateEndTime(DEFAULT_BAN_MILLIS);
         return plugin.getBanManager().tryBanPlayer(
-                new BanEntry(target, ROLLBACK_ACTOR, endTime, "管理员操作回滚（原解封）", false), true).isApplied();
+                new BanEntry(target, actor, endTime, "管理员操作回滚（原解封）", false), true).isApplied();
     }
 
     /** 解封IP → 恢复封禁 IP（30 天）。 */
-    private boolean rollbackUnbanIp(String target) {
+    private boolean rollbackUnbanIp(String target, String actor) {
         if (plugin.getBanManager().isIpBanned(target)) {
             return false;
         }
         long endTime = TimeUtils.calculateEndTime(DEFAULT_BAN_MILLIS);
         BanManager.BanMutationResult result = plugin.getBanManager().tryBanIp(
-                new BanIpEntry(target, ROLLBACK_ACTOR, endTime, "管理员操作回滚（原解封IP）", false), true);
+                new BanIpEntry(target, actor, endTime, "管理员操作回滚（原解封IP）", false), true);
         if (result == BanManager.BanMutationResult.REJECTED_PRIVATE_OR_RESERVED_IP) {
             throw new IllegalStateException("目标 IP 属于私有/保留地址，无法恢复封禁（可能为旧数据，需手动处理）");
         }
@@ -252,21 +253,21 @@ public class RollbackManager {
     }
 
     /** 禁言 → 解除禁言。 */
-    private boolean rollbackMute(String target) {
+    private boolean rollbackMute(String target, String actor) {
         if (!plugin.getMuteManager().isPlayerMuted(target)) {
             return false;
         }
-        plugin.getMuteManager().unmutePlayer(target, ROLLBACK_ACTOR);
+        plugin.getMuteManager().unmutePlayer(target, actor);
         return true;
     }
 
     /** 解除禁言 → 恢复禁言（7 天）。 */
-    private boolean rollbackUnmute(String target) {
+    private boolean rollbackUnmute(String target, String actor) {
         if (plugin.getMuteManager().isPlayerMuted(target)) {
             return false;
         }
         long endTime = TimeUtils.calculateEndTime(DEFAULT_MUTE_MILLIS);
-        Long applied = plugin.getMuteManager().mutePlayer(new MuteEntry(target, ROLLBACK_ACTOR, endTime, "管理员操作回滚（原解除禁言）"));
+        Long applied = plugin.getMuteManager().mutePlayer(new MuteEntry(target, actor, endTime, "管理员操作回滚（原解除禁言）"));
         return applied != null;
     }
 

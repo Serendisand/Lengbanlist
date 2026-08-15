@@ -6,6 +6,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
+import org.leng.utils.Utils;
 
 public class WarnMsgCommand implements CommandExecutor {
     private final Lengbanlist plugin;
@@ -39,7 +40,7 @@ public class WarnMsgCommand implements CommandExecutor {
         }
 
 
-        plugin.getWarnManager().warnPlayer(target.getName(), sender.getName(), "消息违规");
+        plugin.getWarnManager().warnPlayer(target.getName(), Utils.getSenderName(sender), "消息违规");
         target.sendMessage(plugin.prefix() + "§c你因消息违规被警告一次。");
         sender.sendMessage(plugin.prefix() + "§a已警告玩家 " + target.getName() + "。");
         return true;

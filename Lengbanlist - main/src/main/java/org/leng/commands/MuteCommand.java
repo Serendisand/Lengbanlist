@@ -58,7 +58,7 @@ public class MuteCommand implements CommandExecutor {
                 return true;
             }
         }
-        MuteEntry entry = new MuteEntry(target, sender.getName(), org.leng.utils.TimeUtils.calculateEndTime(duration), reason);
+        MuteEntry entry = new MuteEntry(target, Utils.getSenderName(sender), org.leng.utils.TimeUtils.calculateEndTime(duration), reason);
         Long newDuration = plugin.getMuteManager().mutePlayer(entry);
         if (newDuration == null) {
             Utils.sendMessage(sender, plugin.prefix() + "§e该目标已有相同时长的禁言记录，未重复禁言。");

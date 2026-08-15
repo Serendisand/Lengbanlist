@@ -49,13 +49,13 @@ public class UnbanCommand extends Command implements CommandExecutor {
                 return false;
             }
             BanManager.BanMutationResult result = plugin.getBanManager()
-                    .tryUnbanIp(normalized, sender.getName(), false);
+                    .tryUnbanIp(normalized, Utils.getSenderName(sender), false);
             if (!result.isApplied()) {
                 BanMutationFeedback.sendFailure(sender, result, normalized, true);
             }
         } else {
             BanManager.BanMutationResult result = plugin.getBanManager()
-                    .tryUnbanPlayer(args[0], sender.getName(), false);
+                    .tryUnbanPlayer(args[0], Utils.getSenderName(sender), false);
             if (!result.isApplied()) {
                 BanMutationFeedback.sendFailure(sender, result, args[0], false);
             }
