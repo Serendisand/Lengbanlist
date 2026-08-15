@@ -6,6 +6,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.leng.Lengbanlist;
+import org.leng.manager.BanManager;
 import org.leng.manager.IpAssociationManager;
 import org.leng.manager.ReportManager;
 import org.leng.object.BanIpEntry;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class PlayerJoinListener implements Listener {
+
     private final Lengbanlist plugin;
 
     public PlayerJoinListener(Lengbanlist plugin) {
@@ -70,8 +72,8 @@ public class PlayerJoinListener implements Listener {
                 player.sendMessage(plugin.prefix() + "§7——————————");
                 player.sendMessage(plugin.prefix() + "§a你的举报已被处理。");
                 player.spigot().sendMessage(
-                    new net.md_5.bungee.api.chat.TextComponent(plugin.prefix() + " "),
-                    org.leng.utils.Utils.clickableText("§a【我已阅读】", "/report ack " + reports.get(0).getId())
+                        new net.md_5.bungee.api.chat.TextComponent(plugin.prefix() + " "),
+                        org.leng.utils.Utils.clickableText("§a【我已阅读】", "/report ack " + reports.get(0).getId())
                 );
                 player.sendMessage(plugin.prefix() + "§7——————————");
             }
@@ -98,7 +100,13 @@ public class PlayerJoinListener implements Listener {
                 long duration = TimeUtils.parseTime(banDurationStr);
                 if (duration <= 0) duration = TimeUtils.daysToMillis(7);
                 long endTime = TimeUtils.calculateEndTime(duration);
-                plugin.getBanManager().banIp(new BanIpEntry(ip, "VPN-Detection", endTime, banReason, false));
+                BanManager.BanMutationResult banResult = plugin.getBanManager().tryBanIp(
+                        new BanIpEntry(ip, "VPN-Detection", endTime, banReason, false));
+                if (!banResult.isApplied()) {
+                    plugin.getLogger().warning("VPN 检测自动封禁失败: player=" + player.getName()
+                            + ", ip=" + ip + ", result=" + banResult);
+                    break;
+                }
                 player.kickPlayer("§c检测到代理/VPN 连接\n\n§f" + banReason + "\n§e请联系管理员解决");
                 for (Player online : Bukkit.getOnlinePlayers()) {
                     if (online.hasPermission("lengbanlist.check") || online.isOp()) {
@@ -127,4 +135,5 @@ public class PlayerJoinListener implements Listener {
                 break;
         }
     }
+
 }

@@ -7,6 +7,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
+import org.leng.manager.BanManager;
+import org.leng.manager.BanMutationFeedback;
 import org.leng.manager.EscalationManager.EscalationResult;
 import org.leng.object.BanEntry;
 import org.leng.utils.TimeUtils;
@@ -17,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BanCommand implements CommandExecutor, TabCompleter {
+
     private final Lengbanlist plugin;
 
     public BanCommand(Lengbanlist plugin) {
@@ -69,14 +72,12 @@ public class BanCommand implements CommandExecutor, TabCompleter {
 
         long banDuration;
         boolean isAuto = false;
+        EscalationResult escalationResult = null;
 
         if (timeArg.equalsIgnoreCase("auto")) {
             isAuto = true;
-            EscalationResult r = plugin.getEscalationManager().resolveBan(target);
-            banDuration = r.durationMillis;
-            if (r.offenseCount > 0) {
-                Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(target, r.offenseCount, TimeUtils.formatDuration(banDuration)));
-            }
+            escalationResult = plugin.getEscalationManager().resolveBan(target);
+            banDuration = escalationResult.durationMillis;
         } else {
             banDuration = TimeUtils.parseDurationToMillis(timeArg);
             if (banDuration <= 0) {
@@ -89,14 +90,23 @@ public class BanCommand implements CommandExecutor, TabCompleter {
         long banEndTime = TimeUtils.calculateEndTime(banDuration);
 
         BanEntry entry = new BanEntry(
-            target,
-            sender.getName(),
-            banEndTime,
-            reason,
-            isAuto
+                target,
+                sender.getName(),
+                banEndTime,
+                reason,
+                isAuto
         );
 
-        plugin.getBanManager().banPlayer(entry, silent);
+        BanManager.BanMutationResult result = plugin.getBanManager().tryBanPlayer(entry, silent);
+        if (!result.isApplied()) {
+            BanMutationFeedback.sendFailure(sender, result, target, false);
+            return true;
+        }
+
+        if (escalationResult != null && escalationResult.offenseCount > 0) {
+            Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(
+                    target, escalationResult.offenseCount, TimeUtils.formatDuration(banDuration)));
+        }
         return true;
     }
 
@@ -153,4 +163,5 @@ public class BanCommand implements CommandExecutor, TabCompleter {
         String value = plugin.getConfig().getString("preset-reasons." + input.toLowerCase());
         return value != null ? value : input;
     }
+
 }

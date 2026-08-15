@@ -22,6 +22,8 @@ import org.leng.object.MuteEntry;
 import org.leng.object.ReportEntry;
 import org.leng.object.WarnEntry;
 import org.leng.manager.EscalationManager.EscalationResult;
+import org.leng.manager.BanManager;
+import org.leng.manager.BanMutationFeedback;
 import org.leng.manager.GuiSessionManager;
 import org.leng.manager.ModelManager;
 import org.leng.models.Model;
@@ -45,6 +47,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
 public class LengbanlistCommand extends Command implements CommandExecutor, Listener, TabCompleter {
+
     private final Lengbanlist plugin;
     private final Gson gson = new Gson();
 
@@ -113,32 +116,32 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 showBanList(sender);
                 break;
             case "reload":
-    if (!sender.hasPermission("lengbanlist.reload")) {
-        Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
-        return true;
-    }
-    plugin.reloadConfig();
-    ModelManager.getInstance().reloadModel();
+                if (!sender.hasPermission("lengbanlist.reload")) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                    return true;
+                }
+                plugin.reloadConfig();
+                ModelManager.getInstance().reloadModel();
 
-    File broadcastFile = new File(plugin.getDataFolder(), "broadcast.yml");
-    if (broadcastFile.exists()) {
-        try {
-            plugin.getBroadcastFC().load(broadcastFile);
-        } catch (Exception e) {
-            plugin.getLogger().warning("重载broadcast.yml失败: " + e.getMessage());
-        }
-    }
-    File chatConfigFile = new File(plugin.getDataFolder(), "chatconfig.yml");
-    if (chatConfigFile.exists()) {
-        try {
-            plugin.getChatConfig().load(chatConfigFile);
-        } catch (Exception e) {
-            plugin.getLogger().warning("重载chatconfig.yml失败: " + e.getMessage());
-        }
-    }
-    Utils.sendMessage(sender, currentModel.reloadConfig());
-    plugin.reloadWebServer();
-    break;
+                File broadcastFile = new File(plugin.getDataFolder(), "broadcast.yml");
+                if (broadcastFile.exists()) {
+                    try {
+                        plugin.getBroadcastFC().load(broadcastFile);
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("重载broadcast.yml失败: " + e.getMessage());
+                    }
+                }
+                File chatConfigFile = new File(plugin.getDataFolder(), "chatconfig.yml");
+                if (chatConfigFile.exists()) {
+                    try {
+                        plugin.getChatConfig().load(chatConfigFile);
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("重载chatconfig.yml失败: " + e.getMessage());
+                    }
+                }
+                Utils.sendMessage(sender, currentModel.reloadConfig());
+                plugin.reloadWebServer();
+                break;
             case "add":
                 boolean addSilent = false;
                 if (args.length > 1 && args[1].equalsIgnoreCase("-s")) {
@@ -173,14 +176,12 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 try {
                     long durationLong;
                     boolean isAuto = args[2].equalsIgnoreCase("auto");
+                    EscalationResult escalationResult = null;
                     if (isAuto) {
-                        EscalationResult escalationResult = args[1].contains(".")
+                        escalationResult = args[1].contains(".")
                                 ? plugin.getEscalationManager().resolveIpBan(args[1])
                                 : plugin.getEscalationManager().resolveBan(args[1]);
                         durationLong = escalationResult.durationMillis;
-                        if (escalationResult.offenseCount > 0) {
-                            Utils.sendMessage(sender, currentModel.onEscalatedBan(args[1], escalationResult.offenseCount, TimeUtils.formatDuration(durationLong)));
-                        }
                     } else {
                         durationLong = TimeUtils.parseTime(args[2]);
                         if (durationLong <= 0) {
@@ -189,17 +190,29 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     }
                     long endTime = TimeUtils.calculateEndTime(durationLong);
                     long durationMillis = endTime == Long.MAX_VALUE ? Long.MAX_VALUE : endTime - System.currentTimeMillis();
-                    int durationDays = durationMillis == Long.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(1, Math.round(durationMillis / (double)(1000 * 60 * 60 * 24)));
+                    int durationDays = durationMillis == Long.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(1, Math.round(durationMillis / (double) (1000 * 60 * 60 * 24)));
 
                     if (args[1].contains(".")) {
-                        plugin.getBanManager().banIp(new BanIpEntry(args[1], sender.getName(), endTime, args[3], isAuto), addSilent);
-                        if (addSilent) {
+                        BanManager.BanMutationResult result = plugin.getBanManager().tryBanIp(new BanIpEntry(args[1], sender.getName(), endTime, args[3], isAuto), addSilent);
+                        if (result.isApplied() && isAuto && escalationResult.offenseCount > 0) {
+                            Utils.sendMessage(sender, currentModel.onEscalatedBan(args[1], escalationResult.offenseCount, TimeUtils.formatDuration(durationLong)));
+                        }
+                        if (result.isApplied() && addSilent) {
                             Utils.sendMessage(sender, currentModel.addBanIp(args[1], durationDays, args[3]));
                         }
+                        if (!result.isApplied()) {
+                            BanMutationFeedback.sendFailure(sender, result, args[1], true);
+                        }
                     } else {
-                        plugin.getBanManager().banPlayer(new BanEntry(args[1], sender.getName(), endTime, args[3], isAuto), addSilent);
-                        if (addSilent) {
+                        BanManager.BanMutationResult result = plugin.getBanManager().tryBanPlayer(new BanEntry(args[1], sender.getName(), endTime, args[3], isAuto), addSilent);
+                        if (result.isApplied() && isAuto && escalationResult.offenseCount > 0) {
+                            Utils.sendMessage(sender, currentModel.onEscalatedBan(args[1], escalationResult.offenseCount, TimeUtils.formatDuration(durationLong)));
+                        }
+                        if (result.isApplied() && addSilent) {
                             Utils.sendMessage(sender, currentModel.addBan(args[1], durationDays, args[3]));
+                        }
+                        if (!result.isApplied()) {
+                            BanMutationFeedback.sendFailure(sender, result, args[1], false);
                         }
                     }
                 } catch (IllegalArgumentException e) {
@@ -222,16 +235,14 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 if (args[1].contains(".")) {
                     String normalizedIp = IpMatcher.normalizeIpOrCidr(args[1]);
                     if (normalizedIp != null) args[1] = normalizedIp;
-                    if (plugin.getBanManager().isIpBanned(args[1])) {
-                        plugin.getBanManager().unbanIp(args[1], sender.getName());
-                    } else {
-                        Utils.sendMessage(sender, plugin.prefix() + "§cIP " + args[1] + " 未被封禁或封禁已过期");
+                    BanManager.BanMutationResult result = plugin.getBanManager().tryUnbanIp(args[1], sender.getName(), false);
+                    if (!result.isApplied()) {
+                        BanMutationFeedback.sendFailure(sender, result, args[1], true);
                     }
                 } else {
-                    if (plugin.getBanManager().isPlayerBanned(args[1])) {
-                        plugin.getBanManager().unbanPlayer(args[1], sender.getName());
-                    } else {
-                        Utils.sendMessage(sender, plugin.prefix() + "§c玩家 " + args[1] + " 未被封禁或封禁已过期");
+                    BanManager.BanMutationResult result = plugin.getBanManager().tryUnbanPlayer(args[1], sender.getName(), false);
+                    if (!result.isApplied()) {
+                        BanMutationFeedback.sendFailure(sender, result, args[1], false);
                     }
                 }
                 break;
@@ -473,39 +484,39 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 }
                 Utils.sendMessage(sender, currentModel.removeWarn(unwarnTarget));
                 break;
-        case "report":
-            if (!plugin.isFeatureEnabled("report")) {
-                plugin.sendFeatureDisabled(sender);
-                return true;
-            }
-            if (!(sender instanceof Player)) {
-                Utils.sendMessage(sender, plugin.prefix() + "§c此命令只能由玩家执行。");
-                return true;
-            }
+            case "report":
+                if (!plugin.isFeatureEnabled("report")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
+                if (!(sender instanceof Player)) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c此命令只能由玩家执行。");
+                    return true;
+                }
 
-            String[] reportArgs = Arrays.copyOfRange(args, 1, args.length);
-            return new ReportCommand(plugin).onCommand(sender, this, label, reportArgs);
-        case "tp":
-            if (!plugin.isFeatureEnabled("tp")) {
-                plugin.sendFeatureDisabled(sender);
-                return true;
-            }
-            if (!sender.hasPermission("lengbanlist.admin")) {
-                Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
-                return true;
-            }
-            if (args.length < 2) {
-                Utils.sendMessage(sender, plugin.prefix() + "§c用法喵: /lban tp <玩家名>");
-                return true;
-            }
-            Player targetPlayer = Bukkit.getPlayer(args[1]);
-            if (targetPlayer != null && sender instanceof Player) {
-                ((Player) sender).teleport(targetPlayer);
-                Utils.sendMessage(sender, plugin.prefix() + "§a已传送到玩家 " + targetPlayer.getName());
-            } else {
-                Utils.sendMessage(sender, plugin.prefix() + "§c玩家不在线");
-            }
-            break;
+                String[] reportArgs = Arrays.copyOfRange(args, 1, args.length);
+                return new ReportCommand(plugin).onCommand(sender, this, label, reportArgs);
+            case "tp":
+                if (!plugin.isFeatureEnabled("tp")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
+                if (!sender.hasPermission("lengbanlist.admin")) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                    return true;
+                }
+                if (args.length < 2) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c用法喵: /lban tp <玩家名>");
+                    return true;
+                }
+                Player targetPlayer = Bukkit.getPlayer(args[1]);
+                if (targetPlayer != null && sender instanceof Player) {
+                    ((Player) sender).teleport(targetPlayer);
+                    Utils.sendMessage(sender, plugin.prefix() + "§a已传送到玩家 " + targetPlayer.getName());
+                } else {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c玩家不在线");
+                }
+                break;
             case "admin":
                 if (!plugin.isFeatureEnabled("admin")) {
                     plugin.sendFeatureDisabled(sender);
@@ -634,11 +645,6 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     Utils.sendMessage(sender, plugin.prefix() + "§c未找到举报编号: " + args[1]);
                     return true;
                 }
-                String handleStatus = handleReport.getStatus();
-                if (handleStatus != null && !handleStatus.equals("受理中") && !handleStatus.equals("已读")) {
-                    Utils.sendMessage(sender, plugin.prefix() + "§c该举报已处理，无法再次操作。");
-                    return true;
-                }
                 String handleTarget = handleReport.getTarget();
                 if (!plugin.getImmunityManager().canPunish(sender, handleTarget)) {
                     Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(handleTarget));
@@ -647,16 +653,14 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 boolean handleAuto = args[2].equalsIgnoreCase("auto");
                 try {
                     long handleEndTime;
+                    EscalationResult handleEscalationResult = null;
                     if (args[2].equalsIgnoreCase("forever")) {
                         handleEndTime = Long.MAX_VALUE;
                     } else if (handleAuto) {
-                        EscalationResult escalationResult = handleTarget.contains(".")
+                        handleEscalationResult = handleTarget.contains(".")
                                 ? plugin.getEscalationManager().resolveIpBan(handleTarget)
                                 : plugin.getEscalationManager().resolveBan(handleTarget);
-                        if (escalationResult.offenseCount > 0) {
-                            Utils.sendMessage(sender, currentModel.onEscalatedBan(handleTarget, escalationResult.offenseCount, TimeUtils.formatDuration(escalationResult.durationMillis)));
-                        }
-                        handleEndTime = TimeUtils.calculateEndTime(escalationResult.durationMillis);
+                        handleEndTime = TimeUtils.calculateEndTime(handleEscalationResult.durationMillis);
                     } else {
                         long handleDuration = TimeUtils.parseDurationToMillis(args[2]);
                         if (handleDuration <= 0) {
@@ -666,7 +670,17 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                         handleEndTime = TimeUtils.calculateEndTime(handleDuration);
                     }
                     String handleReason = args.length > 3 ? String.join(" ", Arrays.copyOfRange(args, 3, args.length)) : handleReport.getReason();
-                    plugin.getReportManager().banFromReport(handleReport, sender.getName(), handleEndTime, handleReason, handleAuto);
+                    BanManager.BanMutationResult handleResult = plugin.getReportManager().tryBanFromReport(
+                            handleReport, sender.getName(), handleEndTime, handleReason, handleAuto);
+                    if (!handleResult.isApplied()) {
+                        BanMutationFeedback.sendFailure(sender, handleResult, handleTarget, handleTarget.contains("."));
+                        break;
+                    }
+                    if (handleEscalationResult != null && handleEscalationResult.offenseCount > 0) {
+                        Utils.sendMessage(sender, currentModel.onEscalatedBan(handleTarget,
+                                handleEscalationResult.offenseCount,
+                                TimeUtils.formatDuration(handleEscalationResult.durationMillis)));
+                    }
                     String handleDurationText = handleEndTime == Long.MAX_VALUE ? "永久" : TimeUtils.formatDuration(handleEndTime - System.currentTimeMillis());
                     Utils.sendMessage(sender, plugin.prefix() + "§a已处理举报 " + handleReport.getId() + "，封禁玩家 " + handleTarget + "（" + handleDurationText + "）");
                 } catch (IllegalArgumentException e) {
@@ -713,7 +727,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     return true;
                 }
                 String[] rollbackArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
-                return new org.leng.commands.RollbackCommand(plugin).onCommand(sender, null, "lban rollback", rollbackArgs);
+                return new RollbackCommand(plugin).onCommand(sender, null, "lban rollback", rollbackArgs);
             default:
                 Utils.sendMessage(sender, plugin.prefix() + "§c未知子命令喵: §f" + args[0] + "§c，输入 §f/lban help §c看看能用什么喵。");
                 break;
@@ -1142,395 +1156,418 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
         }
     }
 
-@EventHandler
-public void onInventoryClick(InventoryClickEvent event) {
-    if (!event.getView().getTitle().equals("§bLengbanlist")) {
-        return;
-    }
-    event.setCancelled(true);
-
-    Player player = (Player) event.getWhoClicked();
-    GuiSessionManager gui = plugin.getGuiSessionManager();
-    String view = gui.getView(player.getUniqueId());
-    if (gui != null && view != null && view.startsWith("alts:")) {
-        return;
-    }
-
-    if (!plugin.isFeatureEnabled("chest-ui")) {
-        plugin.sendFeatureDisabled(player);
-        player.closeInventory();
-        return;
-    }
-
-    ItemStack clickedItem = event.getCurrentItem();
-
-    if (clickedItem == null || !clickedItem.hasItemMeta()) {
-        return;
-    }
-
-    ItemMeta clickMeta = clickedItem.getItemMeta();
-    if (clickMeta.getLore() == null || clickMeta.getLore().isEmpty()) {
-        return;
-    }
-
-    String command = clickMeta.getLore().get(0).replace("§7", "");
-
-    if (command.startsWith("REPORT:")) {
-        player.closeInventory();
-        player.performCommand("lban handle " + command.substring("REPORT:".length()) + " auto");
-        return;
-    }
-
-    switch (command) {
-        case "VIEW_BANS":
-            if (!plugin.isFeatureEnabled("ban")) {
-                plugin.sendFeatureDisabled(player);
-                return;
-            }
-            gui.setView(player.getUniqueId(), "bans");
-            gui.setPage(player.getUniqueId(), "bans", 0);
-            renderGuiList(player, event.getView().getTopInventory(), "bans");
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!event.getView().getTitle().equals("§bLengbanlist")) {
             return;
-        case "VIEW_MUTES":
-            if (!plugin.isFeatureEnabled("mute")) {
-                plugin.sendFeatureDisabled(player);
-                return;
-            }
-            gui.setView(player.getUniqueId(), "mutes");
-            gui.setPage(player.getUniqueId(), "mutes", 0);
-            renderGuiList(player, event.getView().getTopInventory(), "mutes");
+        }
+        event.setCancelled(true);
+
+        Player player = (Player) event.getWhoClicked();
+        GuiSessionManager gui = plugin.getGuiSessionManager();
+        String view = gui.getView(player.getUniqueId());
+        if (gui != null && view != null && view.startsWith("alts:")) {
             return;
-        case "VIEW_REPORTS":
-            if (!plugin.isFeatureEnabled("report")) {
-                plugin.sendFeatureDisabled(player);
-                return;
-            }
-            gui.setView(player.getUniqueId(), "reports");
-            gui.setPage(player.getUniqueId(), "reports", 0);
-            renderGuiList(player, event.getView().getTopInventory(), "reports");
+        }
+
+        if (!plugin.isFeatureEnabled("chest-ui")) {
+            plugin.sendFeatureDisabled(player);
+            player.closeInventory();
             return;
-        case "VIEW_MENU":
-            gui.setView(player.getUniqueId(), "menu");
-            gui.setPage(player.getUniqueId(), "menu", 0);
-            renderGuiMenu(player, event.getView().getTopInventory());
+        }
+
+        ItemStack clickedItem = event.getCurrentItem();
+
+        if (clickedItem == null || !clickedItem.hasItemMeta()) {
             return;
-        case "PAGE_PREV":
-            if (view == null) {
-                return;
-            }
-            int prevPage = gui.getPage(player.getUniqueId(), view) - 1;
-            if (prevPage < 0) {
-                return;
-            }
-            gui.setPage(player.getUniqueId(), view, prevPage);
-            renderGuiList(player, event.getView().getTopInventory(), view);
+        }
+
+        ItemMeta clickMeta = clickedItem.getItemMeta();
+        if (clickMeta.getLore() == null || clickMeta.getLore().isEmpty()) {
             return;
-        case "PAGE_NEXT":
-            if (view == null) {
-                return;
-            }
-            int nextPage = gui.getPage(player.getUniqueId(), view) + 1;
-            if (nextPage >= guiTotalPages(view)) {
-                return;
-            }
-            gui.setPage(player.getUniqueId(), view, nextPage);
-            renderGuiList(player, event.getView().getTopInventory(), view);
+        }
+
+        String command = clickMeta.getLore().get(0).replace("§7", "");
+
+        if (command.startsWith("REPORT:")) {
+            player.closeInventory();
+            player.performCommand("lban handle " + command.substring("REPORT:".length()) + " auto");
             return;
-        default:
-            if (command.startsWith("/")) {
-                player.closeInventory();
-                switch (command) {
-                    case "/lban add":
-                        startChatWizard(player, "ban");
-                        break;
-                    case "/lban remove":
-                        startChatWizard(player, "unban");
-                        break;
-                    case "/lban ipban":
-                        startChatWizard(player, "ipban");
-                        break;
-                    case "/lban model":
-                        ModelManager.getInstance().openModelSelectionUI(player);
-                        break;
-                    case "/lban mute":
-                        startChatWizard(player, "mute");
-                        break;
-                    case "/lban unmute":
-                        startChatWizard(player, "unmute");
-                        break;
-                    default:
-                        player.performCommand(command.substring(1));
-                        break;
+        }
+
+        switch (command) {
+            case "VIEW_BANS":
+                if (!plugin.isFeatureEnabled("ban")) {
+                    plugin.sendFeatureDisabled(player);
+                    return;
                 }
-            } else if (command.equals("ACTION_SPONSOR")) {
-                player.closeInventory();
-                player.spigot().sendMessage(
-                        new net.md_5.bungee.api.chat.TextComponent(plugin.prefix() + "§6赞助作者："),
-                        Utils.clickableUrl("§e【点击打开爱发电】", "https://afdian.com/a/lengmc")
-                );
-            }
-            break;
+                gui.setView(player.getUniqueId(), "bans");
+                gui.setPage(player.getUniqueId(), "bans", 0);
+                renderGuiList(player, event.getView().getTopInventory(), "bans");
+                return;
+            case "VIEW_MUTES":
+                if (!plugin.isFeatureEnabled("mute")) {
+                    plugin.sendFeatureDisabled(player);
+                    return;
+                }
+                gui.setView(player.getUniqueId(), "mutes");
+                gui.setPage(player.getUniqueId(), "mutes", 0);
+                renderGuiList(player, event.getView().getTopInventory(), "mutes");
+                return;
+            case "VIEW_REPORTS":
+                if (!plugin.isFeatureEnabled("report")) {
+                    plugin.sendFeatureDisabled(player);
+                    return;
+                }
+                gui.setView(player.getUniqueId(), "reports");
+                gui.setPage(player.getUniqueId(), "reports", 0);
+                renderGuiList(player, event.getView().getTopInventory(), "reports");
+                return;
+            case "VIEW_MENU":
+                gui.setView(player.getUniqueId(), "menu");
+                gui.setPage(player.getUniqueId(), "menu", 0);
+                renderGuiMenu(player, event.getView().getTopInventory());
+                return;
+            case "PAGE_PREV":
+                if (view == null) {
+                    return;
+                }
+                int prevPage = gui.getPage(player.getUniqueId(), view) - 1;
+                if (prevPage < 0) {
+                    return;
+                }
+                gui.setPage(player.getUniqueId(), view, prevPage);
+                renderGuiList(player, event.getView().getTopInventory(), view);
+                return;
+            case "PAGE_NEXT":
+                if (view == null) {
+                    return;
+                }
+                int nextPage = gui.getPage(player.getUniqueId(), view) + 1;
+                if (nextPage >= guiTotalPages(view)) {
+                    return;
+                }
+                gui.setPage(player.getUniqueId(), view, nextPage);
+                renderGuiList(player, event.getView().getTopInventory(), view);
+                return;
+            default:
+                if (command.startsWith("/")) {
+                    player.closeInventory();
+                    switch (command) {
+                        case "/lban add":
+                            startChatWizard(player, "ban");
+                            break;
+                        case "/lban remove":
+                            startChatWizard(player, "unban");
+                            break;
+                        case "/lban ipban":
+                            startChatWizard(player, "ipban");
+                            break;
+                        case "/lban model":
+                            ModelManager.getInstance().openModelSelectionUI(player);
+                            break;
+                        case "/lban mute":
+                            startChatWizard(player, "mute");
+                            break;
+                        case "/lban unmute":
+                            startChatWizard(player, "unmute");
+                            break;
+                        default:
+                            player.performCommand(command.substring(1));
+                            break;
+                    }
+                } else if (command.equals("ACTION_SPONSOR")) {
+                    player.closeInventory();
+                    player.spigot().sendMessage(
+                            new net.md_5.bungee.api.chat.TextComponent(plugin.prefix() + "§6赞助作者："),
+                            Utils.clickableUrl("§e【点击打开爱发电】", "https://afdian.com/a/lengmc")
+                    );
+                }
+                break;
+        }
     }
-}
 
-public void startChatWizard(Player player, String action) {
-    switch (action) {
-        case "ban":
-            if (!plugin.isFeatureEnabled("ban")) {
-                plugin.sendFeatureDisabled(player);
-                return;
-            }
-            break;
-        case "unban":
-            if (!plugin.isFeatureEnabled("unban")) {
-                plugin.sendFeatureDisabled(player);
-                return;
-            }
-            break;
-        case "mute":
-        case "unmute":
-            if (!plugin.isFeatureEnabled("mute")) {
-                plugin.sendFeatureDisabled(player);
-                return;
-            }
-            break;
-        case "ipban":
-            if (!plugin.isFeatureEnabled("ban-ip")) {
-                plugin.sendFeatureDisabled(player);
-                return;
-            }
-            break;
+    public void startChatWizard(Player player, String action) {
+        switch (action) {
+            case "ban":
+                if (!plugin.isFeatureEnabled("ban")) {
+                    plugin.sendFeatureDisabled(player);
+                    return;
+                }
+                break;
+            case "unban":
+                if (!plugin.isFeatureEnabled("unban")) {
+                    plugin.sendFeatureDisabled(player);
+                    return;
+                }
+                break;
+            case "mute":
+            case "unmute":
+                if (!plugin.isFeatureEnabled("mute")) {
+                    plugin.sendFeatureDisabled(player);
+                    return;
+                }
+                break;
+            case "ipban":
+                if (!plugin.isFeatureEnabled("ban-ip")) {
+                    plugin.sendFeatureDisabled(player);
+                    return;
+                }
+                break;
+        }
+        player.setMetadata("lengbanlist-action", new org.bukkit.metadata.FixedMetadataValue(plugin, action));
+        switch (action) {
+            case "ban":
+                player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "playerID"));
+                Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f玩家名或IP§e：");
+                break;
+            case "ipban":
+                player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "ip"));
+                Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入要§f封禁的IP地址§e：");
+                break;
+            case "unban":
+                Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入要§f解封的玩家名或IP§e：");
+                break;
+            case "mute":
+                player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "playerID"));
+                Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入要§f禁言的玩家名§e：");
+                break;
+            case "unmute":
+                Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入要§f解除禁言的玩家名§e：");
+                break;
+        }
     }
-    player.setMetadata("lengbanlist-action", new org.bukkit.metadata.FixedMetadataValue(plugin, action));
-    switch (action) {
-        case "ban":
-            player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "playerID"));
-            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f玩家名或IP§e：");
-            break;
-        case "ipban":
-            player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "ip"));
-            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入要§f封禁的IP地址§e：");
-            break;
-        case "unban":
-            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入要§f解封的玩家名或IP§e：");
-            break;
-        case "mute":
-            player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "playerID"));
-            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入要§f禁言的玩家名§e：");
-            break;
-        case "unmute":
-            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入要§f解除禁言的玩家名§e：");
-            break;
+
+    public void handleChatWizard(Player player, String input) {
+        if (!player.hasMetadata("lengbanlist-action")) return;
+
+        String action = player.getMetadata("lengbanlist-action").get(0).asString();
+
+        switch (action) {
+            case "ban":
+                if (!plugin.isFeatureEnabled("ban")) {
+                    plugin.sendFeatureDisabled(player);
+                    clearWizard(player);
+                    return;
+                }
+                handleBanWizard(player, input);
+                break;
+            case "unban":
+                if (!plugin.isFeatureEnabled("unban")) {
+                    plugin.sendFeatureDisabled(player);
+                    clearWizard(player);
+                    return;
+                }
+                BanManager.BanMutationResult unbanResult;
+                if (input.contains(".")) {
+                    unbanResult = plugin.getBanManager().tryUnbanIp(input, player.getName(), false);
+                } else {
+                    unbanResult = plugin.getBanManager().tryUnbanPlayer(input, player.getName(), false);
+                }
+                if (!unbanResult.isApplied()) {
+                    BanMutationFeedback.sendFailure(player, unbanResult, input, input.contains("."));
+                    if (unbanResult == BanManager.BanMutationResult.DATABASE_ERROR) {
+                        return;
+                    }
+                }
+                clearWizard(player);
+                break;
+            case "mute":
+                if (!plugin.isFeatureEnabled("mute")) {
+                    plugin.sendFeatureDisabled(player);
+                    clearWizard(player);
+                    return;
+                }
+                handleMuteWizard(player, input);
+                break;
+            case "unmute":
+                if (!plugin.isFeatureEnabled("mute")) {
+                    plugin.sendFeatureDisabled(player);
+                    clearWizard(player);
+                    return;
+                }
+                plugin.getMuteManager().unmutePlayer(input, player.getName());
+                Utils.broadcast(ModelManager.getInstance().getCurrentModel().removeMute(input));
+                clearWizard(player);
+                break;
+            case "ipban":
+                if (!plugin.isFeatureEnabled("ban-ip")) {
+                    plugin.sendFeatureDisabled(player);
+                    clearWizard(player);
+                    return;
+                }
+                handleIPBanWizard(player, input);
+                break;
+        }
     }
-}
 
-public void handleChatWizard(Player player, String input) {
-    if (!player.hasMetadata("lengbanlist-action")) return;
-
-    String action = player.getMetadata("lengbanlist-action").get(0).asString();
-
-    switch (action) {
-        case "ban":
-            if (!plugin.isFeatureEnabled("ban")) {
-                plugin.sendFeatureDisabled(player);
+    private void handleBanWizard(Player player, String input) {
+        String step = player.getMetadata("lengbanlist-step").get(0).asString();
+        if (step.equals("playerID")) {
+            player.setMetadata("lengbanlist-playerID", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
+            player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "time"));
+            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f封禁时间§e（如：1d, 7d, forever）：");
+        } else if (step.equals("time")) {
+            if (!TimeUtils.isValidTime(input)) {
+                Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效喵，请使用：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever, auto");
+                return;
+            }
+            player.setMetadata("lengbanlist-time", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
+            player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "reason"));
+            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f封禁原因§e：");
+        } else if (step.equals("reason")) {
+            String playerID = player.getMetadata("lengbanlist-playerID").get(0).asString();
+            String time = player.getMetadata("lengbanlist-time").get(0).asString();
+            if (!playerID.contains(".") && !plugin.getImmunityManager().canPunish(player, playerID)) {
+                Utils.sendMessage(player, plugin.getModelManager().getCurrentModel().getImmunityDenied(playerID));
                 clearWizard(player);
                 return;
             }
-            handleBanWizard(player, input);
-            break;
-        case "unban":
-            if (!plugin.isFeatureEnabled("unban")) {
-                plugin.sendFeatureDisabled(player);
-                clearWizard(player);
-                return;
-            }
-            if (input.contains(".")) {
-                plugin.getBanManager().unbanIp(input, player.getName());
+            long duration;
+            boolean isAuto = false;
+            if (time.equalsIgnoreCase("auto")) {
+                isAuto = true;
+                duration = playerID.contains(".")
+                        ? plugin.getEscalationManager().resolveIpBan(playerID).durationMillis
+                        : plugin.getEscalationManager().resolveBan(playerID).durationMillis;
             } else {
-                plugin.getBanManager().unbanPlayer(input, player.getName());
+                duration = TimeUtils.parseTime(time);
+            }
+            if (duration <= 0) {
+                Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效喵。");
+                return;
+            }
+            long endTime = TimeUtils.calculateEndTime(duration);
+            BanManager.BanMutationResult banResult;
+            if (playerID.contains(".")) {
+                if (!plugin.isFeatureEnabled("ban-ip")) {
+                    plugin.sendFeatureDisabled(player);
+                    clearWizard(player);
+                    return;
+                }
+                banResult = plugin.getBanManager().tryBanIp(new BanIpEntry(playerID, player.getName(), endTime, input, isAuto));
+            } else {
+                banResult = plugin.getBanManager().tryBanPlayer(new BanEntry(playerID, player.getName(), endTime, input, isAuto));
+            }
+            if (!banResult.isApplied()) {
+                BanMutationFeedback.sendFailure(player, banResult, playerID, playerID.contains("."));
+                if (banResult == BanManager.BanMutationResult.DATABASE_ERROR) {
+                    return;
+                }
             }
             clearWizard(player);
-            break;
-        case "mute":
-            if (!plugin.isFeatureEnabled("mute")) {
-                plugin.sendFeatureDisabled(player);
-                clearWizard(player);
-                return;
-            }
-            handleMuteWizard(player, input);
-            break;
-        case "unmute":
-            if (!plugin.isFeatureEnabled("mute")) {
-                plugin.sendFeatureDisabled(player);
-                clearWizard(player);
-                return;
-            }
-            plugin.getMuteManager().unmutePlayer(input, player.getName());
-            Utils.broadcast(ModelManager.getInstance().getCurrentModel().removeMute(input));
-            clearWizard(player);
-            break;
-        case "ipban":
-            if (!plugin.isFeatureEnabled("ban-ip")) {
-                plugin.sendFeatureDisabled(player);
-                clearWizard(player);
-                return;
-            }
-            handleIPBanWizard(player, input);
-            break;
+        }
     }
-}
 
-private void handleBanWizard(Player player, String input) {
-    String step = player.getMetadata("lengbanlist-step").get(0).asString();
-    if (step.equals("playerID")) {
-        player.setMetadata("lengbanlist-playerID", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
-        player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "time"));
-        Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f封禁时间§e（如：1d, 7d, forever）：");
-    } else if (step.equals("time")) {
-        if (!TimeUtils.isValidTime(input)) {
-            Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效喵，请使用：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever, auto");
-            return;
-        }
-        player.setMetadata("lengbanlist-time", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
-        player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "reason"));
-        Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f封禁原因§e：");
-    } else if (step.equals("reason")) {
-        String playerID = player.getMetadata("lengbanlist-playerID").get(0).asString();
-        String time = player.getMetadata("lengbanlist-time").get(0).asString();
-        if (!playerID.contains(".") && !plugin.getImmunityManager().canPunish(player, playerID)) {
-            Utils.sendMessage(player, plugin.getModelManager().getCurrentModel().getImmunityDenied(playerID));
-            clearWizard(player);
-            return;
-        }
-        long duration;
-        boolean isAuto = false;
-        if (time.equalsIgnoreCase("auto")) {
-            isAuto = true;
-            duration = playerID.contains(".")
-                    ? plugin.getEscalationManager().resolveIpBan(playerID).durationMillis
-                    : plugin.getEscalationManager().resolveBan(playerID).durationMillis;
-        } else {
-            duration = TimeUtils.parseTime(time);
-        }
-        if (duration <= 0) {
-            Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效喵。");
-            return;
-        }
-        long endTime = TimeUtils.calculateEndTime(duration);
-        if (playerID.contains(".")) {
-            if (!plugin.isFeatureEnabled("ban-ip")) {
-                plugin.sendFeatureDisabled(player);
-                clearWizard(player);
+    private void handleIPBanWizard(Player player, String input) {
+        String step = player.getMetadata("lengbanlist-step").get(0).asString();
+        if (step.equals("ip")) {
+            if (input.equalsIgnoreCase("-s")) {
+                player.setMetadata("lengbanlist-silent", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+                Utils.sendMessage(player, plugin.prefix() + "§e已开启静默模式，请输入要§f封禁的IP地址§e：");
                 return;
             }
-            plugin.getBanManager().banIp(new BanIpEntry(playerID, player.getName(), endTime, input, isAuto));
-        } else {
-            plugin.getBanManager().banPlayer(new BanEntry(playerID, player.getName(), endTime, input, isAuto));
+            if (!IpMatcher.isIpv4(input)) {
+                Utils.sendMessage(player, plugin.prefix() + "§cIP格式无效喵，请输入合法的 IPv4 地址。");
+                return;
+            }
+            player.setMetadata("lengbanlist-playerID", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
+            player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "time"));
+            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f封禁时间§e（如：1d, 7d, forever, auto）：");
+        } else if (step.equals("time")) {
+            if (!TimeUtils.isValidTime(input)) {
+                Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效喵，请使用：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever, auto");
+                return;
+            }
+            player.setMetadata("lengbanlist-time", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
+            player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "reason"));
+            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f封禁原因§e：");
+        } else if (step.equals("reason")) {
+            String ip = player.getMetadata("lengbanlist-playerID").get(0).asString();
+            String time = player.getMetadata("lengbanlist-time").get(0).asString();
+            long duration;
+            boolean isAuto = false;
+            if (time.equalsIgnoreCase("auto")) {
+                isAuto = true;
+                duration = TimeUtils.daysToMillis(7);
+            } else {
+                duration = TimeUtils.parseTime(time);
+            }
+            if (duration <= 0) {
+                Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效喵。");
+                return;
+            }
+            long endTime = TimeUtils.calculateEndTime(duration);
+            boolean silent = player.hasMetadata("lengbanlist-silent");
+            BanManager.BanMutationResult banResult = plugin.getBanManager().tryBanIp(new BanIpEntry(ip, player.getName(), endTime, input, isAuto), silent);
+            if (banResult.isApplied()) {
+                Utils.sendMessage(player, plugin.prefix() + "§a封禁IP成功：" + ip);
+                clearWizard(player);
+            } else {
+                BanMutationFeedback.sendFailure(player, banResult, ip, true);
+                if (banResult == BanManager.BanMutationResult.DATABASE_ERROR) {
+                    return;
+                }
+                clearWizard(player);
+            }
         }
-        clearWizard(player);
     }
-}
-
-private void handleIPBanWizard(Player player, String input) {
-    String step = player.getMetadata("lengbanlist-step").get(0).asString();
-    if (step.equals("ip")) {
-        if (input.equalsIgnoreCase("-s")) {
-            player.setMetadata("lengbanlist-silent", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-            Utils.sendMessage(player, plugin.prefix() + "§e已开启静默模式，请输入要§f封禁的IP地址§e：");
-            return;
-        }
-        if (!IpMatcher.isIpv4(input)) {
-            Utils.sendMessage(player, plugin.prefix() + "§cIP格式无效喵，请输入合法的 IPv4 地址。");
-            return;
-        }
-        player.setMetadata("lengbanlist-playerID", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
-        player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "time"));
-        Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f封禁时间§e（如：1d, 7d, forever, auto）：");
-    } else if (step.equals("time")) {
-        if (!TimeUtils.isValidTime(input)) {
-            Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效喵，请使用：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever, auto");
-            return;
-        }
-        player.setMetadata("lengbanlist-time", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
-        player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "reason"));
-        Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f封禁原因§e：");
-    } else if (step.equals("reason")) {
-        String ip = player.getMetadata("lengbanlist-playerID").get(0).asString();
-        String time = player.getMetadata("lengbanlist-time").get(0).asString();
-        long duration;
-        boolean isAuto = false;
-        if (time.equalsIgnoreCase("auto")) {
-            isAuto = true;
-            duration = TimeUtils.daysToMillis(7);
-        } else {
-            duration = TimeUtils.parseTime(time);
-        }
-        if (duration <= 0) {
-            Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效喵。");
-            return;
-        }
-        long endTime = TimeUtils.calculateEndTime(duration);
-        boolean silent = player.hasMetadata("lengbanlist-silent");
-        plugin.getBanManager().banIp(new BanIpEntry(ip, player.getName(), endTime, input, isAuto), silent);
-        Utils.sendMessage(player, plugin.prefix() + "§a封禁IP成功：" + ip);
-        clearWizard(player);
-    }
-}
 
     private void handleMuteWizard(Player player, String input) {
-    String step = player.getMetadata("lengbanlist-step").get(0).asString();
-    if (step.equals("playerID")) {
-        if (input.equalsIgnoreCase("-s")) {
-            player.setMetadata("lengbanlist-silent", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-            Utils.sendMessage(player, plugin.prefix() + "§e已开启静默模式，请输入要§f禁言的玩家名§e：");
-            return;
-        }
-        player.setMetadata("lengbanlist-playerID", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
-        player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "time"));
-        Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f禁言时间§e（如：10m, 1d, forever, auto）：");
-    } else if (step.equals("time")) {
-        if (!TimeUtils.isValidTime(input)) {
-            Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效喵，请使用：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever, auto");
-            return;
-        }
-        player.setMetadata("lengbanlist-time", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
-        player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "reason"));
-        Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f禁言原因§e：");
-    } else if (step.equals("reason")) {
-        String playerID = player.getMetadata("lengbanlist-playerID").get(0).asString();
-        String time = player.getMetadata("lengbanlist-time").get(0).asString();
-        if (!plugin.getImmunityManager().canPunish(player, playerID)) {
-            Utils.sendMessage(player, plugin.getModelManager().getCurrentModel().getImmunityDenied(playerID));
+        String step = player.getMetadata("lengbanlist-step").get(0).asString();
+        if (step.equals("playerID")) {
+            if (input.equalsIgnoreCase("-s")) {
+                player.setMetadata("lengbanlist-silent", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
+                Utils.sendMessage(player, plugin.prefix() + "§e已开启静默模式，请输入要§f禁言的玩家名§e：");
+                return;
+            }
+            player.setMetadata("lengbanlist-playerID", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
+            player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "time"));
+            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f禁言时间§e（如：10m, 1d, forever, auto）：");
+        } else if (step.equals("time")) {
+            if (!TimeUtils.isValidTime(input)) {
+                Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效喵，请使用：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever, auto");
+                return;
+            }
+            player.setMetadata("lengbanlist-time", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
+            player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "reason"));
+            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f禁言原因§e：");
+        } else if (step.equals("reason")) {
+            String playerID = player.getMetadata("lengbanlist-playerID").get(0).asString();
+            String time = player.getMetadata("lengbanlist-time").get(0).asString();
+            if (!plugin.getImmunityManager().canPunish(player, playerID)) {
+                Utils.sendMessage(player, plugin.getModelManager().getCurrentModel().getImmunityDenied(playerID));
+                clearWizard(player);
+                return;
+            }
+            long duration;
+            if (time.equalsIgnoreCase("auto")) {
+                duration = plugin.getEscalationManager().resolveMute(playerID);
+            } else {
+                duration = TimeUtils.parseTime(time);
+            }
+            MuteEntry entry = new MuteEntry(playerID, player.getName(), TimeUtils.calculateEndTime(duration), input);
+            Long newMuteEnd = plugin.getMuteManager().mutePlayer(entry);
+            if (newMuteEnd == null) {
+                Utils.sendMessage(player, plugin.prefix() + "§e该目标已有相同时长的禁言记录，未重复禁言。");
+                clearWizard(player);
+                return;
+            }
+            if (player.hasMetadata("lengbanlist-silent")) {
+                Utils.sendMessage(player, ModelManager.getInstance().getCurrentModel().addMute(playerID, input));
+            } else {
+                Utils.broadcast(ModelManager.getInstance().getCurrentModel().addMute(playerID, input));
+            }
             clearWizard(player);
-            return;
         }
-        long duration;
-        if (time.equalsIgnoreCase("auto")) {
-            duration = plugin.getEscalationManager().resolveMute(playerID);
-        } else {
-            duration = TimeUtils.parseTime(time);
-        }
-        MuteEntry entry = new MuteEntry(playerID, player.getName(), TimeUtils.calculateEndTime(duration), input);
-        Long newMuteEnd = plugin.getMuteManager().mutePlayer(entry);
-        if (newMuteEnd == null) {
-            Utils.sendMessage(player, plugin.prefix() + "§e该目标已有相同时长的禁言记录，未重复禁言。");
-            clearWizard(player);
-            return;
-        }
-        if (player.hasMetadata("lengbanlist-silent")) {
-            Utils.sendMessage(player, ModelManager.getInstance().getCurrentModel().addMute(playerID, input));
-        } else {
-            Utils.broadcast(ModelManager.getInstance().getCurrentModel().addMute(playerID, input));
-        }
-        clearWizard(player);
     }
-}
 
-private void clearWizard(Player player) {
-    player.removeMetadata("lengbanlist-action", plugin);
-    player.removeMetadata("lengbanlist-step", plugin);
-    player.removeMetadata("lengbanlist-playerID", plugin);
-    player.removeMetadata("lengbanlist-time", plugin);
-    player.removeMetadata("lengbanlist-silent", plugin);
-}
+    private void clearWizard(Player player) {
+        player.removeMetadata("lengbanlist-action", plugin);
+        player.removeMetadata("lengbanlist-step", plugin);
+        player.removeMetadata("lengbanlist-playerID", plugin);
+        player.removeMetadata("lengbanlist-time", plugin);
+        player.removeMetadata("lengbanlist-silent", plugin);
+    }
+
 }
