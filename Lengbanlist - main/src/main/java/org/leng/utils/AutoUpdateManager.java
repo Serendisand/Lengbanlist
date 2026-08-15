@@ -1,5 +1,6 @@
 package org.leng.utils;
 
+import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.leng.Lengbanlist;
 
@@ -13,7 +14,9 @@ import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
+import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 import java.util.logging.Logger;
 
 public class AutoUpdateManager {
@@ -45,13 +48,13 @@ public class AutoUpdateManager {
 
 
     private String getPluginBaseName(String fileName) {
-
-
-        if (fileName.matches("Lengbanlist-\\d+(\\.\\d+)*\\.jar$")) {
-
-            return fileName.substring(0, fileName.lastIndexOf("-")) + ".jar";
+        if (fileName == null) {
+            return null;
         }
-
+        int lastHyphen = fileName.lastIndexOf("-");
+        if (lastHyphen > 0 && fileName.endsWith(".jar")) {
+            return fileName.substring(0, lastHyphen) + ".jar";
+        }
         return fileName;
     }
 
@@ -168,16 +171,14 @@ public class AutoUpdateManager {
             logger.warning("无法获取官方 SHA-256（当前更新源未提供），已跳过哈希校验，仅完成结构校验。建议改用 GitHub 直连/代理镜像或手动下载更新。");
         }
 
-        // 校验 jar 包结构（zip 完整性 + 主类清单），防止镜像返回被截断/篡改的文件
-        try (JarFile jarFile = new JarFile(tempFile)) {
-            String mainClass = jarFile.getManifest() == null
-                    ? null : jarFile.getManifest().getMainAttributes().getValue("Main-Class");
-            if (mainClass == null || !MANIFEST_MAIN_CLASS.equals(mainClass)) {
-                throw new IOException("下载的 JAR 清单不含主类 " + MANIFEST_MAIN_CLASS + "（实际: " + mainClass + "），已拒绝安装，请检查更新源。");
-            }
-            if (jarFile.getEntry("plugin.yml") == null) {
-                throw new IOException("下载的 JAR 缺少 plugin.yml，已拒绝安装，请检查更新源。");
-            }
+        // 校验 jar 包结构（zip 完整性 + plugin.yml 主类），防止镜像返回被截断/篡改的文件。
+        // 注意：不能校验 MANIFEST 的 Main-Class —— Bukkit 插件的 jar 从不写该字段
+        // （由 plugin.yml 的 main: 决定主类），官方构建即如此，校验它会把正常文件误判为非法。
+        try {
+            validatePluginJar(tempFile);
+        } catch (Exception e) {
+            tempFile.delete();
+            throw e;
         }
 
         File newPluginFile = new File(currentPluginFile.getParentFile(), newFileName);
@@ -224,6 +225,39 @@ public class AutoUpdateManager {
                 && (header[0] & 0xFF) == 0x50
                 && (header[1] & 0xFF) == 0x4B
                 && ((header[2] & 0xFF) == 0x03 || (header[2] & 0xFF) == 0x05 || (header[2] & 0xFF) == 0x07);
+    }
+
+    /**
+     * 校验下载的 jar 是否是可安装的 Lengbanlist 插件包：
+     * 必须含可解析的 plugin.yml 且主类为 {@link #MANIFEST_MAIN_CLASS}。
+     * 不校验 MANIFEST 的 Main-Class —— Bukkit 插件的 jar 从不写该字段，
+     * 官方构建即如此；仅当 manifest 显式声明了冲突的主类时才拒绝（防注入）。
+     */
+    static void validatePluginJar(File jarFile) throws IOException {
+        try (JarFile jar = new JarFile(jarFile)) {
+            JarEntry pluginYml = jar.getJarEntry("plugin.yml");
+            if (pluginYml == null) {
+                throw new IOException("下载的 JAR 缺少 plugin.yml，已拒绝安装，请检查更新源。");
+            }
+            String mainClass = null;
+            try (InputStream in = jar.getInputStream(pluginYml)) {
+                mainClass = new PluginDescriptionFile(in).getMain();
+            } catch (Exception e) {
+                throw new IOException("下载的 JAR 中 plugin.yml 无法解析（" + e.getMessage() + "），已拒绝安装，请检查更新源。", e);
+            }
+            if (!MANIFEST_MAIN_CLASS.equals(mainClass)) {
+                throw new IOException("下载的 JAR 的 plugin.yml 主类不是 " + MANIFEST_MAIN_CLASS + "（实际: " + mainClass + "），已拒绝安装，请检查更新源。");
+            }
+            // 兼容旧版防篡改校验：若 manifest 声明了 Main-Class（非 Bukkit 插件常规构建），
+            // 仍要求与期望主类一致，防止镜像在 plugin.yml 之外注入可执行入口。
+            Manifest manifest = jar.getManifest();
+            if (manifest != null) {
+                String declared = manifest.getMainAttributes().getValue("Main-Class");
+                if (declared != null && !MANIFEST_MAIN_CLASS.equals(declared)) {
+                    throw new IOException("下载的 JAR 清单声明了冲突的主类 " + declared + "，已拒绝安装，请检查更新源。");
+                }
+            }
+        }
     }
 
     private static String toHex(byte[] bytes) {
