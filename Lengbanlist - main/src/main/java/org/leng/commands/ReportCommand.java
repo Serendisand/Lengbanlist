@@ -146,7 +146,7 @@ public class ReportCommand implements CommandExecutor {
             }
         }
 
-        String reportId = UUID.randomUUID().toString().substring(0, 8);
+        String reportId = UUID.randomUUID().toString();
         ReportEntry report = new ReportEntry(target, reporter.getName(), reason, reportId, System.currentTimeMillis(), "未处理");
         plugin.getReportManager().addReport(report);
         plugin.getAuditManager().log("提交举报", reporter.getName(), target, reason);

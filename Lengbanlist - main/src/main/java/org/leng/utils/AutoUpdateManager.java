@@ -157,6 +157,17 @@ public class AutoUpdateManager {
         logger.info("新版本已下载到临时文件: " + tempFile.getName() +
                    " (" + bytesRead + " bytes, SHA-256: " + sha256 + ")");
 
+        String expectedSha256 = normalizeSha256(GitHubUpdateChecker.getLatestSha256());
+        if (expectedSha256 != null) {
+            if (!expectedSha256.equalsIgnoreCase(sha256)) {
+                tempFile.delete();
+                throw new IOException("下载文件 SHA-256 与官方发布不一致（期望 " + expectedSha256 + "，实际 " + sha256 + "），已拒绝安装，请检查更新源是否被劫持。");
+            }
+            logger.info("SHA-256 校验通过：与官方发布一致");
+        } else {
+            logger.warning("无法获取官方 SHA-256（当前更新源未提供），已跳过哈希校验，仅完成结构校验。建议改用 GitHub 直连/代理镜像或手动下载更新。");
+        }
+
         // 校验 jar 包结构（zip 完整性 + 主类清单），防止镜像返回被截断/篡改的文件
         try (JarFile jarFile = new JarFile(tempFile)) {
             String mainClass = jarFile.getManifest() == null
@@ -221,6 +232,21 @@ public class AutoUpdateManager {
             hex.append(String.format("%02x", b));
         }
         return hex.toString();
+    }
+
+    private static String normalizeSha256(String digest) {
+        if (digest == null || digest.trim().isEmpty()) {
+            return null;
+        }
+        String value = digest.trim();
+        int colon = value.indexOf(':');
+        if (colon >= 0) {
+            value = value.substring(colon + 1).trim();
+        }
+        if (!value.matches("^[0-9a-fA-F]{64}$")) {
+            return null;
+        }
+        return value.toLowerCase();
     }
 
 

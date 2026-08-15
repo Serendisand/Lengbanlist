@@ -243,8 +243,12 @@ public class RollbackManager {
             return false;
         }
         long endTime = TimeUtils.calculateEndTime(DEFAULT_BAN_MILLIS);
-        return plugin.getBanManager().tryBanIp(
-                new BanIpEntry(target, ROLLBACK_ACTOR, endTime, "管理员操作回滚（原解封IP）", false), true).isApplied();
+        BanManager.BanMutationResult result = plugin.getBanManager().tryBanIp(
+                new BanIpEntry(target, ROLLBACK_ACTOR, endTime, "管理员操作回滚（原解封IP）", false), true);
+        if (result == BanManager.BanMutationResult.REJECTED_PRIVATE_OR_RESERVED_IP) {
+            throw new IllegalStateException("目标 IP 属于私有/保留地址，无法恢复封禁（可能为旧数据，需手动处理）");
+        }
+        return result.isApplied();
     }
 
     /** 禁言 → 解除禁言。 */

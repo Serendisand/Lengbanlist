@@ -3,7 +3,7 @@ package org.leng.utils;
 public class IpMatcher {
 
     private static final String[] PRIVATE_OR_RESERVED_CIDRS = {
-            "0.0.0.0/32",
+            "0.0.0.0/8",
             "10.0.0.0/8",
             "127.0.0.0/8",
             "169.254.0.0/16",
@@ -158,9 +158,10 @@ public class IpMatcher {
         int slash = cidr.indexOf('/');
         String base = cidr.substring(0, slash);
         int prefix = Integer.parseInt(cidr.substring(slash + 1));
+        if (prefix == 0) return false;
         long ipLong = ipToLong(ip);
         long baseLong = ipToLong(base);
-        long mask = prefix == 0 ? 0 : (0xFFFFFFFFL << (32 - prefix)) & 0xFFFFFFFFL;
+        long mask = (0xFFFFFFFFL << (32 - prefix)) & 0xFFFFFFFFL;
         return (ipLong & mask) == (baseLong & mask);
     }
 

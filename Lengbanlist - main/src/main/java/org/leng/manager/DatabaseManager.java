@@ -683,12 +683,24 @@ public class DatabaseManager {
         return entries;
     }
 
-    public void addAuditLog(String actor, String action, String target, String reason, boolean success) {
-        executeUpdate("INSERT INTO audit_log (timestamp, actor, action, target, reason, success) VALUES (?, ?, ?, ?, ?, ?)",
-                System.currentTimeMillis(), actor, action, target, reason, success);
+    public boolean addAuditLog(String actor, String action, String target, String reason, boolean success) {
+        try (Connection connection = getConnection();
+             PreparedStatement ps = connection.prepareStatement("INSERT INTO audit_log (timestamp, actor, action, target, reason, success) VALUES (?, ?, ?, ?, ?, ?)")) {
+            ps.setLong(1, System.currentTimeMillis());
+            ps.setString(2, actor);
+            ps.setString(3, action);
+            ps.setString(4, target);
+            ps.setString(5, reason);
+            ps.setBoolean(6, success);
+            ps.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            logSql(e);
+            return false;
+        }
     }
 
-    public void addAuditLogChained(String actor, String action, String target, String reason, boolean success) {
+    public boolean addAuditLogChained(String actor, String action, String target, String reason, boolean success) {
         try (Connection connection = getConnection()) {
             connection.setAutoCommit(false);
             try {
@@ -716,6 +728,7 @@ public class DatabaseManager {
                     ps.executeUpdate();
                 }
                 connection.commit();
+                return true;
             } catch (SQLException e) {
                 try {
                     connection.rollback();
@@ -723,11 +736,13 @@ public class DatabaseManager {
                     logSql(rollbackError);
                 }
                 logSql(e);
+                return false;
             } finally {
                 connection.setAutoCommit(true);
             }
         } catch (SQLException e) {
             logSql(e);
+            return false;
         }
     }
 

@@ -47,11 +47,17 @@ public class GitHubUpdateChecker {
         final String sourceName;
         final String version;
         final String downloadUrl;
+        final String sha256;
 
         UpdateInfo(String sourceName, String version, String downloadUrl) {
+            this(sourceName, version, downloadUrl, null);
+        }
+
+        UpdateInfo(String sourceName, String version, String downloadUrl, String sha256) {
             this.sourceName = sourceName;
             this.version = version;
             this.downloadUrl = downloadUrl;
+            this.sha256 = sha256;
         }
     }
 
@@ -68,6 +74,11 @@ public class GitHubUpdateChecker {
             return info.downloadUrl;
         }
         return getDownloadUrl(info.version);
+    }
+
+    public static String getLatestSha256() throws Exception {
+        UpdateInfo info = fetchUpdateInfo();
+        return info.sha256;
     }
 
     public static int compareVersions(String v1, String v2) {
@@ -270,10 +281,14 @@ public class GitHubUpdateChecker {
             }
             String version = obj.get("tag_name").getAsString();
             String downloadUrl = null;
+            String sha256 = null;
             if (obj.has("assets") && obj.get("assets").getAsJsonArray().size() > 0) {
                 JsonObject asset = obj.get("assets").getAsJsonArray().get(0).getAsJsonObject();
                 if (asset.has("browser_download_url")) {
                     downloadUrl = asset.get("browser_download_url").getAsString();
+                }
+                if (asset.has("digest")) {
+                    sha256 = asset.get("digest").getAsString();
                 }
             }
             if ("github-proxy".equals(mirror.type)) {
@@ -285,7 +300,7 @@ public class GitHubUpdateChecker {
                     downloadUrl = proxyBase + downloadUrl;
                 }
             }
-            return new UpdateInfo(mirror.name, version, downloadUrl);
+            return new UpdateInfo(mirror.name, version, downloadUrl, sha256);
         }
         throw new Exception("未知的镜像类型: " + mirror.type);
     }

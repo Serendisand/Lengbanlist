@@ -274,16 +274,18 @@ public void onEnable() {
     }
 }
 
-public void reloadWebServer() {
+public boolean reloadWebServer() {
     boolean enabled = getConfig().getBoolean("web.enabled", false);
     if (enabled && !webServer.isRunning()) {
-        webServer.start();
+        return webServer.start();
     } else if (!enabled && webServer.isRunning()) {
         webServer.stop();
+        return true;
     } else if (enabled && webServer.isRunning()) {
         webServer.stop();
-        webServer.start();
+        return webServer.start();
     }
+    return true;
 }
 
 @Override

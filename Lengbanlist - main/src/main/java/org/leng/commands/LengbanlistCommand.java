@@ -645,6 +645,11 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     Utils.sendMessage(sender, plugin.prefix() + "§c未找到举报编号: " + args[1]);
                     return true;
                 }
+                String handleStatus = handleReport.getStatus();
+                if (handleStatus == null || (!handleStatus.equals("未处理") && !handleStatus.equals("受理中") && !handleStatus.equals("已读"))) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c该举报已处理，无法再次操作。");
+                    return true;
+                }
                 String handleTarget = handleReport.getTarget();
                 if (!plugin.getImmunityManager().canPunish(sender, handleTarget)) {
                     Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(handleTarget));

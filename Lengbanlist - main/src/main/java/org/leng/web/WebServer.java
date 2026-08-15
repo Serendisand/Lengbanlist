@@ -66,10 +66,11 @@ public class WebServer {
             }
 
             authManager = new AuthManager(secret, username, password);
-            server = HttpServer.create(new InetSocketAddress(host, port), 0);
-            server.setExecutor(Executors.newFixedThreadPool(4));
+            server = HttpServer.create(new InetSocketAddress(host, port), 64);
+            server.setExecutor(Executors.newCachedThreadPool());
 
             server.createContext("/api/login", this::handleLogin);
+            server.createContext("/api/logout", this::handleLogout);
             server.createContext("/api/players", this::handlePlayers);
             server.createContext("/api/online", this::handleOnline);
             server.createContext("/api/ban", this::handleBan);
@@ -97,6 +98,7 @@ public class WebServer {
             if (host.equals("0.0.0.0")) {
                 plugin.getLogger().info("绑定到 0.0.0.0，可从 http://本机IP:" + port + " 访问（如 http://localhost:" + port + "）");
             }
+            plugin.getLogger().warning("安全提醒：Web 管理面板使用明文 HTTP，登录密码与登录令牌在网络上明文传输。请勿在不可信网络使用，并确保 web.host 未绑定到公网地址。");
             return true;
         } catch (Exception e) {
             plugin.getLogger().severe("Web管理面板启动失败: " + e.getMessage());
@@ -136,6 +138,7 @@ public class WebServer {
         private final String secret;
         private final String username;
         private final String passwordHash;
+        private final Set<String> revokedTokens = ConcurrentHashMap.newKeySet();
         private static final long TOKEN_EXP_MS = 86400000L;
 
         AuthManager(String secret, String username, String password) {
@@ -150,7 +153,14 @@ public class WebServer {
         }
 
         boolean validateToken(String token) {
+            if (token == null || revokedTokens.contains(token)) return false;
             return parseToken(token) != null;
+        }
+
+        void revokeToken(String token) {
+            if (token != null && !token.isEmpty()) {
+                revokedTokens.add(token);
+            }
         }
 
         String getUsernameFromToken(String token) {
@@ -281,7 +291,7 @@ public class WebServer {
     private boolean runSync(HttpExchange exchange, Runnable task) {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<Throwable> error = new AtomicReference<>();
-        org.leng.utils.SchedulerUtils.runTask(plugin, () -> {
+        org.leng.utils.SchedulerUtils.SchedulerTask scheduled = org.leng.utils.SchedulerUtils.runTask(plugin, () -> {
             try {
                 task.run();
             } catch (Throwable t) {
@@ -292,13 +302,13 @@ public class WebServer {
         });
         try {
             if (!latch.await(5, TimeUnit.SECONDS)) {
-                // 注意：主线程繁忙导致超时，任务仍会继续执行完；
-                // 这里明确提示避免用户误以为操作未生效而重复执行。
-                sendError(exchange, 504, "主线程繁忙，操作仍在后台执行中，请稍后在列表中确认结果，不要重复提交");
+                scheduled.cancel();
+                sendError(exchange, 504, "主线程繁忙，操作可能已在后台执行，请稍后在列表中确认结果，不要重复提交");
                 return false;
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            scheduled.cancel();
             sendError(exchange, 500, "操作被中断");
             return false;
         }
@@ -329,9 +339,7 @@ public class WebServer {
         try {
             byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
-            exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
-            exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-            exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+            applyCorsHeaders(exchange);
             exchange.sendResponseHeaders(status, bytes.length);
             exchange.getResponseBody().write(bytes);
         } catch (IOException e) {
@@ -341,10 +349,31 @@ public class WebServer {
         }
     }
 
+    private void applyCorsHeaders(HttpExchange exchange) {
+        String origin = exchange.getRequestHeaders().getFirst("Origin");
+        if (origin == null) {
+            return;
+        }
+        String host = exchange.getRequestHeaders().getFirst("Host");
+        if (origin.equalsIgnoreCase("http://" + host) || origin.equalsIgnoreCase("https://" + host)) {
+            exchange.getResponseHeaders().set("Access-Control-Allow-Origin", origin);
+            exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+            exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+            return;
+        }
+        for (String allowed : plugin.getConfig().getStringList("web.allowed-origins")) {
+            if (!allowed.trim().isEmpty() && origin.equalsIgnoreCase(allowed.trim())) {
+                exchange.getResponseHeaders().set("Access-Control-Allow-Origin", origin);
+                exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+                exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+                return;
+            }
+        }
+        exchange.getResponseHeaders().set("Vary", "Origin");
+    }
+
     private void handleOptions(HttpExchange exchange) {
-        exchange.getResponseHeaders().set("Access-Control-Allow-Origin", "*");
-        exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        applyCorsHeaders(exchange);
         try {
             exchange.sendResponseHeaders(204, -1);
         } catch (IOException e) {
@@ -422,6 +451,26 @@ public class WebServer {
             this.username = username;
         }
 
+    }
+
+    private void handleLogout(HttpExchange exchange) {
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            handleOptions(exchange);
+            return;
+        }
+        if (!"POST".equals(exchange.getRequestMethod())) {
+            sendError(exchange, 405, "仅支持 POST");
+            return;
+        }
+        if (!checkRateLimit(exchange)) return;
+        String token = extractToken(exchange);
+        if (token != null) {
+            authManager.revokeToken(token);
+        }
+        JsonObject result = new JsonObject();
+        result.addProperty("success", true);
+        result.addProperty("message", "已注销，令牌已吊销");
+        sendJson(exchange, 200, result.toString());
     }
 
     private void handlePlayers(HttpExchange exchange) {
@@ -645,7 +694,7 @@ public class WebServer {
             AtomicReference<BanManager.BanMutationResult> mutationResult =
                     new AtomicReference<>(BanManager.BanMutationResult.DATABASE_ERROR);
             boolean completed = runSync(exchange, () -> {
-                if (!target.contains(".") && !plugin.getImmunityManager().canPunish(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
+                if (!plugin.getImmunityManager().canPunishTarget(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
                     permissionDenied.set(true);
                     return;
                 }
@@ -695,9 +744,14 @@ public class WebServer {
                 return;
             }
 
+            AtomicReference<Boolean> permissionDenied = new AtomicReference<>(false);
             AtomicReference<BanManager.BanMutationResult> mutationResult =
                     new AtomicReference<>(BanManager.BanMutationResult.DATABASE_ERROR);
             boolean completed = runSync(exchange, () -> {
+                if (!plugin.getImmunityManager().canPunishTarget(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
+                    permissionDenied.set(true);
+                    return;
+                }
                 if (target.contains(".")) {
                     mutationResult.set(plugin.getBanManager().tryUnbanIp(target, "WebAdmin", false));
                 } else {
@@ -705,6 +759,10 @@ public class WebServer {
                 }
             });
             if (!completed) return;
+            if (permissionDenied.get()) {
+                sendError(exchange, 403, "目标权重高于操作者，无法执行");
+                return;
+            }
             if (sendMutationFailure(exchange, mutationResult.get(), target)) return;
 
             JsonObject result = new JsonObject();
@@ -947,8 +1005,20 @@ public class WebServer {
         try {
             JsonObject json = JsonParser.parseString(readBody(exchange)).getAsJsonObject();
             String target = json.get("target").getAsString();
-            boolean completed = runSync(exchange, () -> plugin.getMuteManager().unmutePlayer(target, "WebAdmin"));
+
+            AtomicReference<Boolean> permissionDenied = new AtomicReference<>(false);
+            boolean completed = runSync(exchange, () -> {
+                if (!plugin.getImmunityManager().canPunishTarget(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
+                    permissionDenied.set(true);
+                    return;
+                }
+                plugin.getMuteManager().unmutePlayer(target, "WebAdmin");
+            });
             if (!completed) return;
+            if (permissionDenied.get()) {
+                sendError(exchange, 403, "目标权重高于操作者，无法执行");
+                return;
+            }
 
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
@@ -1099,9 +1169,9 @@ public class WebServer {
         }
         // 在当前请求已响应后重启 Web 服务，避免 stop(0) 自杀式中断正在处理的请求
         org.leng.utils.SchedulerUtils.runTask(plugin, () -> {
-            try {
-                plugin.reloadWebServer();
-            } catch (Exception ignored) {
+            boolean restarted = plugin.reloadWebServer();
+            if (!restarted) {
+                plugin.getLogger().severe("Web 管理面板重启失败：配置项校验未通过（web.jwt-secret/web.admin-password 等），面板已下线，请修正配置后再次 /api/reload 或重启服务器。");
             }
         });
     }
