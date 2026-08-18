@@ -157,8 +157,12 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     long durationLong;
                     boolean isAuto = args[2].equalsIgnoreCase("auto");
                     boolean addSilent = false;
+                    org.leng.manager.EscalationManager.EscalationResult escalationResult = null;
                     if (isAuto) {
-                        durationLong = calculateAutoBanTime(args[1]);
+                        escalationResult = args[1].contains(".")
+                                ? plugin.getEscalationManager().resolveIpBan(args[1])
+                                : plugin.getEscalationManager().resolveBan(args[1]);
+                        durationLong = escalationResult.durationMillis;
                     } else {
                         durationLong = TimeUtils.parseTime(args[2]);
                         if (durationLong <= 0) {
@@ -166,12 +170,26 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                         }
                     }
                     long endTime = TimeUtils.calculateEndTime(durationLong);
+                    long durationMillis = endTime == Long.MAX_VALUE ? Long.MAX_VALUE : endTime - System.currentTimeMillis();
+                    int durationDays = durationMillis == Long.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(1, Math.round(durationMillis / (double) (1000 * 60 * 60 * 24)));
 
                     BanManager.BanMutationResult addResult;
                     if (args[1].contains(".")) {
                         addResult = plugin.getBanManager().tryBanIp(new BanIpEntry(args[1], Utils.getSenderName(sender), endTime, args[3], isAuto), addSilent);
+                        if (addResult.isApplied() && isAuto && escalationResult != null && escalationResult.offenseCount > 0) {
+                            Utils.sendMessage(sender, currentModel.onEscalatedBan(args[1], escalationResult.offenseCount, TimeUtils.formatDuration(durationLong)));
+                        }
+                        if (addResult.isApplied() && addSilent) {
+                            Utils.sendMessage(sender, currentModel.addBanIp(args[1], durationDays, args[3]));
+                        }
                     } else {
                         addResult = plugin.getBanManager().tryBanPlayer(new BanEntry(args[1], Utils.getSenderName(sender), endTime, args[3], isAuto), addSilent);
+                        if (addResult.isApplied() && isAuto && escalationResult != null && escalationResult.offenseCount > 0) {
+                            Utils.sendMessage(sender, currentModel.onEscalatedBan(args[1], escalationResult.offenseCount, TimeUtils.formatDuration(durationLong)));
+                        }
+                        if (addResult.isApplied() && addSilent) {
+                            Utils.sendMessage(sender, currentModel.addBan(args[1], durationDays, args[3]));
+                        }
                     }
                     if (!addResult.isApplied()) {
                         BanMutationFeedback.sendFailure(msg -> Utils.sendMessage(sender, msg), addResult, args[1], args[1].contains("."));

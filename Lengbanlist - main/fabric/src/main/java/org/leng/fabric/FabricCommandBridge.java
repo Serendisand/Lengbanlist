@@ -420,7 +420,17 @@ public final class FabricCommandBridge {
     }
 
     private static void ban(FabricLengbanlist plugin, MessageSink sink, String staff, String target, String timeArg, String reason, boolean ip) {
-        long duration = "auto".equalsIgnoreCase(timeArg) ? TimeUtils.daysToMillis(1) : TimeUtils.parseDurationToMillis(timeArg);
+        long duration;
+        boolean isAuto = "auto".equalsIgnoreCase(timeArg);
+        org.leng.manager.EscalationManager.EscalationResult escalationResult = null;
+        if (isAuto) {
+            escalationResult = ip
+                    ? plugin.getEscalationManager().resolveIpBan(target)
+                    : plugin.getEscalationManager().resolveBan(target);
+            duration = escalationResult.durationMillis;
+        } else {
+            duration = TimeUtils.parseDurationToMillis(timeArg);
+        }
         if (duration <= 0) {
             sink.sendMessage("§c时间格式错误喵，请使用以下格式:");
             sink.sendMessage("§c - 10s: 秒 (10 秒)");
@@ -435,8 +445,15 @@ public final class FabricCommandBridge {
             return;
         }
         long end = TimeUtils.calculateEndTime(duration);
-        if (ip) plugin.getBanManager().tryBanIp(new BanIpEntry(target, staff, end, reason, "auto".equalsIgnoreCase(timeArg)));
-        else plugin.getBanManager().tryBanPlayer(new BanEntry(target, staff, end, reason, "auto".equalsIgnoreCase(timeArg)));
+        if (ip) {
+            plugin.getBanManager().tryBanIp(new BanIpEntry(target, staff, end, reason, isAuto));
+        } else {
+            plugin.getBanManager().tryBanPlayer(new BanEntry(target, staff, end, reason, isAuto));
+        }
+        if (escalationResult != null && escalationResult.offenseCount > 0) {
+            sink.sendMessage(plugin.getModelManager().getCurrentModel().onEscalatedBan(
+                    target, escalationResult.offenseCount, TimeUtils.formatDuration(duration)));
+        }
     }
 
     private static List<String> historyEntries(FabricLengbanlist plugin, String player) {

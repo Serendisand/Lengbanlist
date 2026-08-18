@@ -40,6 +40,12 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
         }
 
 
+        boolean silent = false;
+        if (args.length > 0 && args[0].equalsIgnoreCase("-s")) {
+            silent = true;
+            args = Arrays.copyOfRange(args, 1, args.length);
+        }
+
         if (args.length < 3) {
             Utils.sendMessage(sender, "§c用法错误喵: /ban-ip <IP> <时间/auto> <原因>");
             Utils.sendMessage(sender, "§c时间单位喵: s(秒), m(分), h(时), d(天), w(周), M(月), y(年)");
@@ -62,9 +68,11 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
 
         boolean isAuto = args[1].equalsIgnoreCase("auto");
         long banDuration;
+        org.leng.manager.EscalationManager.EscalationResult escalationResult = null;
 
         if (isAuto) {
-            banDuration = calculateAutoBanTime(args[0]);
+            escalationResult = plugin.getEscalationManager().resolveIpBan(args[0]);
+            banDuration = escalationResult.durationMillis;
         } else {
             banDuration = TimeUtils.parseDurationToMillis(args[1]);
             if (banDuration <= 0) {
@@ -79,11 +87,16 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
 
 
         BanManager.BanMutationResult result = plugin.getBanManager().tryBanIp(
-            new org.leng.object.BanIpEntry(args[0], Utils.getSenderName(sender), banEndTime, reason, isAuto)
+            new org.leng.object.BanIpEntry(args[0], Utils.getSenderName(sender), banEndTime, reason, isAuto),
+            silent
         );
         if (!result.isApplied()) {
             BanMutationFeedback.sendFailure(msg -> Utils.sendMessage(sender, msg), result, args[0], true);
             return true;
+        }
+        if (escalationResult != null && escalationResult.offenseCount > 0) {
+            Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(
+                    args[0], escalationResult.offenseCount, TimeUtils.formatDuration(banDuration)));
         }
         return true;
     }

@@ -40,6 +40,12 @@ public class BanCommand implements CommandExecutor, TabCompleter {
         }
 
 
+        boolean silent = false;
+        if (args.length > 0 && args[0].equalsIgnoreCase("-s")) {
+            silent = true;
+            args = Arrays.copyOfRange(args, 1, args.length);
+        }
+
         if (args.length < 3) {
             sendUsage(sender);
             return false;
@@ -58,12 +64,12 @@ public class BanCommand implements CommandExecutor, TabCompleter {
 
         long banDuration;
         boolean isAuto = false;
+        org.leng.manager.EscalationManager.EscalationResult escalationResult = null;
 
         if (timeArg.equalsIgnoreCase("auto")) {
             isAuto = true;
-            banDuration = calculateAutoBanTime(target);
-
-            banDuration = Math.max(banDuration, TimeUtils.daysToMillis(1));
+            escalationResult = plugin.getEscalationManager().resolveBan(target);
+            banDuration = escalationResult.durationMillis;
         } else {
             banDuration = TimeUtils.parseDurationToMillis(timeArg);
             if (banDuration <= 0) {
@@ -83,10 +89,14 @@ public class BanCommand implements CommandExecutor, TabCompleter {
             isAuto
         );
 
-        BanManager.BanMutationResult result = plugin.getBanManager().tryBanPlayer(entry, false);
+        BanManager.BanMutationResult result = plugin.getBanManager().tryBanPlayer(entry, silent);
         if (!result.isApplied()) {
             BanMutationFeedback.sendFailure(msg -> Utils.sendMessage(sender, msg), result, target, false);
             return true;
+        }
+        if (escalationResult != null && escalationResult.offenseCount > 0) {
+            Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(
+                    target, escalationResult.offenseCount, TimeUtils.formatDuration(banDuration)));
         }
         return true;
     }
@@ -109,6 +119,7 @@ public class BanCommand implements CommandExecutor, TabCompleter {
         Utils.sendMessage(sender, "§c用法错误喵: /ban <玩家> <时间/auto> <原因>");
         Utils.sendMessage(sender, "§c时间单位喵: s(秒), m(分), h(时), d(天), w(周), M(月), y(年)");
         Utils.sendMessage(sender, "§c使用 auto 自动计算封禁时间喵（基于警告次数）");
+        Utils.sendMessage(sender, "§7在第一位加上 -s 可静默执行（不向全服广播）喵");
     }
 
     @Override
