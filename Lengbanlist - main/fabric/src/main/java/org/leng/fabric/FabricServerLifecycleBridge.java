@@ -1,7 +1,5 @@
 package org.leng.fabric;
 
-import java.lang.reflect.Method;
-
 public final class FabricServerLifecycleBridge {
     private FabricServerLifecycleBridge() {
     }
@@ -49,16 +47,6 @@ public final class FabricServerLifecycleBridge {
                 new Class[]{listener},
                 handler
         );
-        Method register = null;
-        for (Method candidate : event.getClass().getMethods()) {
-            if ("register".equals(candidate.getName()) && candidate.getParameterTypes().length == 1) {
-                register = candidate;
-                break;
-            }
-        }
-        if (register == null) {
-            throw new NoSuchMethodException("register");
-        }
-        register.invoke(event, callback);
+        ReflectionSupport.registerCallback(event, callback);
     }
 }

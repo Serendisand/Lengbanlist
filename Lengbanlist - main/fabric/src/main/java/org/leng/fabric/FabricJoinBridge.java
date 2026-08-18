@@ -26,17 +26,7 @@ public final class FabricJoinBridge {
                         }
                         return null;
                     });
-            java.lang.reflect.Method register = null;
-            for (java.lang.reflect.Method candidate : joinEvent.getClass().getMethods()) {
-                if ("register".equals(candidate.getName()) && candidate.getParameterTypes().length == 1) {
-                    register = candidate;
-                    break;
-                }
-            }
-            if (register == null) {
-                throw new NoSuchMethodException("register");
-            }
-            register.invoke(joinEvent, callback);
+            ReflectionSupport.registerCallback(joinEvent, callback);
         } catch (Throwable e) {
             plugin.getLogger().warning("Fabric进服事件注册失败: " + e.getMessage());
         }

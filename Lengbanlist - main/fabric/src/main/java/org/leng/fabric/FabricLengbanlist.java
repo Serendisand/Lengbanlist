@@ -69,14 +69,15 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
             if (!exampleModelFile.exists()) {
                 copyDefault("models/example-custom-model.yml");
             }
-            loadConfigFiles();
-            if (!isEulaAgreed()) {
+            // 先只释放并加载 EULA：未同意时绝不生成其他配置文件，避免污染用户首次安装。
+            if (!loadEulaConfig()) {
                 logger.severe("==================================================");
                 logger.severe("插件启用被终止：您需要同意EULA才能使用本插件！");
                 logger.severe("请编辑 plugins/Lengbanlist/eula.yml 文件");
                 logger.severe("==================================================");
                 return;
             }
+            loadConfigFiles();
             databaseManager = new DatabaseManager(this);
             databaseManager.initialize();
             banManager = new BanManager(this);
@@ -113,7 +114,6 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
         copyDefault("config.yml");
         copyDefault("broadcast.yml");
         copyDefault("chatconfig.yml");
-        copyDefault("eula.yml");
         ensureConfigVersion();
         try (InputStream input = Files.newInputStream(new File(dataFolder, "config.yml").toPath())) {
             config = SimpleYamlConfig.load(input);
@@ -124,9 +124,18 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
         try (InputStream input = Files.newInputStream(new File(dataFolder, "chatconfig.yml").toPath())) {
             chatConfig = SimpleYamlConfig.load(input);
         }
+    }
+
+    /**
+     * 仅释放并加载 eula.yml，用于在 EULA 未同意时阻止其他配置文件被写出。
+     * @return EULA 是否已被同意
+     */
+    private boolean loadEulaConfig() throws IOException {
+        copyDefault("eula.yml");
         try (InputStream input = Files.newInputStream(new File(dataFolder, "eula.yml").toPath())) {
             eulaConfig = SimpleYamlConfig.load(input);
         }
+        return isEulaAgreed();
     }
 
     private boolean isEulaAgreed() {

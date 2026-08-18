@@ -125,8 +125,10 @@ public final class ReflectionSupport {
     }
 
     public static void registerCallback(Object event, Object callback) throws Exception {
+        // ArrayBackedEvent 位于 fabric-api 的 impl 包；JPMS 下 public 成员也不能直接反射访问，
+        // 需要先 setAccessible(true) 绕过模块封装的限制。
         Method register = null;
-        for (Method candidate : event.getClass().getMethods()) {
+        for (Method candidate : event.getClass().getDeclaredMethods()) {
             if ("register".equals(candidate.getName()) && candidate.getParameterTypes().length == 1) {
                 register = candidate;
                 break;
@@ -135,6 +137,7 @@ public final class ReflectionSupport {
         if (register == null) {
             throw new NoSuchMethodException("register");
         }
+        register.setAccessible(true);
         register.invoke(event, callback);
     }
 
