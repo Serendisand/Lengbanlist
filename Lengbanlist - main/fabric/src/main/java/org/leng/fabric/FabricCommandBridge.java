@@ -68,8 +68,23 @@ public final class FabricCommandBridge {
 
             dispatcher.getClass().getMethod("register", Class.forName("com.mojang.brigadier.builder.LiteralArgumentBuilder")).invoke(dispatcher, literal);
         } catch (Throwable e) {
-            plugin.getLogger().warning("命令 " + command + " 注册失败: " + e.getMessage());
+            plugin.getLogger().warning("命令 " + command + " 注册失败: " + describe(e));
         }
+    }
+
+    private static String describe(Throwable e) {
+        Throwable cause = e;
+        StringBuilder sb = new StringBuilder();
+        int depth = 0;
+        while (cause != null && depth < 5) {
+            if (depth > 0) sb.append(" <- ");
+            sb.append(cause.getClass().getSimpleName()).append(": ");
+            String msg = cause.getMessage();
+            sb.append(msg == null ? "<no message>" : msg);
+            cause = cause.getCause();
+            depth++;
+        }
+        return sb.toString();
     }
 
     private static Object executor(FabricLengbanlist plugin, String command, boolean withArgs) throws Exception {

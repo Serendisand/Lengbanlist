@@ -16,6 +16,22 @@ public class GitHubUpdateChecker {
     public static final String RELEASES_URL = "https://github.com/Ukiyograin/Lengbanlist/releases";
     public static final String LATEST_RELEASE_URL = RELEASES_URL + "/latest";
 
+    /** 当前运行的平台，用于在 release 资产列表里挑选对应的 jar。 */
+    public enum Platform {
+        BUKKIT("bukkit"),
+        FABRIC("fabric");
+
+        private final String assetPrefix;
+
+        Platform(String assetPrefix) {
+            this.assetPrefix = assetPrefix;
+        }
+
+        public String assetPrefix() {
+            return assetPrefix;
+        }
+    }
+
     private static final String GITHUB_API_URL = "https://api.github.com/repos/Ukiyograin/Lengbanlist/releases/latest";
     private static final List<String> STATIC_API_URLS = Arrays.asList(GITHUB_API_URL);
     private static final int TIMEOUT = 3000;
@@ -28,20 +44,45 @@ public class GitHubUpdateChecker {
         return fetchJsonFromApi().get("tag_name").getAsString();
     }
 
-    public static String getLatestDownloadUrl() throws Exception {
+    public static String getLatestDownloadUrl(Platform platform) throws Exception {
         JsonObject json = fetchJsonFromApi();
-        if (json.has("assets") && json.get("assets").getAsJsonArray().size() > 0) {
-            return json.get("assets").getAsJsonArray().get(0).getAsJsonObject().get("browser_download_url").getAsString();
+        String assetUrl = findAssetUrl(json, platform);
+        if (assetUrl != null) {
+            return assetUrl;
         }
-        return getDownloadUrl(json.get("tag_name").getAsString());
+        return getDownloadUrl(json.get("tag_name").getAsString(), platform);
     }
 
-    public static String getLatestSha256() throws Exception {
+    public static String getLatestSha256(Platform platform) throws Exception {
         JsonObject json = fetchJsonFromApi();
+        String assetUrl = findAssetUrl(json, platform);
+        if (assetUrl == null) {
+            return null;
+        }
+        // digest 通常挂在 assets[].digest 上；这里通过遍历定位匹配平台的那个 asset。
         if (json.has("assets") && json.get("assets").getAsJsonArray().size() > 0) {
-            JsonObject asset = json.get("assets").getAsJsonArray().get(0).getAsJsonObject();
-            if (asset.has("digest")) {
-                return asset.get("digest").getAsString();
+            String expectedName = getGitHubFileName(json.get("tag_name").getAsString(), platform);
+            for (int i = 0; i < json.get("assets").getAsJsonArray().size(); i++) {
+                JsonObject asset = json.get("assets").getAsJsonArray().get(i).getAsJsonObject();
+                if (expectedName.equals(asset.get("name").getAsString()) && asset.has("digest")) {
+                    return asset.get("digest").getAsString();
+                }
+            }
+        }
+        return null;
+    }
+
+    private static String findAssetUrl(JsonObject releaseJson, Platform platform) {
+        if (!releaseJson.has("assets")) {
+            return null;
+        }
+        String tag = releaseJson.get("tag_name").getAsString();
+        String expectedName = getGitHubFileName(tag, platform);
+        for (int i = 0; i < releaseJson.get("assets").getAsJsonArray().size(); i++) {
+            JsonObject asset = releaseJson.get("assets").getAsJsonArray().get(i).getAsJsonObject();
+            if (expectedName.equals(asset.get("name").getAsString())
+                    && asset.has("browser_download_url")) {
+                return asset.get("browser_download_url").getAsString();
             }
         }
         return null;
@@ -135,23 +176,39 @@ public class GitHubUpdateChecker {
         }
     }
 
-    public static String getDownloadUrl(String version) {
-        return RELEASES_URL + "/download/" + version + "/" + getGitHubFileName(version);
+    public static String getDownloadUrl(String version, Platform platform) {
+        return RELEASES_URL + "/download/" + version + "/" + getGitHubFileName(version, platform);
     }
 
-    public static String getGitHubFileName(String version) {
-        return "Lengbanlist-" + version + ".jar";
+    /** Release 资产文件名：{@code Lengbanlist-{bukkit|fabric}-{version}.jar}。 */
+    public static String getGitHubFileName(String version, Platform platform) {
+        return "Lengbanlist-" + platform.assetPrefix() + "-" + version + ".jar";
     }
 
-    public static String getLocalFileName(String version) {
-        return "Lengbanlist - " + version + ".jar";
+    /** 本地插件文件名（用于自动更新后写回 plugins/ 目录），与远端资产名保持一致便于升级。 */
+    public static String getLocalFileName(String version, Platform platform) {
+        return "Lengbanlist - " + platform.assetPrefix() + " - " + version + ".jar";
     }
 
-    public static String generateNewFileName(String currentFileName, String newVersion) {
-        if (currentFileName.contains(" - ") && currentFileName.endsWith(".jar")) {
-            String baseName = currentFileName.substring(0, currentFileName.lastIndexOf(" - "));
-            return baseName + " - " + newVersion + ".jar";
+    /**
+     * 基于当前已安装文件名推断新版本应保存的本地文件名。
+     * 当前文件名包含 {@code - <platform> - } 时直接替换版本号；否则按指定平台生成。
+     */
+    public static String generateNewFileName(String currentFileName, String newVersion, Platform platform) {
+        if (currentFileName != null && currentFileName.endsWith(".jar")) {
+            String prefix = "Lengbanlist - " + platform.assetPrefix() + " - ";
+            if (currentFileName.startsWith(prefix)) {
+                return prefix + newVersion + ".jar";
+            }
+            String legacyPrefix = "Lengbanlist - ";
+            if (currentFileName.startsWith(legacyPrefix)) {
+                return prefix + newVersion + ".jar";
+            }
+            int dash = currentFileName.lastIndexOf(" - ");
+            if (dash > 0) {
+                return currentFileName.substring(0, dash) + " - " + newVersion + ".jar";
+            }
         }
-        return getLocalFileName(newVersion);
+        return getLocalFileName(newVersion, platform);
     }
 }

@@ -77,21 +77,11 @@ public class AutoUpdateManager {
 
 
         String currentFileName = currentPluginFile.getName();
-        String baseName = getPluginBaseName(currentFileName);
+        GitHubUpdateChecker.Platform platform = GitHubUpdateChecker.Platform.BUKKIT;
+        String newFileName = GitHubUpdateChecker.generateNewFileName(currentFileName, version, platform);
 
 
-        String newFileName;
-        if (currentFileName.contains(" - ")) {
-
-            String namePart = currentFileName.substring(0, currentFileName.lastIndexOf(" - "));
-            newFileName = namePart + " - " + version + ".jar";
-        } else {
-
-            newFileName = "Lengbanlist - " + version + ".jar";
-        }
-
-
-        String downloadUrl = GitHubUpdateChecker.getLatestDownloadUrl();
+        String downloadUrl = GitHubUpdateChecker.getLatestDownloadUrl(platform);
 
 
         File tempFile = new File(currentPluginFile.getParentFile(),
@@ -126,7 +116,7 @@ public class AutoUpdateManager {
 
         // 校验官方 SHA-256（如可获取）
         try {
-            String expectedSha256 = normalizeSha256(GitHubUpdateChecker.getLatestSha256());
+            String expectedSha256 = normalizeSha256(GitHubUpdateChecker.getLatestSha256(platform));
             if (expectedSha256 != null) {
                 if (!expectedSha256.equalsIgnoreCase(sha256)) {
                     tempFile.delete();

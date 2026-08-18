@@ -35,13 +35,20 @@ jobs:
         VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
         echo "version=$VERSION" >> $GITHUB_OUTPUT
     
-    - name: Find JAR file
+    - name: Find JAR files
       id: find_jar
       run: |
-        cd "Lengbanlist - main/target"
-        JAR_FILE=$(ls *.jar | grep -v original | head -n 1)
-        echo "jar_file=$JAR_FILE" >> $GITHUB_OUTPUT
-        echo "jar_path=Lengbanlist - main/target/$JAR_FILE" >> $GITHUB_OUTPUT
+        cd "Lengbanlist - main"
+        VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        BUKKIT_JAR=$(ls bukkit/target/*.jar 2>/dev/null | grep -v original | head -n 1)
+        FABRIC_JAR=$(ls fabric/target/*.jar 2>/dev/null | grep -v original | head -n 1)
+        echo "bukkit_jar=$(basename "$BUKKIT_JAR")" >> $GITHUB_OUTPUT
+        echo "bukkit_jar_path=Lengbanlist - main/$BUKKIT_JAR" >> $GITHUB_OUTPUT
+        echo "fabric_jar=$(basename "$FABRIC_JAR")" >> $GITHUB_OUTPUT
+        echo "fabric_jar_path=Lengbanlist - main/$FABRIC_JAR" >> $GITHUB_OUTPUT
+        echo "Bukkit JAR: $BUKKIT_JAR"
+        echo "Fabric JAR: $FABRIC_JAR"
     
     - name: Extract release title from commit
       id: release_title
@@ -258,17 +265,21 @@ jobs:
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ steps.get_version.outputs.version }}
+        tag_name: ${{ steps.find_jar.outputs.version }}
         name: ${{ steps.release_title.outputs.title }}
         body: ${{ steps.build_body.outputs.body }}
-        files: ${{ steps.find_jar.outputs.jar_path }}
+        files: |
+          ${{ steps.find_jar.outputs.bukkit_jar_path }}
+          ${{ steps.find_jar.outputs.fabric_jar_path }}
         draft: false
         prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Upload JAR as artifact
+
+    - name: Upload JARs as artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.find_jar.outputs.jar_file }}
-        path: ${{ steps.find_jar.outputs.jar_path }}
+        name: Lengbanlist-${{ steps.find_jar.outputs.version }}
+        path: |
+          ${{ steps.find_jar.outputs.bukkit_jar_path }}
+          ${{ steps.find_jar.outputs.fabric_jar_path }}
