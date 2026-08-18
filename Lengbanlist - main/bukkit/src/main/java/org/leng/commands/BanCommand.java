@@ -6,6 +6,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
+import org.leng.manager.BanManager;
+import org.leng.manager.BanMutationFeedback;
 import org.leng.object.BanEntry;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
@@ -75,13 +77,17 @@ public class BanCommand implements CommandExecutor, TabCompleter {
 
         BanEntry entry = new BanEntry(
             target,
-            sender.getName(),
+            Utils.getSenderName(sender),
             banEndTime,
             reason,
             isAuto
         );
 
-        plugin.getBanManager().banPlayer(entry);
+        BanManager.BanMutationResult result = plugin.getBanManager().tryBanPlayer(entry, false);
+        if (!result.isApplied()) {
+            BanMutationFeedback.sendFailure(sender, result, target, false);
+            return true;
+        }
         return true;
     }
 

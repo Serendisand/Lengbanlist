@@ -6,6 +6,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.leng.Lengbanlist;
+import org.leng.manager.BanManager;
 import org.leng.manager.IpAssociationManager;
 import org.leng.manager.ReportManager;
 import org.leng.object.BanIpEntry;
@@ -95,14 +96,20 @@ public class PlayerJoinListener implements Listener {
                 long duration = TimeUtils.parseTime(banDurationStr);
                 if (duration <= 0) duration = TimeUtils.daysToMillis(7);
                 long endTime = TimeUtils.calculateEndTime(duration);
-                plugin.getBanManager().banIp(new BanIpEntry(ip, "VPN-Detection", endTime, banReason, false));
-                player.kickPlayer("§c检测到代理/VPN 连接\n\n§f" + banReason + "\n§e请联系管理员解决");
-                for (Player online : Bukkit.getOnlinePlayers()) {
-                    if (online.hasPermission("lengbanlist.check") || online.isOp()) {
-                        online.sendMessage("§7[§cVPN检测§7] " + prefix + "§c" + player.getName() + " §e因使用代理/VPN 已被自动封禁");
+                BanManager.BanMutationResult banResult = plugin.getBanManager().tryBanIp(
+                        new BanIpEntry(ip, "VPN-Detection", endTime, banReason, false));
+                if (banResult.isApplied()) {
+                    player.kickPlayer("§c检测到代理/VPN 连接\n\n§f" + banReason + "\n§e请联系管理员解决");
+                    for (Player online : Bukkit.getOnlinePlayers()) {
+                        if (online.hasPermission("lengbanlist.check") || online.isOp()) {
+                            online.sendMessage("§7[§cVPN检测§7] " + prefix + "§c" + player.getName() + " §e因使用代理/VPN 已被自动封禁");
+                        }
                     }
+                    Bukkit.getConsoleSender().sendMessage("§7[§cVPN检测§7] " + player.getName() + " 因使用代理/VPN 已被自动封禁 (IP: " + ip + ")");
+                } else if (banResult == BanManager.BanMutationResult.DATABASE_ERROR) {
+                    plugin.getLogger().warning("VPN 检测自动封禁失败: player=" + player.getName()
+                            + ", ip=" + ip + ", result=" + banResult);
                 }
-                Bukkit.getConsoleSender().sendMessage("§7[§cVPN检测§7] " + player.getName() + " 因使用代理/VPN 已被自动封禁 (IP: " + ip + ")");
                 break;
             case "kick":
                 String kickMsg = plugin.getConfig().getString("vpn-detection.kick-message", "请关闭代理/VPN后重新加入");

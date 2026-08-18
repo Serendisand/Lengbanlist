@@ -262,7 +262,7 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
 
     @Override
     public String getPluginVersion() {
-        return "1.9.8";
+        return "1.9.9";
     }
 
     @Override
@@ -402,6 +402,12 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
     }
 
     @Override
+    public org.leng.platform.CancellableTask runSyncCancellable(Runnable task) {
+        runSync(task);
+        return org.leng.platform.CancellableTask.NOOP;
+    }
+
+    @Override
     public void kickPlayerIfOnline(String playerName, String message) {
         if (server == null) return;
         Object player = ReflectionSupport.findPlayer(server, playerName);
@@ -447,14 +453,19 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
 
     @Override
     public void reloadWebServer() {
-        boolean enabled = getConfigBoolean("web.enabled", false);
-        if (enabled && !webServer.isRunning()) {
-            webServer.start();
-        } else if (!enabled && webServer.isRunning()) {
-            webServer.stop();
-        } else if (enabled && webServer.isRunning()) {
-            webServer.stop();
-            webServer.start();
+        try {
+            boolean enabled = getConfigBoolean("web.enabled", false);
+            if (enabled && !webServer.isRunning()) {
+                webServer.start();
+            } else if (!enabled && webServer.isRunning()) {
+                webServer.stop();
+            } else if (enabled && webServer.isRunning()) {
+                webServer.stop();
+                webServer.start();
+            }
+        } catch (Exception e) {
+            logger.severe("Web 服务器重载失败: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 

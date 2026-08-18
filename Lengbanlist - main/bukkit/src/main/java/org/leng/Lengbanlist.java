@@ -279,14 +279,19 @@ public void onEnable() {
 }
 
 public void reloadWebServer() {
-    boolean enabled = getConfig().getBoolean("web.enabled", false);
-    if (enabled && !webServer.isRunning()) {
-        webServer.start();
-    } else if (!enabled && webServer.isRunning()) {
-        webServer.stop();
-    } else if (enabled && webServer.isRunning()) {
-        webServer.stop();
-        webServer.start();
+    try {
+        boolean enabled = getConfig().getBoolean("web.enabled", false);
+        if (enabled && !webServer.isRunning()) {
+            webServer.start();
+        } else if (!enabled && webServer.isRunning()) {
+            webServer.stop();
+        } else if (enabled && webServer.isRunning()) {
+            webServer.stop();
+            webServer.start();
+        }
+    } catch (Exception e) {
+        getLogger().severe("Web 服务器重载失败: " + e.getMessage());
+        e.printStackTrace();
     }
 }
 
@@ -574,6 +579,12 @@ private void unregisterCommands() {
     @Override
     public void runSync(Runnable task) {
         SchedulerUtils.runTask(this, task);
+    }
+
+    @Override
+    public org.leng.platform.CancellableTask runSyncCancellable(Runnable task) {
+        SchedulerUtils.SchedulerTask schedulerTask = SchedulerUtils.runTask(this, task);
+        return schedulerTask::cancel;
     }
 
     @Override

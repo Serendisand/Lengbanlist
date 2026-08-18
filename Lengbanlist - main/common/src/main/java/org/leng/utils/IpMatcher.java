@@ -1,6 +1,16 @@
 package org.leng.utils;
 
 public class IpMatcher {
+
+    private static final String[] PRIVATE_OR_RESERVED_CIDRS = {
+            "0.0.0.0/32",
+            "10.0.0.0/8",
+            "127.0.0.0/8",
+            "169.254.0.0/16",
+            "172.16.0.0/12",
+            "192.168.0.0/16"
+    };
+
     private IpMatcher() {
     }
 
@@ -26,7 +36,9 @@ public class IpMatcher {
         if (!isIpv4(value.substring(0, slash))) return false;
         try {
             int prefix = Integer.parseInt(value.substring(slash + 1));
-            return prefix >= 0 && prefix <= 32;
+            // 拒绝 0.0.0.0/0 匹配所有 IP
+            if (prefix == 0) return false;
+            return prefix > 0 && prefix <= 32;
         } catch (NumberFormatException e) {
             return false;
         }
@@ -109,29 +121,29 @@ public class IpMatcher {
         return base.startsWith("127.") || base.equals("0.0.0.0") || base.equals("::1");
     }
 
-    /** 是否私有/保留地址（禁止封禁，避免误封整个内网）。 */
+    /**
+     * 是否私有/保留地址（禁止封禁，避免误封整个内网）。
+     */
     public static boolean isPrivateOrReserved(String value) {
         if (value == null) return false;
         String normalized = normalizeIpOrCidr(value);
         if (normalized == null) return false;
-        String base = normalized;
-        if (isCidr(normalized)) base = normalized.substring(0, normalized.indexOf('/'));
-        if (base.startsWith("127.") || base.equals("0.0.0.0") || base.equals("::1")) return true;
-        if (base.startsWith("10.")) return true;
-        if (base.startsWith("192.168.")) return true;
-        if (base.startsWith("169.254.")) return true; // 链路本地
-        if (base.startsWith("172.")) {
-            int dot = base.indexOf('.', 4);
-            if (dot > 0) {
-                try {
-                    int secondOctet = Integer.parseInt(base.substring(4, dot));
-                    if (secondOctet >= 16 && secondOctet <= 31) return true;
-                } catch (NumberFormatException ignored) {
-                }
-            }
+        // IPv6：唯一本地地址 (fc00::/7) 与环回地址禁止封禁
+        if (normalized.contains(":")) {
+            String base = isCidr(normalized) ? normalized.substring(0, normalized.indexOf('/')) : normalized;
+            return base.startsWith("fc") || base.startsWith("fd") || base.equals("::1");
         }
-        if (base.startsWith("fd") || base.startsWith("fc")) return true; // IPv6 唯一本地
+        String candidateCidr = isCidr(normalized) ? normalized : normalized + "/32";
+        for (String restrictedCidr : PRIVATE_OR_RESERVED_CIDRS) {
+            if (cidrOverlaps(candidateCidr, restrictedCidr)) return true;
+        }
         return false;
+    }
+
+    private static boolean cidrOverlaps(String first, String second) {
+        String firstBase = first.substring(0, first.indexOf('/'));
+        String secondBase = second.substring(0, second.indexOf('/'));
+        return cidrMatches(firstBase, second) || cidrMatches(secondBase, first);
     }
 
     public static long ipToLong(String ip) {

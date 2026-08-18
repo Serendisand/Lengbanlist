@@ -36,6 +36,17 @@ public class GitHubUpdateChecker {
         return getDownloadUrl(json.get("tag_name").getAsString());
     }
 
+    public static String getLatestSha256() throws Exception {
+        JsonObject json = fetchJsonFromApi();
+        if (json.has("assets") && json.get("assets").getAsJsonArray().size() > 0) {
+            JsonObject asset = json.get("assets").getAsJsonArray().get(0).getAsJsonObject();
+            if (asset.has("digest")) {
+                return asset.get("digest").getAsString();
+            }
+        }
+        return null;
+    }
+
     private static JsonObject fetchJsonFromApi() throws Exception {
         Exception lastException = null;
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {

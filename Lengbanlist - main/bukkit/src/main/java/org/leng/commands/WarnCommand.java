@@ -59,13 +59,13 @@ public class WarnCommand extends Command implements CommandExecutor, TabComplete
                 return false;
             }
 
-            warnManager.warnPlayer(target, sender.getName(), reason);
+            warnManager.warnPlayer(target, Utils.getSenderName(sender), reason);
             Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addWarn(target, reason));
             return true;
         }
 
 
-        warnManager.warnPlayer(target, sender.getName(), reason);
+        warnManager.warnPlayer(target, Utils.getSenderName(sender), reason);
         Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addWarn(target, reason));
 
         return true;

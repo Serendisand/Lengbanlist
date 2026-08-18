@@ -52,14 +52,23 @@ public class ReportManager {
         return plugin.getDatabaseManager().getPendingReportCount();
     }
 
-    public void banFromReport(ReportEntry entry, String staff, long endTime, String reason, boolean isAuto) {
+    public BanManager.BanMutationResult tryBanFromReport(ReportEntry entry, String staff, long endTime, String reason, boolean isAuto) {
         BanEntry banEntry = new BanEntry(entry.getTarget(), staff, endTime, reason, isAuto);
-        plugin.getBanManager().banPlayer(banEntry, false);
+        DatabaseManager.WriteResult writeResult = plugin.getDatabaseManager()
+                .replaceActiveBanAndUpdateReport(banEntry, entry, "已处理");
+        if (writeResult == DatabaseManager.WriteResult.DATABASE_ERROR) {
+            return BanManager.BanMutationResult.DATABASE_ERROR;
+        }
+        if (writeResult == DatabaseManager.WriteResult.NO_CHANGE) {
+            return BanManager.BanMutationResult.STATE_CHANGED;
+        }
         entry.setStatus("已处理");
-        updateReport(entry);
+        plugin.getBanManager().publishAppliedPlayerBan(banEntry, false);
         plugin.getAuditManager().log("举报转封禁", staff, entry.getTarget(), reason);
         long durationMillis = endTime == Long.MAX_VALUE ? Long.MAX_VALUE : endTime - System.currentTimeMillis();
         String message = plugin.getModelManager().getCurrentModel().onReportBan(entry.getTarget(), TimeUtils.formatDuration(durationMillis));
         plugin.getLogger().info(message);
+        return BanManager.BanMutationResult.APPLIED;
     }
+
 }

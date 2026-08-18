@@ -8,6 +8,7 @@ import org.leng.Lengbanlist;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.manager.BanManager;
+import org.leng.manager.BanMutationFeedback;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
 
@@ -87,7 +88,11 @@ public class SetBanCommand implements CommandExecutor {
             existingBanIp.setEndTime(TimeUtils.calculateEndTime(banDuration));
             existingBanIp.setReason(reason);
             existingBanIp.setAuto(isAuto);
-            banManager.updateIpBan(existingBanIp);
+            BanManager.BanMutationResult ipResult = banManager.tryUpdateIpBan(existingBanIp);
+            if (!ipResult.isApplied()) {
+                BanMutationFeedback.sendFailure(sender, ipResult, target, true);
+                return true;
+            }
         } else {
 
             BanEntry existingBan = banManager.getBanEntry(target);
@@ -98,7 +103,11 @@ public class SetBanCommand implements CommandExecutor {
             existingBan.setEndTime(TimeUtils.calculateEndTime(banDuration));
             existingBan.setReason(reason);
             existingBan.setAuto(isAuto);
-            banManager.updateBan(existingBan);
+            BanManager.BanMutationResult result = banManager.tryUpdateBan(existingBan);
+            if (!result.isApplied()) {
+                BanMutationFeedback.sendFailure(sender, result, target, false);
+                return true;
+            }
         }
 
 

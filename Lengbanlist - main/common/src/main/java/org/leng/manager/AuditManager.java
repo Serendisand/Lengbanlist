@@ -37,10 +37,14 @@ public class AuditManager {
         if (actor == null || actor.trim().isEmpty()) {
             actor = "System";
         }
+        boolean recorded;
         if (plugin.isFeatureEnabled("audit-chain")) {
-            db.addAuditLogChained(actor, action, target == null ? "" : target, reason == null ? "" : reason, success);
+            recorded = db.addAuditLogChained(actor, action, target == null ? "" : target, reason == null ? "" : reason, success);
         } else {
-            db.addAuditLog(actor, action, target == null ? "" : target, reason == null ? "" : reason, success);
+            recorded = db.addAuditLog(actor, action, target == null ? "" : target, reason == null ? "" : reason, success);
+        }
+        if (!recorded) {
+            plugin.getLogger().severe("审计日志写入失败（操作: " + action + "，操作人: " + actor + "，目标: " + (target == null ? "" : target) + "）：该操作已执行但未记录，请检查数据库状态。");
         }
         notifyWebhook(action, actor, target, reason);
     }

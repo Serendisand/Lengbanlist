@@ -79,9 +79,13 @@ public class WarnManager {
                     true
             );
 
-            plugin.getBanManager().banPlayer(banEntry);
-            String message = String.format("§6[LBAC] §e%s §c因30天内累计%d次警告被自动封禁§a%s §6<此封禁由系统决定>", player, validWarnings.size(), formattedDuration);
-            plugin.broadcastMessage(message);
+            BanManager.BanMutationResult result = plugin.getBanManager().tryBanPlayer(banEntry);
+            if (result.isApplied()) {
+                String message = String.format("§6[LBAC] §e%s §c因30天内累计%d次警告被自动封禁§a%s §6<此封禁由系统决定>", player, validWarnings.size(), formattedDuration);
+                plugin.broadcastMessage(message);
+            } else {
+                logAutomaticMutationFailure("封禁玩家", player, result);
+            }
         }
     }
 
@@ -104,9 +108,21 @@ public class WarnManager {
                 .collect(Collectors.toList());
 
         if (validWarnings.size() < 3 && plugin.getBanManager().isBanned(player, "LBAC")) {
-            plugin.getBanManager().unbanPlayer(player);
-            String message = String.format("§6[LBAC] §e%s §a因警告次数减少至%d次，自动解封", player, validWarnings.size());
-            plugin.broadcastMessage(message);
+            BanManager.BanMutationResult result = plugin.getBanManager().tryUnbanPlayer(player, null, false);
+            if (result.isApplied()) {
+                String message = String.format("§6[LBAC] §e%s §a因警告次数减少至%d次，自动解封", player, validWarnings.size());
+                plugin.broadcastMessage(message);
+            } else {
+                logAutomaticMutationFailure("解封玩家", player, result);
+            }
+        }
+    }
+
+    private void logAutomaticMutationFailure(String action, String target,
+                                             BanManager.BanMutationResult result) {
+        if (result == BanManager.BanMutationResult.DATABASE_ERROR) {
+            plugin.getLogger().warning("LBAC 自动" + action + "失败: target=" + target
+                    + ", result=" + result);
         }
     }
 

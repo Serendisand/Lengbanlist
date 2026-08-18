@@ -222,7 +222,7 @@ public final class FabricCommandBridge {
                 String type = args.length >= 5 ? args[4] : null;
                 sink.sendMessage(plugin.prefix() + "§e正在回滚 " + actor + " 的操作...");
                 plugin.runAsync(() -> {
-                    org.leng.manager.RollbackManager.RollbackResult result = new org.leng.manager.RollbackManager(plugin).rollback(actor, from, to, type);
+                    org.leng.manager.RollbackManager.RollbackResult result = new org.leng.manager.RollbackManager(plugin).rollback(actor, from, to, type, sourceName(source));
                     plugin.runSync(() -> {
                         sink.sendMessage(model.getRollbackResult(result.matched, result.executed, result.skipped));
                         for (String detail : result.details) {

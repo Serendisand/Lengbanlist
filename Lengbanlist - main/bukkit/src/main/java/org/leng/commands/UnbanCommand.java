@@ -5,6 +5,8 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
+import org.leng.manager.BanManager;
+import org.leng.manager.BanMutationFeedback;
 import org.leng.utils.Utils;
 
 public class UnbanCommand extends Command implements CommandExecutor {
@@ -40,17 +42,23 @@ public class UnbanCommand extends Command implements CommandExecutor {
 
         if (args[0].contains(".")) {
 
-            if (Lengbanlist.getInstance().banManager.isIpBanned(args[0])) {
-                Lengbanlist.getInstance().banManager.unbanIp(args[0]);
-            } else {
+            if (!Lengbanlist.getInstance().banManager.isIpBanned(args[0])) {
                 Utils.sendMessage(sender, "§cIP " + args[0] + " 未被封禁或封禁已过期");
+                return true;
+            }
+            BanManager.BanMutationResult ipResult = Lengbanlist.getInstance().banManager.tryUnbanIp(args[0], Utils.getSenderName(sender), false);
+            if (!ipResult.isApplied()) {
+                BanMutationFeedback.sendFailure(sender, ipResult, args[0], true);
             }
         } else {
 
-            if (Lengbanlist.getInstance().banManager.isPlayerBanned(args[0])) {
-                Lengbanlist.getInstance().banManager.unbanPlayer(args[0]);
-            } else {
+            if (!Lengbanlist.getInstance().banManager.isPlayerBanned(args[0])) {
                 Utils.sendMessage(sender, "§c玩家 " + args[0] + " 未被封禁或封禁已过期");
+                return true;
+            }
+            BanManager.BanMutationResult pResult = Lengbanlist.getInstance().banManager.tryUnbanPlayer(args[0], Utils.getSenderName(sender), false);
+            if (!pResult.isApplied()) {
+                BanMutationFeedback.sendFailure(sender, pResult, args[0], false);
             }
         }
         return true;

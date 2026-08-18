@@ -280,6 +280,12 @@ public class MuteManager {
                     storedTargets.add(storedTarget);
                 }
             }
+        } else if (IpMatcher.isCidr(target)) {
+            for (String storedTarget : ipMuteCache.keySet()) {
+                if (IpMatcher.isCidr(storedTarget) && IpMatcher.cidrMatches(target, storedTarget)) {
+                    storedTargets.add(storedTarget);
+                }
+            }
         }
         if (storedTargets.isEmpty()) {
             storedTargets.add(target);

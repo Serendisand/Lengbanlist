@@ -1,5 +1,6 @@
 package org.leng.utils;
 
+import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.leng.Lengbanlist;
 
@@ -9,9 +10,16 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 import java.util.logging.Logger;
 
 public class AutoUpdateManager {
+    private static final String MANIFEST_MAIN_CLASS = "org.leng.Lengbanlist";
+
     private final Lengbanlist plugin;
     private final Logger logger;
     private File currentPluginFile;
@@ -25,7 +33,6 @@ public class AutoUpdateManager {
 
     private File getCurrentPluginFile() {
         try {
-
             Method getFileMethod = JavaPlugin.class.getDeclaredMethod("getFile");
             getFileMethod.setAccessible(true);
             return (File) getFileMethod.invoke(plugin);
@@ -37,13 +44,13 @@ public class AutoUpdateManager {
 
 
     private String getPluginBaseName(String fileName) {
-
-
-        if (fileName.matches(".* - \\d+(\\.\\d+)*\\.jar$")) {
-
-            return fileName.substring(0, fileName.lastIndexOf(" - ")) + ".jar";
+        if (fileName == null) {
+            return null;
         }
-
+        int lastHyphen = fileName.lastIndexOf("-");
+        if (lastHyphen > 0 && fileName.endsWith(".jar")) {
+            return fileName.substring(0, lastHyphen) + ".jar";
+        }
         return fileName;
     }
 
@@ -95,16 +102,52 @@ public class AutoUpdateManager {
         HttpURLConnection connection = (HttpURLConnection) new URL(downloadUrl).openConnection();
         connection.setConnectTimeout(5000);
         connection.setReadTimeout(15000);
-        try (InputStream in = connection.getInputStream();
-             ReadableByteChannel rbc = Channels.newChannel(in);
+
+        // 下载并实时计算 SHA-256
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance("SHA-256");
+        } catch (Exception e) {
+            throw new Exception("SHA-256 不可用", e);
+        }
+        long bytesRead;
+        try (InputStream rawIn = connection.getInputStream();
+             DigestInputStream digestingIn = new DigestInputStream(rawIn, digest);
+             ReadableByteChannel rbc = Channels.newChannel(digestingIn);
              FileOutputStream fos = new FileOutputStream(tempFile)) {
-            fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
+            bytesRead = fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
         } finally {
             connection.disconnect();
         }
+        String sha256 = toHex(digest.digest());
 
         logger.info("新版本已下载到临时文件: " + tempFile.getName() +
-                   " (" + tempFile.length() + " bytes)");
+                   " (" + bytesRead + " bytes, SHA-256: " + sha256 + ")");
+
+        // 校验官方 SHA-256（如可获取）
+        try {
+            String expectedSha256 = normalizeSha256(GitHubUpdateChecker.getLatestSha256());
+            if (expectedSha256 != null) {
+                if (!expectedSha256.equalsIgnoreCase(sha256)) {
+                    tempFile.delete();
+                    throw new IOException("下载文件 SHA-256 与官方发布不一致（期望 " + expectedSha256 + "，实际 " + sha256 + "），已拒绝安装，请检查更新源是否被劫持。");
+                }
+                logger.info("SHA-256 校验通过：与官方发布一致");
+            } else {
+                logger.warning("无法获取官方 SHA-256（当前更新源未提供），已跳过哈希校验，仅完成结构校验。建议改用 GitHub 直连/代理镜像或手动下载更新。");
+            }
+        } catch (Exception e) {
+            if (e instanceof IOException) throw (IOException) e;
+            throw new Exception("SHA-256 校验失败: " + e.getMessage(), e);
+        }
+
+        // 校验 jar 包结构（plugin.yml 主类 + manifest 防注入）
+        try {
+            validatePluginJar(tempFile);
+        } catch (Exception e) {
+            tempFile.delete();
+            throw e;
+        }
 
 
         File newPluginFile = new File(currentPluginFile.getParentFile(), newFileName);
@@ -161,5 +204,58 @@ public class AutoUpdateManager {
     private void installUpdate(File newPluginFile) {
         logger.info("新版本插件文件已安装: " + newPluginFile.getName());
         logger.info("请重启服务器以加载新版本。Paper 不支持安全地运行时替换并重载插件。");
+    }
+
+    private static String toHex(byte[] bytes) {
+        StringBuilder hex = new StringBuilder();
+        for (byte b : bytes) {
+            hex.append(String.format("%02x", b));
+        }
+        return hex.toString();
+    }
+
+    private static String normalizeSha256(String digestValue) {
+        if (digestValue == null || digestValue.trim().isEmpty()) {
+            return null;
+        }
+        String value = digestValue.trim();
+        int colon = value.indexOf(':');
+        if (colon >= 0) {
+            value = value.substring(colon + 1).trim();
+        }
+        if (!value.matches("^[0-9a-fA-F]{64}$")) {
+            return null;
+        }
+        return value.toLowerCase();
+    }
+
+    /**
+     * 校验下载的 jar 是否是可安装的 Lengbanlist 插件包：
+     * 必须含可解析的 plugin.yml 且主类为 {@link #MANIFEST_MAIN_CLASS}。
+     * 不校验 MANIFEST 的 Main-Class —— Bukkit 插件的 jar 从不写该字段。
+     */
+    static void validatePluginJar(File jarFile) throws IOException {
+        try (JarFile jar = new JarFile(jarFile)) {
+            JarEntry pluginYml = jar.getJarEntry("plugin.yml");
+            if (pluginYml == null) {
+                throw new IOException("下载的 JAR 缺少 plugin.yml，已拒绝安装，请检查更新源。");
+            }
+            String mainClass = null;
+            try (InputStream in = jar.getInputStream(pluginYml)) {
+                mainClass = new PluginDescriptionFile(in).getMain();
+            } catch (Exception e) {
+                throw new IOException("下载的 JAR 中 plugin.yml 无法解析（" + e.getMessage() + "），已拒绝安装，请检查更新源。", e);
+            }
+            if (!MANIFEST_MAIN_CLASS.equals(mainClass)) {
+                throw new IOException("下载的 JAR 的 plugin.yml 主类不是 " + MANIFEST_MAIN_CLASS + "（实际: " + mainClass + "），已拒绝安装，请检查更新源。");
+            }
+            Manifest manifest = jar.getManifest();
+            if (manifest != null) {
+                String declared = manifest.getMainAttributes().getValue("Main-Class");
+                if (declared != null && !MANIFEST_MAIN_CLASS.equals(declared)) {
+                    throw new IOException("下载的 JAR 清单声明了冲突的主类 " + declared + "，已拒绝安装，请检查更新源。");
+                }
+            }
+        }
     }
 }

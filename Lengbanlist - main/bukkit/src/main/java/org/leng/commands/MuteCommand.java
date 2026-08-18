@@ -45,7 +45,7 @@ public class MuteCommand implements CommandExecutor {
                 return true;
             }
         }
-        MuteEntry entry = new MuteEntry(target, sender.getName(), org.leng.utils.TimeUtils.calculateEndTime(duration), reason);
+        MuteEntry entry = new MuteEntry(target, Utils.getSenderName(sender), org.leng.utils.TimeUtils.calculateEndTime(duration), reason);
         plugin.getMuteManager().mutePlayer(entry);
         Utils.broadcast(ModelManager.getInstance().getCurrentModel().addMute(target, reason));
         return true;

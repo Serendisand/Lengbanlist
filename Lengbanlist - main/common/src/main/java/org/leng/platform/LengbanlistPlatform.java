@@ -65,6 +65,12 @@ public interface LengbanlistPlatform {
 
     void runSync(Runnable task);
 
+    /** 在主线程执行任务并返回可取消句柄；不实现取消的平台返回 {@link CancellableTask#NOOP}。 */
+    default CancellableTask runSyncCancellable(Runnable task) {
+        runSync(task);
+        return CancellableTask.NOOP;
+    }
+
     /** 异步执行任务（平台无异步调度时降级为直接执行）。 */
     default void runAsync(Runnable task) {
         task.run();

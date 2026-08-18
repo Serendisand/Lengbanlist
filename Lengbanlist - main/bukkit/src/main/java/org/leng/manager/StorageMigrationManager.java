@@ -62,7 +62,12 @@ public class StorageMigrationManager {
                 continue;
             }
             try {
-                databaseManager.upsertBan(new BanEntry(parsed.parts.get(0), parsed.parts.get(1), Long.parseLong(parsed.parts.get(2)), parsed.reason, parsed.flag));
+                DatabaseManager.WriteResult result = databaseManager.upsertBan(
+                        new BanEntry(parsed.parts.get(0), parsed.parts.get(1), Long.parseLong(parsed.parts.get(2)), parsed.reason, parsed.flag));
+                if (result != DatabaseManager.WriteResult.APPLIED) {
+                    warn(file, entry, new IllegalStateException("迁移封禁写入失败: " + result));
+                    continue;
+                }
                 count++;
             } catch (Exception e) {
                 warn(file, entry, e);
@@ -82,7 +87,12 @@ public class StorageMigrationManager {
                 continue;
             }
             try {
-                databaseManager.upsertIpBan(new BanIpEntry(parsed.parts.get(0), parsed.parts.get(1), Long.parseLong(parsed.parts.get(2)), parsed.reason, parsed.flag));
+                DatabaseManager.WriteResult result = databaseManager.upsertIpBan(
+                        new BanIpEntry(parsed.parts.get(0), parsed.parts.get(1), Long.parseLong(parsed.parts.get(2)), parsed.reason, parsed.flag));
+                if (result != DatabaseManager.WriteResult.APPLIED) {
+                    warn(file, entry, new IllegalStateException("迁移 IP 封禁写入失败: " + result));
+                    continue;
+                }
                 count++;
             } catch (Exception e) {
                 warn(file, entry, e);

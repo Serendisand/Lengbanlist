@@ -6,6 +6,8 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
+import org.leng.manager.BanManager;
+import org.leng.manager.BanMutationFeedback;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
 
@@ -76,9 +78,13 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
         String reason = resolvePresetReason(rawReason);
 
 
-        plugin.getBanManager().banIp(
-            new org.leng.object.BanIpEntry(args[0], sender.getName(), banEndTime, reason, isAuto)
+        BanManager.BanMutationResult result = plugin.getBanManager().tryBanIp(
+            new org.leng.object.BanIpEntry(args[0], Utils.getSenderName(sender), banEndTime, reason, isAuto)
         );
+        if (!result.isApplied()) {
+            BanMutationFeedback.sendFailure(sender, result, args[0], true);
+            return true;
+        }
         return true;
     }
 

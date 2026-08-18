@@ -30,6 +30,34 @@ public class ImmunityManager {
         return operatorWeight > getTargetWeight(targetName);
     }
 
+    public boolean canPunishTarget(int operatorWeight, String target) {
+        if (!plugin.isFeatureEnabled("immunity")) {
+            return true;
+        }
+        if (target != null && target.contains(".")) {
+            return operatorWeight > getIpTargetWeight(target);
+        }
+        return operatorWeight > getTargetWeight(target);
+    }
+
+    private int getIpTargetWeight(String ip) {
+        int highest = Integer.MIN_VALUE;
+        for (Player online : plugin.getServer().getOnlinePlayers()) {
+            if (online.getAddress() == null) {
+                continue;
+            }
+            String playerIp = online.getAddress().getAddress().getHostAddress();
+            if (!playerIp.equals(ip)) {
+                continue;
+            }
+            int weight = resolveWeight(online);
+            if (weight > highest) {
+                highest = weight;
+            }
+        }
+        return highest;
+    }
+
     public int getWebOperatorWeight() {
         return plugin.getConfig().getInt("web.operator-weight", Integer.MAX_VALUE);
     }
