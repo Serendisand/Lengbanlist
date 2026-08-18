@@ -28,11 +28,4 @@ public final class BanMutationFeedback {
         }
     }
 
-    public static void sendFailure(org.bukkit.command.CommandSender sender,
-                                   BanManager.BanMutationResult result,
-                                   String target, boolean ipTarget) {
-        sendFailure(message -> org.leng.utils.Utils.sendMessage(sender, message),
-                result, target, ipTarget);
-    }
-
 }

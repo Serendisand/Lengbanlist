@@ -192,7 +192,7 @@ public final class FabricCommandBridge {
                     handleEndTime = TimeUtils.calculateEndTime(handleDuration);
                 }
                 String handleReason = args.length > 3 ? String.join(" ", Arrays.copyOfRange(args, 3, args.length)) : handleReport.getReason();
-                plugin.getReportManager().banFromReport(handleReport, sourceName(source), handleEndTime, handleReason, handleAuto);
+                plugin.getReportManager().tryBanFromReport(handleReport, sourceName(source), handleEndTime, handleReason, handleAuto);
                 String handleDurationText = handleEndTime == Long.MAX_VALUE ? "永久" : TimeUtils.formatDuration(handleEndTime - System.currentTimeMillis());
                 sink.sendMessage(plugin.prefix() + "§a已处理举报 " + handleReport.getId() + "，封禁玩家 " + handleTarget + "（" + handleDurationText + "）");
                 return;
@@ -259,7 +259,7 @@ public final class FabricCommandBridge {
             case "unban":
                 if (!requirePermission(source, sink)) return;
                 if (args.length < 1) return;
-                if (args[0].contains(".")) plugin.getBanManager().unbanIp(args[0]); else plugin.getBanManager().unbanPlayer(args[0]);
+                if (args[0].contains(".")) plugin.getBanManager().tryUnbanIp(args[0], name, false); else plugin.getBanManager().tryUnbanPlayer(args[0], name, false);
                 break;
             case "warn":
                 if (!requirePermission(source, sink)) return;
@@ -420,8 +420,8 @@ public final class FabricCommandBridge {
             return;
         }
         long end = TimeUtils.calculateEndTime(duration);
-        if (ip) plugin.getBanManager().banIp(new BanIpEntry(target, staff, end, reason, "auto".equalsIgnoreCase(timeArg)));
-        else plugin.getBanManager().banPlayer(new BanEntry(target, staff, end, reason, "auto".equalsIgnoreCase(timeArg)));
+        if (ip) plugin.getBanManager().tryBanIp(new BanIpEntry(target, staff, end, reason, "auto".equalsIgnoreCase(timeArg)));
+        else plugin.getBanManager().tryBanPlayer(new BanEntry(target, staff, end, reason, "auto".equalsIgnoreCase(timeArg)));
     }
 
     private static List<String> historyEntries(FabricLengbanlist plugin, String player) {

@@ -82,7 +82,7 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
             new org.leng.object.BanIpEntry(args[0], Utils.getSenderName(sender), banEndTime, reason, isAuto)
         );
         if (!result.isApplied()) {
-            BanMutationFeedback.sendFailure(sender, result, args[0], true);
+            BanMutationFeedback.sendFailure(msg -> Utils.sendMessage(sender, msg), result, args[0], true);
             return true;
         }
         return true;

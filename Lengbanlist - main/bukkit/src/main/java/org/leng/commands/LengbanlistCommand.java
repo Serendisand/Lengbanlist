@@ -156,6 +156,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                 try {
                     long durationLong;
                     boolean isAuto = args[2].equalsIgnoreCase("auto");
+                    boolean addSilent = false;
                     if (isAuto) {
                         durationLong = calculateAutoBanTime(args[1]);
                     } else {
@@ -173,7 +174,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                         addResult = plugin.getBanManager().tryBanPlayer(new BanEntry(args[1], Utils.getSenderName(sender), endTime, args[3], isAuto), addSilent);
                     }
                     if (!addResult.isApplied()) {
-                        BanMutationFeedback.sendFailure(sender, addResult, args[1], args[1].contains("."));
+                        BanMutationFeedback.sendFailure(msg -> Utils.sendMessage(sender, msg), addResult, args[1], args[1].contains("."));
                     }
                 } catch (IllegalArgumentException e) {
                     Utils.sendMessage(sender, plugin.prefix() + e.getMessage());
@@ -199,7 +200,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     }
                     BanManager.BanMutationResult removeIp = plugin.getBanManager().tryUnbanIp(args[1], Utils.getSenderName(sender), false);
                     if (!removeIp.isApplied()) {
-                        BanMutationFeedback.sendFailure(sender, removeIp, args[1], true);
+                        BanMutationFeedback.sendFailure(msg -> Utils.sendMessage(sender, msg), removeIp, args[1], true);
                     }
                 } else {
                     if (!plugin.getBanManager().isPlayerBanned(args[1])) {
@@ -208,7 +209,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     }
                     BanManager.BanMutationResult removeP = plugin.getBanManager().tryUnbanPlayer(args[1], Utils.getSenderName(sender), false);
                     if (!removeP.isApplied()) {
-                        BanMutationFeedback.sendFailure(sender, removeP, args[1], false);
+                        BanMutationFeedback.sendFailure(msg -> Utils.sendMessage(sender, msg), removeP, args[1], false);
                     }
                 }
                 break;
@@ -595,7 +596,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                     String handleReason = args.length > 3 ? String.join(" ", Arrays.copyOfRange(args, 3, args.length)) : handleReport.getReason();
                     BanManager.BanMutationResult handleResult = plugin.getReportManager().tryBanFromReport(handleReport, Utils.getSenderName(sender), handleEndTime, handleReason, handleAuto);
                     if (!handleResult.isApplied()) {
-                        BanMutationFeedback.sendFailure(sender, handleResult, handleTarget, handleTarget.contains("."));
+                        BanMutationFeedback.sendFailure(msg -> Utils.sendMessage(sender, msg), handleResult, handleTarget, handleTarget.contains("."));
                         break;
                     }
                     String handleDurationText = handleEndTime == Long.MAX_VALUE ? "永久" : TimeUtils.formatDuration(handleEndTime - System.currentTimeMillis());

@@ -90,7 +90,7 @@ public class SetBanCommand implements CommandExecutor {
             existingBanIp.setAuto(isAuto);
             BanManager.BanMutationResult ipResult = banManager.tryUpdateIpBan(existingBanIp);
             if (!ipResult.isApplied()) {
-                BanMutationFeedback.sendFailure(sender, ipResult, target, true);
+                BanMutationFeedback.sendFailure(msg -> Utils.sendMessage(sender, msg), ipResult, target, true);
                 return true;
             }
         } else {
@@ -105,7 +105,7 @@ public class SetBanCommand implements CommandExecutor {
             existingBan.setAuto(isAuto);
             BanManager.BanMutationResult result = banManager.tryUpdateBan(existingBan);
             if (!result.isApplied()) {
-                BanMutationFeedback.sendFailure(sender, result, target, false);
+                BanMutationFeedback.sendFailure(msg -> Utils.sendMessage(sender, msg), result, target, false);
                 return true;
             }
         }

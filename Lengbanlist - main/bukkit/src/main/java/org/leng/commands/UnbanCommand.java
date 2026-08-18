@@ -48,7 +48,7 @@ public class UnbanCommand extends Command implements CommandExecutor {
             }
             BanManager.BanMutationResult ipResult = Lengbanlist.getInstance().banManager.tryUnbanIp(args[0], Utils.getSenderName(sender), false);
             if (!ipResult.isApplied()) {
-                BanMutationFeedback.sendFailure(sender, ipResult, args[0], true);
+                BanMutationFeedback.sendFailure(msg -> Utils.sendMessage(sender, msg), ipResult, args[0], true);
             }
         } else {
 
@@ -58,7 +58,7 @@ public class UnbanCommand extends Command implements CommandExecutor {
             }
             BanManager.BanMutationResult pResult = Lengbanlist.getInstance().banManager.tryUnbanPlayer(args[0], Utils.getSenderName(sender), false);
             if (!pResult.isApplied()) {
-                BanMutationFeedback.sendFailure(sender, pResult, args[0], false);
+                BanMutationFeedback.sendFailure(msg -> Utils.sendMessage(sender, msg), pResult, args[0], false);
             }
         }
         return true;

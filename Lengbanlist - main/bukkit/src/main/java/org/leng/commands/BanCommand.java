@@ -85,7 +85,7 @@ public class BanCommand implements CommandExecutor, TabCompleter {
 
         BanManager.BanMutationResult result = plugin.getBanManager().tryBanPlayer(entry, false);
         if (!result.isApplied()) {
-            BanMutationFeedback.sendFailure(sender, result, target, false);
+            BanMutationFeedback.sendFailure(msg -> Utils.sendMessage(sender, msg), result, target, false);
             return true;
         }
         return true;

@@ -57,6 +57,29 @@ public interface LengbanlistPlatform {
 
     AuditManager getAuditManager();
 
+    /**
+     * 检查给定操作者权重是否能对目标玩家执行处罚。
+     * Bukkit 端委托给 LuckPerms/权限节点；Fabric 等无权限后端的平台默认放行。
+     */
+    default boolean canPunish(int operatorWeight, String targetName) {
+        return true;
+    }
+
+    /**
+     * 检查给定操作者权重是否能对目标（玩家或 IP）执行处罚。
+     * Bukkit 端委托给 LuckPerms/权限节点；Fabric 等无权限后端的平台默认放行。
+     */
+    default boolean canPunishTarget(int operatorWeight, String target) {
+        return true;
+    }
+
+    /**
+     * Web 面板操作者的权重。Bukkit 端读取 web.operator-weight；其他平台默认最大值。
+     */
+    default int getWebOperatorWeight() {
+        return Integer.MAX_VALUE;
+    }
+
     void broadcastMessage(String message);
 
     default void logMessage(String message) {

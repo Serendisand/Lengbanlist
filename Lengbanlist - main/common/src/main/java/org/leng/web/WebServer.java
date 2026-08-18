@@ -583,7 +583,7 @@ public class WebServer {
             AtomicReference<BanManager.BanMutationResult> mutationResult =
                     new AtomicReference<>(BanManager.BanMutationResult.DATABASE_ERROR);
             boolean completed = runSync(exchange, () -> {
-                if (!target.contains(".") && !plugin.getImmunityManager().canPunish(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
+                if (!target.contains(".") && !plugin.canPunish(plugin.getWebOperatorWeight(), target)) {
                     permissionDenied.set(true);
                     return;
                 }
@@ -629,7 +629,7 @@ public class WebServer {
             AtomicReference<BanManager.BanMutationResult> mutationResult =
                     new AtomicReference<>(BanManager.BanMutationResult.DATABASE_ERROR);
             boolean completed = runSync(exchange, () -> {
-                if (!plugin.getImmunityManager().canPunishTarget(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
+                if (!plugin.canPunishTarget(plugin.getWebOperatorWeight(), target)) {
                     permissionDenied.set(true);
                     return;
                 }
@@ -816,7 +816,7 @@ public class WebServer {
 
             AtomicReference<Boolean> permissionDenied = new AtomicReference<>(false);
             boolean completed = runSync(exchange, () -> {
-                if (!plugin.getImmunityManager().canPunishTarget(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
+                if (!plugin.canPunishTarget(plugin.getWebOperatorWeight(), target)) {
                     permissionDenied.set(true);
                     return;
                 }
@@ -852,7 +852,7 @@ public class WebServer {
             String target = json.get("target").getAsString();
             AtomicReference<Boolean> permissionDenied = new AtomicReference<>(false);
             boolean completed = runSync(exchange, () -> {
-                if (!plugin.getImmunityManager().canPunishTarget(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
+                if (!plugin.canPunishTarget(plugin.getWebOperatorWeight(), target)) {
                     permissionDenied.set(true);
                     return;
                 }

@@ -109,7 +109,7 @@ public final class FabricServerFeatures {
             String banReason = plugin.getConfigString("vpn-detection.ban-reason", "使用代理/VPN 登录");
             long duration = TimeUtils.parseTime(banDurationStr);
             if (duration <= 0) duration = TimeUtils.daysToMillis(7);
-            plugin.getBanManager().banIp(new BanIpEntry(ip, "VPN-Detection", TimeUtils.calculateEndTime(duration), banReason, false));
+            plugin.getBanManager().tryBanIp(new BanIpEntry(ip, "VPN-Detection", TimeUtils.calculateEndTime(duration), banReason, false));
             ReflectionSupport.kick(player, "§c检测到代理/VPN 连接\n\n§f" + banReason + "\n§e请联系管理员解决");
             notifyOperators(server, "§7[§cVPN检测§7] " + prefix + "§c" + playerName + " §e因使用代理/VPN 已被自动封禁");
             ReflectionSupport.sendConsoleMessage(server, "§7[§cVPN检测§7] " + playerName + " 因使用代理/VPN 已被自动封禁 (IP: " + ip + ")");

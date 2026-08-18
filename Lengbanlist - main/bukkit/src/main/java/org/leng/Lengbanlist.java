@@ -467,6 +467,21 @@ private void unregisterCommands() {
         return immunityManager;
     }
 
+    @Override
+    public boolean canPunish(int operatorWeight, String targetName) {
+        return immunityManager.canPunish(operatorWeight, targetName);
+    }
+
+    @Override
+    public boolean canPunishTarget(int operatorWeight, String target) {
+        return immunityManager.canPunishTarget(operatorWeight, target);
+    }
+
+    @Override
+    public int getWebOperatorWeight() {
+        return immunityManager.getWebOperatorWeight();
+    }
+
     public EscalationManager getEscalationManager() {
         return escalationManager;
     }
