@@ -78,6 +78,10 @@ public class BanCommand implements CommandExecutor, TabCompleter {
             }
 
         }
+        if (banDuration <= 0) {
+            showTimeFormatError(sender);
+            return false;
+        }
 
         long banEndTime = TimeUtils.calculateEndTime(banDuration);
 
@@ -99,20 +103,6 @@ public class BanCommand implements CommandExecutor, TabCompleter {
                     target, escalationResult.offenseCount, TimeUtils.formatDuration(banDuration)));
         }
         return true;
-    }
-
-    private long calculateAutoBanTime(String playerName) {
-        int warnCount = Math.max(0, plugin.getWarnManager().getActiveWarnings(playerName).size());
-
-
-        switch (warnCount) {
-            case 0:  return TimeUtils.daysToMillis(1);
-            case 1:  return TimeUtils.daysToMillis(3);
-            case 2:  return TimeUtils.daysToMillis(7);
-            case 3:  return TimeUtils.daysToMillis(14);
-            case 4:  return TimeUtils.daysToMillis(30);
-            default: return Long.MAX_VALUE;
-        }
     }
 
     private void sendUsage(CommandSender sender) {

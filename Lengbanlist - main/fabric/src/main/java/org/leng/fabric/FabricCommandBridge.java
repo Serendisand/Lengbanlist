@@ -1,5 +1,6 @@
 package org.leng.fabric;
 
+import org.leng.manager.BanManager;
 import org.leng.models.Model;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
@@ -445,12 +446,13 @@ public final class FabricCommandBridge {
             return;
         }
         long end = TimeUtils.calculateEndTime(duration);
+        BanManager.BanMutationResult banResult;
         if (ip) {
-            plugin.getBanManager().tryBanIp(new BanIpEntry(target, staff, end, reason, isAuto));
+            banResult = plugin.getBanManager().tryBanIp(new BanIpEntry(target, staff, end, reason, isAuto));
         } else {
-            plugin.getBanManager().tryBanPlayer(new BanEntry(target, staff, end, reason, isAuto));
+            banResult = plugin.getBanManager().tryBanPlayer(new BanEntry(target, staff, end, reason, isAuto));
         }
-        if (escalationResult != null && escalationResult.offenseCount > 0) {
+        if (banResult.isApplied() && escalationResult != null && escalationResult.offenseCount > 0) {
             sink.sendMessage(plugin.getModelManager().getCurrentModel().onEscalatedBan(
                     target, escalationResult.offenseCount, TimeUtils.formatDuration(duration)));
         }

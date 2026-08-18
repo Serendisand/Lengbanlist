@@ -170,8 +170,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, List
                         }
                     }
                     long endTime = TimeUtils.calculateEndTime(durationLong);
-                    long durationMillis = endTime == Long.MAX_VALUE ? Long.MAX_VALUE : endTime - System.currentTimeMillis();
-                    int durationDays = durationMillis == Long.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(1, Math.round(durationMillis / (double) (1000 * 60 * 60 * 24)));
+                    int durationDays = endTime == Long.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(1, Math.round((endTime - System.currentTimeMillis()) / (double) (1000 * 60 * 60 * 24)));
 
                     BanManager.BanMutationResult addResult;
                     if (args[1].contains(".")) {

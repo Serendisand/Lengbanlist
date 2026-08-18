@@ -80,6 +80,10 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
                 return false;
             }
         }
+        if (banDuration <= 0) {
+            showTimeFormatError(sender);
+            return false;
+        }
 
         long banEndTime = TimeUtils.calculateEndTime(banDuration);
         String rawReason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
@@ -115,21 +119,6 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
             return true;
         } catch (NumberFormatException e) {
             return false;
-        }
-    }
-
-    private long calculateAutoBanTime(String ip) {
-
-        int warnCount = plugin.getWarnManager().getActiveWarnings(ip).size();
-
-
-        switch (warnCount) {
-            case 0:  return TimeUtils.daysToMillis(1);
-            case 1:  return TimeUtils.daysToMillis(3);
-            case 2:  return TimeUtils.daysToMillis(7);
-            case 3:  return TimeUtils.daysToMillis(14);
-            case 4:  return TimeUtils.daysToMillis(30);
-            default: return Long.MAX_VALUE;
         }
     }
 
