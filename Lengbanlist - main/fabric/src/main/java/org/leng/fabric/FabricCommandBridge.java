@@ -452,7 +452,11 @@ public final class FabricCommandBridge {
         } else {
             banResult = plugin.getBanManager().tryBanPlayer(new BanEntry(target, staff, end, reason, isAuto));
         }
-        if (banResult.isApplied() && escalationResult != null && escalationResult.offenseCount > 0) {
+        if (!banResult.isApplied()) {
+            org.leng.manager.BanMutationFeedback.sendFailure(sink, banResult, target, ip);
+            return;
+        }
+        if (escalationResult != null && escalationResult.offenseCount > 0) {
             sink.sendMessage(plugin.getModelManager().getCurrentModel().onEscalatedBan(
                     target, escalationResult.offenseCount, TimeUtils.formatDuration(duration)));
         }
