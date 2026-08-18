@@ -84,7 +84,7 @@ public final class ReflectionSupport {
     public static void broadcast(Object server, String message) {
         try {
             Class<?> textClass = Class.forName("net.minecraft.text.Text");
-            Object text = textClass.getMethod("literal", String.class).invoke(null, message);
+            Object text = textClass.getMethod("literal", String.class).invoke(null, translateAmpColorCodes(message));
             for (Object player : onlinePlayers(server)) {
                 sendText(player, textClass, text);
             }
@@ -97,7 +97,7 @@ public final class ReflectionSupport {
     public static void sendMessage(Object source, String message) {
         try {
             Class<?> textClass = Class.forName("net.minecraft.text.Text");
-            Object text = textClass.getMethod("literal", String.class).invoke(null, message);
+            Object text = textClass.getMethod("literal", String.class).invoke(null, translateAmpColorCodes(message));
             sendText(source, textClass, text);
         } catch (Exception ignored) {
         }
@@ -244,5 +244,50 @@ public final class ReflectionSupport {
         } catch (NoSuchMethodException e) {
             return null;
         }
+    }
+
+    /**
+     * 把 {@code &} 形式的传统 Bukkit 颜色码转成 Minecraft 原生 {@code §} 形式。
+     * 支持：
+     * <ul>
+     *   <li>基础颜色码：{@code &0-&9 &a-&f &k &l &m &n &o &r}</li>
+     *   <li>HEX 颜色：{@code &#RRGGBB}（展开为 {@code §x§R§R§G§G§B§B}）</li>
+     * </ul>
+     * 如果输入里已经是 {@code §} 形式则保持原样，不做重复转换。
+     */
+    static String translateAmpColorCodes(String message) {
+        if (message == null || message.isEmpty() || message.indexOf('&') < 0) {
+            return message;
+        }
+        char[] chars = message.toCharArray();
+        StringBuilder out = new StringBuilder(chars.length + 8);
+        for (int i = 0; i < chars.length; i++) {
+            char c = chars[i];
+            if (c != '&' || i + 1 >= chars.length) {
+                out.append(c);
+                continue;
+            }
+            char next = chars[i + 1];
+            // HEX 颜色：&#RRGGBB
+            if (next == '#' && i + 7 < chars.length) {
+                String hex = message.substring(i + 2, i + 8);
+                if (hex.matches("[0-9a-fA-F]{6}")) {
+                    out.append('§').append('x');
+                    for (int j = 0; j < 6; j++) {
+                        out.append('§').append(hex.charAt(j));
+                    }
+                    i += 7;
+                    continue;
+                }
+            }
+            // 基础颜色/样式码
+            if ("0123456789abcdefklmnor".indexOf(Character.toLowerCase(next)) >= 0) {
+                out.append('§').append(next);
+                i++;
+                continue;
+            }
+            out.append(c);
+        }
+        return out.toString();
     }
 }
