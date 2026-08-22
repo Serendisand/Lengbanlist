@@ -286,6 +286,11 @@ public class FabricLengbanlist implements ModInitializer, LengbanlistPlatform {
     }
 
     @Override
+    public Object getConfigValue(String path) {
+        return config.getObject(path);
+    }
+
+    @Override
     public boolean isConfigurationSection(String path) {
         return config.isConfigurationSection(path);
     }

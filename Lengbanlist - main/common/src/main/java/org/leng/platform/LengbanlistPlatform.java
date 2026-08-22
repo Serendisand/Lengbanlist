@@ -29,6 +29,12 @@ public interface LengbanlistPlatform {
 
     List<String> getConfigStringList(String path);
 
+    /**
+     * 读取任意类型配置项（返回原始对象：String / Integer / Boolean / List / Map 等）。
+     * 主要用于 common 模块读取 list-of-maps 这类需要保留结构信息的配置。
+     */
+    Object getConfigValue(String path);
+
     boolean isConfigurationSection(String path);
 
     List<String> getConfigurationSectionKeys(String path);

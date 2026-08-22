@@ -18,6 +18,7 @@ import java.util.jar.Manifest;
 import java.util.logging.Logger;
 
 public class AutoUpdateManager {
+    private static final long MAX_DOWNLOAD_BYTES = 64L * 1024 * 1024; // 64MB 上限，防磁盘填满
     private static final String MANIFEST_MAIN_CLASS = "org.leng.Lengbanlist";
 
     private final Lengbanlist plugin;
@@ -93,7 +94,7 @@ public class AutoUpdateManager {
         connection.setConnectTimeout(5000);
         connection.setReadTimeout(15000);
 
-        // 下载并实时计算 SHA-256
+        // 下载并实时计算 SHA-256，带 64MB 上限防磁盘填满
         MessageDigest digest;
         try {
             digest = MessageDigest.getInstance("SHA-256");
@@ -105,7 +106,12 @@ public class AutoUpdateManager {
              DigestInputStream digestingIn = new DigestInputStream(rawIn, digest);
              ReadableByteChannel rbc = Channels.newChannel(digestingIn);
              FileOutputStream fos = new FileOutputStream(tempFile)) {
-            bytesRead = fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
+            bytesRead = fos.getChannel().transferFrom(rbc, 0, MAX_DOWNLOAD_BYTES + 1);
+            if (bytesRead > MAX_DOWNLOAD_BYTES) {
+                tempFile.delete();
+                throw new IOException("下载文件超过 " + (MAX_DOWNLOAD_BYTES / 1024 / 1024)
+                        + "MB 上限，已中止（疑似下载源异常或被劫持）");
+            }
         } finally {
             connection.disconnect();
         }

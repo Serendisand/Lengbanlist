@@ -187,6 +187,10 @@ public class SimpleYamlConfig {
         return keys;
     }
 
+    public Object getObject(String path) {
+        return values.get(path);
+    }
+
     public void set(String path, Object value) {
         values.put(path, value);
     }

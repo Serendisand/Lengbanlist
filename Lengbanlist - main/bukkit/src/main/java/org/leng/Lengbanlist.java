@@ -566,6 +566,11 @@ private void unregisterCommands() {
     }
 
     @Override
+    public Object getConfigValue(String path) {
+        return getConfig().get(path);
+    }
+
+    @Override
     public boolean isConfigurationSection(String path) {
         return getConfig().isConfigurationSection(path);
     }
