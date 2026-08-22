@@ -59,19 +59,59 @@ jobs:
           echo "::error::未能定位产物：bukkit=$BUKKIT_JAR, fabric=$FABRIC_JAR"
           exit 1
         fi
+        # 只保存文件名，不包含路径前缀
         echo "bukkit_jar=$(basename "$BUKKIT_JAR")" >> $GITHUB_OUTPUT
-        echo "bukkit_jar_path=Lengbanlist - main/$BUKKIT_JAR" >> $GITHUB_OUTPUT
+        echo "bukkit_jar_path=$BUKKIT_JAR" >> $GITHUB_OUTPUT
         echo "fabric_jar=$(basename "$FABRIC_JAR")" >> $GITHUB_OUTPUT
-        echo "fabric_jar_path=Lengbanlist - main/$FABRIC_JAR" >> $GITHUB_OUTPUT
+        echo "fabric_jar_path=$FABRIC_JAR" >> $GITHUB_OUTPUT
         echo "Bukkit JAR: $BUKKIT_JAR"
         echo "Fabric JAR: $FABRIC_JAR"
+
+    - name: Debug - List files and paths
+      run: |
+        cd "Lengbanlist - main"
+        echo "=== Current directory ==="
+        pwd
+        echo "=== Bukkit JAR path ==="
+        echo "${{ steps.find_jar.outputs.bukkit_jar_path }}"
+        echo "=== Fabric JAR path ==="
+        echo "${{ steps.find_jar.outputs.fabric_jar_path }}"
+        echo "=== Checking if files exist ==="
+        if [ -f "${{ steps.find_jar.outputs.bukkit_jar_path }}" ]; then
+          echo "✅ Bukkit JAR exists"
+          ls -la "${{ steps.find_jar.outputs.bukkit_jar_path }}"
+        else
+          echo "❌ Bukkit JAR not found at: ${{ steps.find_jar.outputs.bukkit_jar_path }}"
+        fi
+        if [ -f "${{ steps.find_jar.outputs.fabric_jar_path }}" ]; then
+          echo "✅ Fabric JAR exists"
+          ls -la "${{ steps.find_jar.outputs.fabric_jar_path }}"
+        else
+          echo "❌ Fabric JAR not found at: ${{ steps.find_jar.outputs.fabric_jar_path }}"
+        fi
 
     - name: Compute SHA-256 for downloads
       id: sha256
       run: |
         cd "Lengbanlist - main"
-        BUKKIT_SHA=$(sha256sum "${{ steps.find_jar.outputs.bukkit_jar }}" | awk '{print $1}')
-        FABRIC_SHA=$(sha256sum "${{ steps.find_jar.outputs.fabric_jar }}" | awk '{print $1}')
+        # 使用完整的相对路径（从 Lengbanlist - main 目录开始）
+        BUKKIT_JAR_PATH="${{ steps.find_jar.outputs.bukkit_jar_path }}"
+        FABRIC_JAR_PATH="${{ steps.find_jar.outputs.fabric_jar_path }}"
+        
+        # 验证文件存在
+        if [ ! -f "$BUKKIT_JAR_PATH" ]; then
+          echo "::error::Bukkit JAR 文件不存在: $BUKKIT_JAR_PATH"
+          exit 1
+        fi
+        if [ ! -f "$FABRIC_JAR_PATH" ]; then
+          echo "::error::Fabric JAR 文件不存在: $FABRIC_JAR_PATH"
+          exit 1
+        fi
+        
+        # 计算 SHA-256
+        BUKKIT_SHA=$(sha256sum "$BUKKIT_JAR_PATH" | awk '{print $1}')
+        FABRIC_SHA=$(sha256sum "$FABRIC_JAR_PATH" | awk '{print $1}')
+        
         echo "bukkit_sha=$BUKKIT_SHA" >> $GITHUB_OUTPUT
         echo "fabric_sha=$FABRIC_SHA" >> $GITHUB_OUTPUT
         echo "Bukkit SHA-256: $BUKKIT_SHA"
@@ -304,8 +344,8 @@ jobs:
         name: ${{ steps.release_title.outputs.title }}
         body: ${{ steps.build_body.outputs.body }}
         files: |
-          ${{ steps.find_jar.outputs.bukkit_jar_path }}
-          ${{ steps.find_jar.outputs.fabric_jar_path }}
+          Lengbanlist - main/${{ steps.find_jar.outputs.bukkit_jar_path }}
+          Lengbanlist - main/${{ steps.find_jar.outputs.fabric_jar_path }}
         draft: false
         prerelease: false
       env:
@@ -316,5 +356,5 @@ jobs:
       with:
         name: Lengbanlist-${{ steps.find_jar.outputs.version }}
         path: |
-          ${{ steps.find_jar.outputs.bukkit_jar_path }}
-          ${{ steps.find_jar.outputs.fabric_jar_path }}
+          Lengbanlist - main/${{ steps.find_jar.outputs.bukkit_jar_path }}
+          Lengbanlist - main/${{ steps.find_jar.outputs.fabric_jar_path }}
