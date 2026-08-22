@@ -11,7 +11,7 @@
  **[多平台链接](docs/readme-website.md)** |
  **[开发须知](docs/PullRequest_zh.md)** |
  *[许可证提示](docs/Mustn't_zh.md)* |
- **[Discord](https://discord.gg/thAGyuFrX)**
+ **[Discord](https://discord.gg/vAECbXTwjA)**
 </div>
 
 ![Lengbanlist](https://github.com/Serendisand/Lengbanlist/blob/main/Photos/Lengbanlist.png)
