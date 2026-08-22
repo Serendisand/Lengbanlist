@@ -30,36 +30,78 @@ public class SimpleYamlConfig {
                 int indent = countIndent(noComment) / 2;
                 String trimmed = noComment.trim();
                 if (trimmed.startsWith("- ") && !path.isEmpty()) {
-                    while (path.size() > indent) path.remove(path.size() - 1);
                     String item = trimmed.substring(2).trim();
-                    if ((item.startsWith("\"") && item.endsWith("\"")) || (item.startsWith("'") && item.endsWith("'"))) {
-                        item = item.substring(1, item.length() - 1);
-                    }
                     String listPath = String.join(".", path);
-                    Object existing = values.get(listPath);
-                    List<String> list;
-                    if (existing instanceof List) {
-                        list = (List<String>) existing;
+                    // 判断是否是 "key: value" 形式（即 list-of-maps）
+                    int colon = findUnquotedColon(item);
+                    if (colon > 0 && item.substring(0, colon).trim().matches("[A-Za-z0-9_\\-]+")) {
+                        String entryKey = item.substring(0, colon).trim();
+                        Object entryValue = parseValue(item.substring(colon + 1).trim());
+                        List<Object> list = ensureList(listPath);
+                        Object last = list.get(list.size() - 1);
+                        if (!(last instanceof Map)) {
+                            Map<String, Object> map = new LinkedHashMap<>();
+                            list.add(map);
+                            last = map;
+                        }
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> map = (Map<String, Object>) last;
+                        map.put(entryKey, entryValue);
+                        // 进入该 map 内部，让后续嵌套字段（如 `  type: ...`）写入到 map
+                        path = new ArrayList<>(path);
+                        path.add(entryKey);
                     } else {
-                        list = new ArrayList<>();
-                        values.put(listPath, list);
+                        // scalar 形式（list-of-scalars）
+                        if ((item.startsWith("\"") && item.endsWith("\""))
+                                || (item.startsWith("'") && item.endsWith("'"))) {
+                            item = item.substring(1, item.length() - 1);
+                        }
+                        List<Object> list = ensureList(listPath);
+                        list.add(item);
                     }
-                    list.add(item);
                     continue;
                 }
                 if (!trimmed.contains(":")) continue;
                 while (path.size() > indent) path.remove(path.size() - 1);
                 String key = trimmed.substring(0, trimmed.indexOf(':')).trim();
                 String rawValue = trimmed.substring(trimmed.indexOf(':') + 1).trim();
+                List<String> full = new ArrayList<>(path);
+                full.add(key);
                 if (rawValue.isEmpty()) {
                     path.add(key);
                     continue;
                 }
-                List<String> full = new ArrayList<>(path);
-                full.add(key);
                 values.put(String.join(".", full), parseValue(rawValue));
             }
         }
+    }
+
+    /** 找到引号外的第一个 ":"；若没有则返回 -1。 */
+    private int findUnquotedColon(String text) {
+        boolean inQuote = false;
+        char quote = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if ((c == '"' || c == '\'') && (i == 0 || text.charAt(i - 1) != '\\')) {
+                if (!inQuote) { inQuote = true; quote = c; }
+                else if (c == quote) { inQuote = false; }
+            }
+            if (c == ':' && !inQuote) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Object> ensureList(String listPath) {
+        Object existing = values.get(listPath);
+        if (existing instanceof List) {
+            return (List<Object>) existing;
+        }
+        List<Object> list = new ArrayList<>();
+        values.put(listPath, list);
+        return list;
     }
 
     private String stripComment(String line) {

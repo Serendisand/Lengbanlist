@@ -254,6 +254,8 @@ public class GitHubUpdateChecker {
             mirrors.add(new Mirror("jsDelivr", "jsdelivr",
                     "https://data.jsdelivr.com/v1/packages/gh/Serendisand/Lengbanlist"));
             mirrors.add(new Mirror("GitHub直连", "github", GITHUB_API_URL));
+            mirrors.add(new Mirror("Gitee镜像", "gitee",
+                    "https://gitee.com/api/v5/repos/Serendisand_mirror/Lengbanlist/releases/latest"));
         }
         return mirrors;
     }

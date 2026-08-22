@@ -139,6 +139,7 @@ web:
   admin-username: "admin"       # 管理员用户名
   admin-password: "lban123"     # 管理员密码
   operator-weight: 2147483647   # 操作者权重（免疫比较，默认最高）
+  allowed-origins: []           # 允许的 CORS 来源；空数组 = 仅同源；公开部署请添加目标域名
 
 # ---------- 封禁时长自动升级（escalation） ----------
 # 惯犯封禁时封禁时长逐级递增
