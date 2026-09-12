@@ -10,6 +10,7 @@ public record AuditEntry(
         boolean success,
         String prevHash
 ) {
+
     public AuditEntry {
         actor = actor == null ? "" : actor;
         action = action == null ? "" : action;
@@ -23,11 +24,18 @@ public record AuditEntry(
     }
 
     public String getActor() { return actor; }
+
     public String getAction() { return action; }
+
     public String getTarget() { return target; }
+
     public String getReason() { return reason; }
+
     public long getId() { return id; }
+
     public long getTimestamp() { return timestamp; }
+
     public boolean isSuccess() { return success; }
+
     public String getPrevHash() { return prevHash; }
 }

@@ -37,7 +37,7 @@ class BanIpEntryTest {
         BanIpEntry original = new BanIpEntry("10.0.0.1", "admin", 0L, "r", false, true);
         assertTrue(original.withAuto(true).isAuto());
         assertFalse(original.withActive(false).isActive());
-        // 原对象不变
+
         assertFalse(original.isAuto());
         assertTrue(original.isActive());
     }

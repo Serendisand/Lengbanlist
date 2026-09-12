@@ -8,7 +8,6 @@ public class TimeUtils {
     private static final ThreadLocal<SimpleDateFormat> DATE_FORMAT =
             ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));
 
-
     public static long secondsToMillis(long seconds) {
         return seconds * 1000L;
     }
@@ -37,7 +36,6 @@ public class TimeUtils {
         return years * 365L * 24 * 60 * 60 * 1000;
     }
 
-
     public static long parseTime(String timeStr) {
         return parseDurationToMillis(timeStr);
     }
@@ -45,7 +43,6 @@ public class TimeUtils {
     public static boolean isValidTime(String timeStr) {
         return isValidTimeFormat(timeStr);
     }
-
 
     public static long parseDurationToMillis(String timeStr) {
         if (timeStr == null || timeStr.isEmpty()) {
@@ -80,16 +77,10 @@ public class TimeUtils {
         }
     }
 
-
     public static String formatDuration(long millis) {
         return formatDuration(millis, false);
     }
 
-    /**
-     * 国际化时长格式。English 模型下需要英文单位,避免中英混搭。
-     * @param millis 时长(毫秒)
-     * @param english true=英文单位,false=中文单位
-     */
     public static String formatDuration(long millis, boolean english) {
         if (millis == Long.MAX_VALUE) return english ? "permanently" : "永久";
         if (millis <= 0) return english ? "0 seconds" : "0秒";
@@ -116,7 +107,6 @@ public class TimeUtils {
         return english ? years + " years" : years + "年";
     }
 
-    /** 当前激活模型是否英文（决定 formatDuration 的单位语言）。 */
     public static boolean isEnglishLocale() {
         try {
             String name = org.leng.manager.ModelManager.getInstance().getCurrentModelName();
@@ -126,12 +116,10 @@ public class TimeUtils {
         }
     }
 
-
     public static String timestampToReadable(long timestamp) {
         if (timestamp == Long.MAX_VALUE) return "永久";
         return DATE_FORMAT.get().format(new Date(timestamp));
     }
-
 
     public static String getRemainingTime(long endTime) {
         if (endTime == Long.MAX_VALUE) return "永久";
@@ -142,10 +130,8 @@ public class TimeUtils {
         return formatDuration(remaining);
     }
 
-
     public static boolean isValidTimeFormat(String timeStr) {
         if (timeStr == null || timeStr.isEmpty()) return false;
-
 
         if (timeStr.equalsIgnoreCase("forever") ||
             timeStr.equalsIgnoreCase("perm") ||
@@ -153,18 +139,14 @@ public class TimeUtils {
             return true;
         }
 
-
         if (timeStr.equalsIgnoreCase("auto")) return true;
-
 
         return timeStr.matches("^\\d+[smhdwMy]$");
     }
 
-
     public static long currentTime() {
         return System.currentTimeMillis();
     }
-
 
     public static long calculateEndTime(long durationMillis) {
         if (durationMillis == Long.MAX_VALUE) {

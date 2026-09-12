@@ -8,8 +8,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class TimeUtilsTest {
 
-    // ============ 单位转换 ============
-
     @Test
     void unitConversions_areExact() {
         assertEquals(1000L, TimeUtils.secondsToMillis(1));
@@ -20,8 +18,6 @@ class TimeUtilsTest {
         assertEquals(30L * 86_400_000L, TimeUtils.monthsToMillis(1));
         assertEquals(365L * 86_400_000L, TimeUtils.yearsToMillis(1));
     }
-
-    // ============ parseDurationToMillis ============
 
     @Test
     void parseDuration_acceptsAllUnits() {
@@ -54,14 +50,11 @@ class TimeUtilsTest {
         assertEquals(-1L, TimeUtils.parseDurationToMillis(null));
         assertEquals(-1L, TimeUtils.parseDurationToMillis(""));
         assertEquals(-1L, TimeUtils.parseDurationToMillis("abc"));
-        assertEquals(-1L, TimeUtils.parseDurationToMillis("5")); // 缺单位 → parseLong("") 抛异常
-        assertEquals(-1L, TimeUtils.parseDurationToMillis("5x")); // 'x' 未知单位 → switch default
-        // 负数实际上会被接受,产生负 duration;calculateEndTime 会兜底为当前时间
-        // 这里只验证确实走 switch 计算(便于发现重构时行为变更)
+        assertEquals(-1L, TimeUtils.parseDurationToMillis("5")); 
+        assertEquals(-1L, TimeUtils.parseDurationToMillis("5x")); 
+
         assertEquals(-432000000L, TimeUtils.parseDurationToMillis("-5d"));
     }
-
-    // ============ isValidTimeFormat ============
 
     @Test
     void isValidTimeFormat_acceptsValidFormats() {
@@ -82,8 +75,6 @@ class TimeUtilsTest {
         assertFalse(TimeUtils.isValidTimeFormat("-5d"));
     }
 
-    // ============ calculateEndTime ============
-
     @Test
     void calculateEndTime_handlesMaxValue() {
         assertEquals(Long.MAX_VALUE, TimeUtils.calculateEndTime(Long.MAX_VALUE));
@@ -92,7 +83,7 @@ class TimeUtilsTest {
     @Test
     void calculateEndTime_handlesZeroOrNegative() {
         long now = TimeUtils.currentTime();
-        assertTrue(TimeUtils.calculateEndTime(0) >= now - 100); // 允许 ±100ms
+        assertTrue(TimeUtils.calculateEndTime(0) >= now - 100); 
         assertTrue(TimeUtils.calculateEndTime(-100) >= now - 200);
     }
 
@@ -101,7 +92,7 @@ class TimeUtilsTest {
         long before = TimeUtils.currentTime();
         long end = TimeUtils.calculateEndTime(TimeUnit.HOURS.toMillis(1));
         long after = TimeUtils.currentTime();
-        // end should be between before+1h and after+1h
+
         assertTrue(end >= before + TimeUnit.HOURS.toMillis(1) - 100);
         assertTrue(end <= after + TimeUnit.HOURS.toMillis(1) + 100);
     }
@@ -111,8 +102,6 @@ class TimeUtilsTest {
         long overflow = Long.MAX_VALUE - 1000L;
         assertEquals(Long.MAX_VALUE, TimeUtils.calculateEndTime(overflow));
     }
-
-    // ============ formatDuration ============
 
     @Test
     void formatDuration_formatsEachUnit() {
@@ -127,8 +116,6 @@ class TimeUtilsTest {
         assertEquals("3个月", TimeUtils.formatDuration(90L * 86_400_000L));
         assertEquals("2年", TimeUtils.formatDuration(2L * 365 * 86_400_000L));
     }
-
-    // ============ getRemainingTime ============
 
     @Test
     void getRemainingTime_handlesEdgeCases() {

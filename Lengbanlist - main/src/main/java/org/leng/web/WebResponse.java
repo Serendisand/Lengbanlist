@@ -10,9 +10,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
-/**
- * HTTP 响应/请求工具方法,供各 controller 复用。
- */
 public final class WebResponse {
 
     private WebResponse() {}
@@ -76,7 +73,6 @@ public final class WebResponse {
         exchange.getResponseHeaders().set("Vary", "Origin");
     }
 
-    /** 发送 BanMutationResult 失败响应,APPLIED 返回 false,其它结果返回 true 表示已发送错误 */
     public static boolean sendMutationFailure(HttpExchange exchange, BanManager.BanMutationResult result, String target) {
         if (result == BanManager.BanMutationResult.APPLIED) return false;
         switch (result) {

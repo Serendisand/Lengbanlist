@@ -15,10 +15,6 @@ import java.nio.file.Files;
 import java.util.HashSet;
 import java.util.Set;
 
-/**
- * 主题 controller：背景图片配置、上传、按钮显隐。
- * 处理 /api/theme、/api/theme/upload、/api/theme/file/<filename>。
- */
 public class ThemeController extends WebController {
 
     public ThemeController(Lengbanlist plugin, AuthManager authManager) {
@@ -29,7 +25,7 @@ public class ThemeController extends WebController {
     public void registerRoutes(HttpServer server) {
         server.createContext("/api/theme", this::handleTheme);
         server.createContext("/api/theme/upload", this::handleThemeUpload);
-        // /api/theme/file 必须注册在 /api/theme 之后（前者是更具体的路径）
+
         server.createContext("/api/theme/file", this::handleThemeFile);
     }
 
@@ -62,7 +58,7 @@ public class ThemeController extends WebController {
                 if (json.has("background_url")) {
                     theme.setBackgroundUrl(json.get("background_url").getAsString());
                 }
-                // 应用已上传的背景文件（配合 /api/theme/upload 使用）
+
                 if (json.has("background_file")) {
                     String file = json.get("background_file").getAsString();
                     theme.setBackgroundFile(file);
@@ -102,7 +98,6 @@ public class ThemeController extends WebController {
             return;
         }
 
-        // 从 Content-Disposition 头提取原始文件名
         String originalFilename = null;
         String disposition = exchange.getRequestHeaders().getFirst("Content-Disposition");
         if (disposition != null) {
@@ -138,20 +133,18 @@ public class ThemeController extends WebController {
         }
     }
 
-    /** 服务已上传的背景图。/api/theme/file/<filename> */
     private void handleThemeFile(HttpExchange exchange) {
         try {
             String path = exchange.getRequestURI().getPath();
             String filename = path.substring("/api/theme/file/".length());
-            // 防路径穿越:只允许 [a-zA-Z0-9.-]+
+
             if (filename.isEmpty() || !filename.matches("[a-zA-Z0-9.\\-]+")) {
                 WebResponse.sendError(exchange, 400, "非法文件名");
                 return;
             }
             ThemeManager theme = plugin.getThemeManager();
             java.io.File file = new java.io.File(theme.getWebAssetsDir(), filename);
-            // 之前用 startsWith 校验前缀会被 /path/web-assets-evil/file.png 绕过
-            // 改用 Path.normalize + canonical path 比较,杜绝 ../ 与同名绕过
+
             java.io.File assetsRoot = theme.getWebAssetsDir().getCanonicalFile();
             java.io.File canonicalFile = file.getCanonicalFile();
             if (!canonicalFile.toPath().startsWith(assetsRoot.toPath())) {

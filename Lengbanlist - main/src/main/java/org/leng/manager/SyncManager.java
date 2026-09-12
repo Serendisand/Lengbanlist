@@ -57,6 +57,8 @@ public class SyncManager {
             result.ipBans = plugin.getDatabaseManager().getIpBans().size();
             result.mutes = plugin.getDatabaseManager().getMutes().size();
             result.warnings = plugin.getDatabaseManager().getWarnedPlayers().size();
+
+            plugin.getDatabaseManager().reloadBanCache();
             boolean muteCacheReloaded = plugin.getMuteManager().reloadMuteCache();
             if (sender == null) {
                 if (!muteCacheReloaded) {

@@ -11,18 +11,6 @@ import org.leng.object.WarnEntry;
 
 import java.util.List;
 
-/**
- * Lengbanlist 公共 API。
- * 其他插件可通过 LengbanlistAPI.get() 访问封禁/禁言/警告/举报能力，
- * 并通过 Bukkit PluginManager 监听 {@link LengbanlistBanEvent} 等自定义事件。
- *
- * 用法示例：
- * <pre>{@code
- * LengbanlistAPI api = LengbanlistAPI.get();
- * if (api != null && api.isPlayerBanned(target)) { ... }
- * api.banPlayer(target, "30d", "spam", "MyPlugin");
- * }</pre>
- */
 public final class LengbanlistAPI {
 
     private static LengbanlistAPI instance;
@@ -33,9 +21,6 @@ public final class LengbanlistAPI {
         this.plugin = plugin;
     }
 
-    /**
-     * 获取 API 实例。插件未加载时返回 null。
-     */
     public static LengbanlistAPI get() {
         return instance;
     }
@@ -51,8 +36,6 @@ public final class LengbanlistAPI {
     public Lengbanlist getPlugin() {
         return plugin;
     }
-
-    // ============ 封禁 ============
 
     public boolean banPlayer(String target, String staff, long durationMillis, String reason) {
         return banPlayer(target, staff, durationMillis, reason, false);
@@ -106,8 +89,6 @@ public final class LengbanlistAPI {
         return plugin.getBanManager().getBanIpList();
     }
 
-    // ============ 禁言 ============
-
     public boolean mutePlayer(String target, String staff, long durationMillis, String reason) {
         MuteEntry entry = new MuteEntry(target, staff, durationMillis, reason);
         try {
@@ -136,8 +117,6 @@ public final class LengbanlistAPI {
         return plugin.getMuteManager().getMuteList();
     }
 
-    // ============ 警告 ============
-
     public boolean warnPlayer(String player, String staff, String reason) {
         plugin.getWarnManager().warnPlayer(player, staff, reason);
         return true;
@@ -162,8 +141,6 @@ public final class LengbanlistAPI {
     public List<WarnEntry> getActiveWarnings(String target) {
         return plugin.getWarnManager().getActiveWarnings(target);
     }
-
-    // ============ 举报 ============
 
     public void addReport(ReportEntry report) {
         plugin.getReportManager().addReport(report);

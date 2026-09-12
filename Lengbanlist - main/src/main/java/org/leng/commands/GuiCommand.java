@@ -26,12 +26,6 @@ import org.leng.utils.Utils;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * GUI 渲染 + 聊天向导一体化控制器（独立 Listener）。
- *
- * <p>从 LengbanlistCommand 拆出：GUI 渲染、点击处理、聊天向导（ban/unban/mute/unmute/ipban 五步流程）。
- * 拆分原因：LengbanlistCommand 1605 行过大，GUI 与路由器职责不同。
- */
 public class GuiCommand implements Listener {
 
     private static final int GUI_PAGE_SIZE = 28;
@@ -47,8 +41,6 @@ public class GuiCommand implements Listener {
     public GuiCommand(Lengbanlist plugin) {
         this.plugin = plugin;
     }
-
-    // ====================== GUI 渲染 ======================
 
     public void openChestUI(Player player) {
         Inventory chest = Bukkit.createInventory(null, 54, "§bLengbanlist");
@@ -464,8 +456,6 @@ public class GuiCommand implements Listener {
                 break;
         }
     }
-
-    // ====================== 聊天向导 ======================
 
     public void startChatWizard(Player player, String action) {
         switch (action) {

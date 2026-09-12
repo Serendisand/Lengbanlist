@@ -11,9 +11,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * Controller 抽象基类,封装鉴权/限流/主线程调度等通用能力。
- */
 public abstract class WebController {
 
     protected final Lengbanlist plugin;
@@ -94,10 +91,6 @@ public abstract class WebController {
         return true;
     }
 
-    /**
-     * Folia 真原生调度：在 Folia 下走 entity scheduler（确保在同一 region 内执行），
-     * 否则 fallback 到 {@link #runSync(HttpExchange, Runnable)}。非 Folia 下 entity 参数被忽略。
-     */
     protected boolean runSync(HttpExchange exchange, Entity entity, Runnable task) {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<Throwable> error = new AtomicReference<>();

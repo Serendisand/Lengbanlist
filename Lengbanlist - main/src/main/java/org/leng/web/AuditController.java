@@ -11,9 +11,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 审计日志 controller：/api/audit
- */
 public class AuditController extends WebController {
 
     public AuditController(Lengbanlist plugin, AuthManager authManager) {
@@ -43,7 +40,6 @@ public class AuditController extends WebController {
         String actor = params.get("actor");
         String action = params.get("action");
 
-        // actor 过滤走专用方法走索引（如果实现里有），否则用通用查询再客户端过滤
         List<AuditEntry> entries;
         if (actor != null && !actor.isEmpty()) {
             entries = plugin.getAuditManager().getLogsByActor(actor, limit);

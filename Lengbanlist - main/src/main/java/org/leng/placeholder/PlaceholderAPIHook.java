@@ -45,25 +45,21 @@ public class PlaceholderAPIHook extends PlaceholderExpansion {
 
         String lower = params.toLowerCase();
 
-        // ============ 全局统计（无玩家上下文） ============
-
         if (lower.equals("bans")) {
-            return String.valueOf(plugin.getBanManager().getBanList().size());
+            return String.valueOf(plugin.getBanManager().countActiveBans());
         }
         if (lower.equals("ip_bans")) {
-            return String.valueOf(plugin.getBanManager().getBanIpList().size());
+            return String.valueOf(plugin.getBanManager().countActiveIpBans());
         }
         if (lower.equals("total_bans")) {
-            return String.valueOf(plugin.getBanManager().getBanList().size() + plugin.getBanManager().getBanIpList().size());
+            return String.valueOf(plugin.getBanManager().countActiveBans() + plugin.getBanManager().countActiveIpBans());
         }
         if (lower.equals("mutes")) {
-            return String.valueOf(plugin.getMuteManager().getMuteList().size());
+            return String.valueOf(plugin.getMuteManager().countActiveMutes());
         }
         if (lower.equals("pending_reports")) {
             return String.valueOf(plugin.getReportManager().getPendingReportCount());
         }
-
-        // ============ 单玩家查询（无目标 = 当前玩家） ============
 
         if (lower.equals("banned")) {
             return String.valueOf(isBannedByName(player));
@@ -99,8 +95,6 @@ public class PlaceholderAPIHook extends PlaceholderExpansion {
             return lastWarnReason(player == null ? null : player.getName());
         }
 
-        // ============ 指定目标查询（<placeholder>_<player> 形式） ============
-
         if (lower.startsWith("banned_")) {
             return String.valueOf(plugin.getBanManager().isPlayerBanned(params.substring(7)));
         }
@@ -130,8 +124,6 @@ public class PlaceholderAPIHook extends PlaceholderExpansion {
         }
         return null;
     }
-
-    // ============ 私有辅助方法 ============
 
     private boolean isBannedByName(OfflinePlayer player) {
         return player != null && plugin.getBanManager().isPlayerBanned(player.getName());
@@ -179,12 +171,8 @@ public class PlaceholderAPIHook extends PlaceholderExpansion {
 
     private String muteRemaining(String target) {
         if (target == null) return "无";
-        if (plugin.getMuteManager().isPlayerMuted(target)) {
-            // 从数据库读取 mute 条目拿 end_time
-            var entry = plugin.getDatabaseManager().getMute(target.toLowerCase());
-            if (entry != null) return TimeUtils.getRemainingTime(entry.time());
-        }
-        return "无";
+        Long endTime = plugin.getMuteManager().getActiveMuteEndTime(target);
+        return endTime == null ? "无" : TimeUtils.getRemainingTime(endTime);
     }
 
     private int activeWarnings(String target) {
@@ -201,7 +189,7 @@ public class PlaceholderAPIHook extends PlaceholderExpansion {
         if (target == null) return "无";
         List<WarnEntry> warnings = plugin.getWarnManager().getAllWarnings(target);
         if (warnings.isEmpty()) return "无";
-        // 按时间倒序取最近一条
+
         WarnEntry latest = warnings.get(0);
         for (WarnEntry w : warnings) {
             if (w.time() > latest.time()) latest = w;

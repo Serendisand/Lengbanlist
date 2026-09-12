@@ -8,10 +8,6 @@ import org.leng.Lengbanlist;
 
 import java.io.IOException;
 
-/**
- * 系统管理 controller：配置热重载 / 全服广播。
- * 处理 /api/reload、/api/broadcast。
- */
 public class AdminController extends WebController {
 
     public AdminController(Lengbanlist plugin, AuthManager authManager) {
@@ -24,7 +20,6 @@ public class AdminController extends WebController {
         server.createContext("/api/broadcast", this::handleBroadcast);
     }
 
-    /** 配置热重载：重新走一遍 WebServer 启动校验流程，失败则面板下线。 */
     private void handleReload(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
             WebResponse.handleOptions(exchange);
@@ -39,7 +34,7 @@ public class AdminController extends WebController {
         try {
             JsonObject json = JsonParser.parseString(WebResponse.readBody(exchange)).getAsJsonObject();
             boolean restartWeb = !json.has("web") || json.get("web").getAsBoolean();
-            // 当前仅支持 web 子系统热重载,其它配置需重启服务器生效
+
             if (!restartWeb) {
                 WebResponse.sendError(exchange, 400, "当前仅支持 web 热重载");
                 return;
@@ -63,7 +58,6 @@ public class AdminController extends WebController {
         }
     }
 
-    /** 全服广播封禁人数公告。占位符 %s=玩家封禁数 %i=IP封禁数 %t=合计。 */
     private void handleBroadcast(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
             WebResponse.handleOptions(exchange);
@@ -77,8 +71,8 @@ public class AdminController extends WebController {
 
         try {
             String defaultMessage = plugin.getBroadcastFC().getString("default-message", "本服已封禁 %s 名玩家和 %i 个 IP，合计 %t 项处罚");
-            int banCount = plugin.getBanManager().getBanList().size();
-            int banIpCount = plugin.getBanManager().getBanIpList().size();
+            int banCount = plugin.getBanManager().countActiveBans();
+            int banIpCount = plugin.getBanManager().countActiveIpBans();
             int totalBans = banCount + banIpCount;
 
             String message = defaultMessage

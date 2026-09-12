@@ -13,10 +13,6 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-/**
- * 数据导出 controller：CSV 格式导出封禁/禁言列表（Excel 友好：UTF-8 BOM）。
- * /api/exports/bans、/api/exports/ipbans、/api/exports/mutes。
- */
 public class ExportController extends WebController {
 
     public ExportController(Lengbanlist plugin, AuthManager authManager) {
@@ -93,7 +89,6 @@ public class ExportController extends WebController {
         }
     }
 
-    /** CSV 字段转义：双引号 + 含逗号/换行的字段加引号 */
     private static String csv(String value) {
         if (value == null) return "";
         boolean needQuote = value.contains(",") || value.contains("\"") || value.contains("\n");

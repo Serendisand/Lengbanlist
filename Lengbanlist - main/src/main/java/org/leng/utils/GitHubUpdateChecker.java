@@ -13,7 +13,6 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
@@ -334,7 +333,6 @@ public class GitHubUpdateChecker {
         return isSslVerify();
     }
 
-    /** 兼容旧 API,新代码应直接通过 HttpHelper 构造器传入 insecureSsl */
     @Deprecated
     public static SSLSocketFactory getInsecureSocketFactory() {
         return INSECURE_SOCKET_FACTORY;

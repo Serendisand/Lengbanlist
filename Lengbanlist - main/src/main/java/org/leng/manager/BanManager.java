@@ -13,7 +13,6 @@ import org.leng.utils.Utils;
 
 import java.util.List;
 
-
 public class BanManager {
 
     public enum BanMutationResult {
@@ -58,7 +57,6 @@ public class BanManager {
         String banResult = currentModel.addBan(banEntry.getTarget(), durationDays, banEntry.getReason());
         plugin.getAuditManager().log("封禁", banEntry.getStaff(), banEntry.getTarget(), banEntry.getReason());
 
-        // 触发自定义事件,允许其他插件响应
         org.bukkit.Bukkit.getPluginManager().callEvent(new org.leng.api.events.LengbanlistBanEvent(banEntry, silent));
 
         Player targetPlayer = Bukkit.getPlayer(banEntry.getTarget());
@@ -191,6 +189,14 @@ public class BanManager {
 
     public List<BanIpEntry> getBanIpList() {
         return db.getIpBans();
+    }
+
+    public int countActiveBans() {
+        return db.countActiveBans();
+    }
+
+    public int countActiveIpBans() {
+        return db.countActiveIpBans();
     }
 
     public void checkBanOnJoin(Player player) {

@@ -14,10 +14,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Web 管理面板入口：负责 HTTP server 生命周期、静态资源服务、controller 注册。
- * 业务端点全部由 {@link WebController} 子类承担。
- */
 public class WebServer {
 
     private final Lengbanlist plugin;
@@ -33,7 +29,7 @@ public class WebServer {
     public boolean start() {
         if (running) return true;
         try {
-            String host = plugin.getConfig().getString("web.host", "0.0.0.0");
+            String host = plugin.getConfig().getString("web.host", "127.0.0.1");
             int port = plugin.getConfig().getInt("web.port", 8080);
             String secret = plugin.getConfig().getString("web.jwt-secret", "change-this-to-a-random-secret-key");
             String username = plugin.getConfig().getString("web.admin-username", "admin");
@@ -48,7 +44,7 @@ public class WebServer {
             server.setExecutor(executor);
 
             registerControllers(server);
-            // 静态资源兜底（必须最后注册：com.sun.net.httpserver 路径前缀匹配）
+
             server.createContext("/", this::handleStatic);
 
             server.start();
@@ -85,10 +81,6 @@ public class WebServer {
         }
     }
 
-    /**
-     * /lban reload 时刷新 AuthManager 密钥,已签发 token 全部失效(强制重新登录)。
-     * 不重启 HTTP server,避免运维中断正在用的面板。
-     */
     public void reloadAuth() {
         if (authManager == null) return;
         String secret = plugin.getConfig().getString("web.jwt-secret", "change-this-to-a-random-secret-key");
@@ -134,8 +126,6 @@ public class WebServer {
         new StatsController(plugin, authManager).registerRoutes(server);
     }
 
-    // ============ 静态资源 ============
-
     private void handleStatic(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
             try {
@@ -161,7 +151,6 @@ public class WebServer {
                 return;
             }
 
-            // 没有命中静态资源时返回 API 自描述（前端 SPA 兜底）
             JsonObject info = new JsonObject();
             info.addProperty("name", "Lengbanlist Web API");
             info.addProperty("version", plugin.getPluginVersion());

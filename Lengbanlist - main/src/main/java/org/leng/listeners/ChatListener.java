@@ -17,14 +17,34 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-
 public class ChatListener implements Listener {
     private final Lengbanlist plugin;
     private final Map<String, Integer> badWordCount = new ConcurrentHashMap<>();
     private static final java.util.regex.Pattern MEOW_REPEAT = java.util.regex.Pattern.compile(".*\\b(\\w*喵\\w*){2,}.*");
 
+    private record FilterConfig(List<String> badWords, int muteThreshold) {}
+
+    private volatile FilterConfig filterConfig;
+
     public ChatListener(Lengbanlist plugin) {
         this.plugin = plugin;
+    }
+
+    public void invalidateFilterCache() {
+        filterConfig = null;
+    }
+
+    private FilterConfig filterConfig() {
+        FilterConfig cached = filterConfig;
+        if (cached == null) {
+
+            cached = new FilterConfig(
+                    java.util.Collections.unmodifiableList(new java.util.ArrayList<>(
+                            plugin.getChatConfig().getStringList("bad-words"))),
+                    plugin.getChatConfig().getInt("mute-threshold", 3));
+            filterConfig = cached;
+        }
+        return cached;
     }
 
     @EventHandler
@@ -55,15 +75,18 @@ public class ChatListener implements Listener {
             return;
         }
 
-        List<String> badWords = plugin.getChatConfig().getStringList("bad-words");
-        int muteThreshold = plugin.getChatConfig().getInt("mute-threshold", 3);
+        FilterConfig filter = filterConfig();
+        List<String> badWords = filter.badWords();
+        int muteThreshold = filter.muteThreshold();
 
         boolean containsBadWord = false;
-        for (String badWord : badWords) {
-            if (message.contains(badWord)) {
-                containsBadWord = true;
-                String replacement = "喵".repeat(badWord.length());
-                message = message.replace(badWord, replacement);
+        if (!badWords.isEmpty()) {
+            for (String badWord : badWords) {
+                if (message.contains(badWord)) {
+                    containsBadWord = true;
+                    String replacement = "喵".repeat(badWord.length());
+                    message = message.replace(badWord, replacement);
+                }
             }
         }
 

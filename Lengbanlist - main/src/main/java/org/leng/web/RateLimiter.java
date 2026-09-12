@@ -5,10 +5,6 @@ import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * 滑动窗口 IP 限流器，从 WebServer 内嵌类抽离。
- * 限流阈值可在 reload() 中更新（默认 60 次 / 60 秒）。
- */
 public class RateLimiter {
 
     public static final int DEFAULT_MAX_REQUESTS = 60;
@@ -37,7 +33,6 @@ public class RateLimiter {
         requests.entrySet().removeIf(e -> e.getValue().get(0) < cutoff);
     }
 
-    /** /lban reload 时刷新阈值,允许运维按需调整 */
     public void reload(int maxRequests, long windowMs) {
         if (maxRequests > 0) this.maxRequests.set(maxRequests);
         if (windowMs > 0) this.windowMs.set(windowMs);

@@ -7,14 +7,6 @@ import org.leng.Lengbanlist;
 import java.io.IOException;
 import java.util.logging.Level;
 
-/**
- * IP 归属地查询工具 —— 统一 Lengbanlist 所有 IP → 地理位置查询。
- *
- * <p>早期版本散落在 GetIPCommand / LengbanlistCommand 两处，且其中一处仍用 HttpURLConnection
- * 且调用不一致的 API（ipapi.co）。本工具统一使用 ip-api.com + HttpHelper（A6 规范）。
- *
- * <p>调用方负责异步包装（本工具只做同步 IO）。
- */
 public final class IpGeoLookup {
 
     private static final String API_URL = "https://ip-api.com/json/%s?lang=zh-CN";
@@ -27,9 +19,6 @@ public final class IpGeoLookup {
         this.plugin = plugin;
     }
 
-    /**
-     * 查询 IP 归属地。失败返回 null，错误已记录到 plugin logger。
-     */
     public String lookup(String ip) {
         if (ip == null || ip.isEmpty()) {
             return null;

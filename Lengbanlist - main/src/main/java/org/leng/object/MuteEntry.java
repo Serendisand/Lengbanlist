@@ -8,6 +8,7 @@ public record MuteEntry(
         long time,
         String reason
 ) {
+
     public MuteEntry {
         Objects.requireNonNull(target, "Target cannot be null");
         Objects.requireNonNull(staff, "Staff cannot be null");
@@ -15,9 +16,13 @@ public record MuteEntry(
     }
 
     public long getEndTime() { return time; }
+
     public long getTime() { return time; }
+
     public String getTarget() { return target; }
+
     public String getStaff() { return staff; }
+
     public String getReason() { return reason; }
 
     @Override

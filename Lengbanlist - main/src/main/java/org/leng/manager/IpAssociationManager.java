@@ -26,14 +26,6 @@ public class IpAssociationManager {
         return addr.getAddress().getHostAddress();
     }
 
-    public void recordLogin(Player player) {
-        java.net.InetSocketAddress addr = player.getAddress();
-        if (addr == null || addr.getAddress() == null) return;
-        String ip = addr.getAddress().getHostAddress();
-        if (ip == null || !isRealIp(ip)) return;
-        plugin.getDatabaseManager().recordPlayerIp(player.getName(), ip, System.currentTimeMillis());
-    }
-
     public List<String[]> getPlayerIps(String playerName) {
         return plugin.getDatabaseManager().getPlayerIpHistory(playerName);
     }
@@ -102,25 +94,26 @@ public class IpAssociationManager {
         return all;
     }
 
-    public boolean hasSuspiciousLogin(Player player) {
-        String ip = safeGetHostAddress(player);
-        if (ip == null || !isRealIp(ip)) return false;
-        List<String> players = getPlayersByIp(ip);
-        for (String p : players) {
-            if (!p.equalsIgnoreCase(player.getName())) return true;
+    public List<String> getOtherPlayersOnIp(Player player) {
+        String ip = player == null ? null : safeGetHostAddress(player);
+        if (ip == null || !isRealIp(ip)) {
+            return new ArrayList<>();
         }
-        return false;
+        List<String> others = new ArrayList<>();
+        for (String p : getPlayersByIp(ip)) {
+            if (!p.equalsIgnoreCase(player.getName())) {
+                others.add(p);
+            }
+        }
+        return others;
+    }
+
+    public boolean hasSuspiciousLogin(Player player) {
+        return !getOtherPlayersOnIp(player).isEmpty();
     }
 
     public List<String> getSuspiciousLoginDetails(Player player) {
-        String ip = safeGetHostAddress(player);        List<String> details = new ArrayList<>();
-        List<String> players = getPlayersByIp(ip);
-        for (String p : players) {
-            if (!p.equalsIgnoreCase(player.getName())) {
-                details.add(p);
-            }
-        }
-        return details;
+        return getOtherPlayersOnIp(player);
     }
 
     public boolean isVpnIp(String ip) {

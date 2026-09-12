@@ -13,10 +13,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * 禁言/解禁 controller。
- * 处理 /api/mute、/api/unmute、/api/mutes。
- */
 public class MuteController extends WebController {
 
     public MuteController(Lengbanlist plugin, AuthManager authManager) {

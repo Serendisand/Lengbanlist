@@ -11,16 +11,13 @@ import java.lang.reflect.Method;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-
 public class SchedulerUtils {
 
     private static boolean folia;
     private static boolean initialized;
 
-
     private static Object globalRegionScheduler;
     private static Object asyncScheduler;
-
 
     private static Method globalRun;
     private static Method globalRunDelayed;
@@ -77,7 +74,6 @@ public class SchedulerUtils {
     public static boolean isFolia() {
         return folia;
     }
-
 
     public static SchedulerTask runTask(Lengbanlist plugin, Runnable task) {
         if (folia) {
@@ -156,7 +152,6 @@ public class SchedulerUtils {
         return new SchedulerTask(bt);
     }
 
-
     public static void runAsync(Lengbanlist plugin, Runnable task) {
         if (folia) {
             try {
@@ -181,7 +176,6 @@ public class SchedulerUtils {
         }
     }
 
-
     public static SchedulerTask runTaskTimerAsynchronously(Lengbanlist plugin, Runnable task, long delayTicks, long periodTicks) {
         if (folia) {
             try {
@@ -195,7 +189,6 @@ public class SchedulerUtils {
         BukkitTask bt = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, task, delayTicks, periodTicks);
         return new SchedulerTask(bt);
     }
-
 
     public static class SchedulerTask {
         private final Object foliaTask;

@@ -27,7 +27,6 @@ public class UnwarnCommand extends Command implements CommandExecutor {
             return true;
         }
 
-
         if (sender instanceof Player) {
             Player player = (Player) sender;
             if (!sender.isOp() && !player.hasPermission("lengbanlist.unwarn")) {
@@ -35,7 +34,6 @@ public class UnwarnCommand extends Command implements CommandExecutor {
                 return false;
             }
         }
-
 
         boolean silent = false;
         if (args.length > 0 && args[0].equalsIgnoreCase("-s")) {
@@ -52,7 +50,6 @@ public class UnwarnCommand extends Command implements CommandExecutor {
         String normalized = IpMatcher.normalizeIpOrCidr(target);
         if (normalized != null) target = normalized;
         WarnManager warnManager = plugin.getWarnManager();
-
 
         List<WarnEntry> allWarnings = warnManager.getAllWarnings(target);
         if (allWarnings.isEmpty()) {
@@ -74,7 +71,6 @@ public class UnwarnCommand extends Command implements CommandExecutor {
                             Utils.sendMessage(sender, plugin.prefix() + "§a警告 #" + warnId + " 已移除");
                         }
 
-
                         warnManager.checkUnbanIfNecessary(target);
                     } else {
                         Utils.sendMessage(sender, plugin.prefix() + "§c警告 #" + warnId + " 已经被移除");
@@ -84,7 +80,6 @@ public class UnwarnCommand extends Command implements CommandExecutor {
                 }
             } else {
 
-                // 批量撤销：reason 列出所有 ID，与 /lban unwarn 保持一致,确保 rollback 能精确定位
                 StringBuilder reasonBuilder = new StringBuilder();
                 for (WarnEntry warning : allWarnings) {
                     if (warning.isRevoked()) {
@@ -103,11 +98,10 @@ public class UnwarnCommand extends Command implements CommandExecutor {
                     Utils.sendMessage(sender, plugin.prefix() + "§a已移除玩家 " + target + " 的所有警告");
                 }
 
-
                 warnManager.checkUnbanIfNecessary(target);
             }
         } catch (Exception e) {
-            // e.getMessage() 可能为 null (NumberFormatException 等),需要保护
+
             String detail = e.getMessage();
             Utils.sendMessage(sender, plugin.prefix() + "§c处理警告时出错: " + (detail == null ? e.getClass().getSimpleName() : detail));
             return false;

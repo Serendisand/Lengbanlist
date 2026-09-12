@@ -4,17 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.TreeMap;
 
-/**
- * Schema 版本化迁移注册表。
- * 新增迁移：在 {@link #MIGRATIONS} 末尾追加一条即可（version 必须严格递增）。
- *
- * 工作流：
-  <ol>
-  <li>{@link #runAll(DatabaseManager, String)} 比较当前 DB 版本与最新版本</li>
-  <li>按版本顺序执行缺失的迁移</li>
-  <li>每条迁移内部需要自己保证原子性（必要时启用事务）</li>
-  </ol>
- */
 public final class SchemaMigrations {
 
     public static final int CURRENT_VERSION = 4;
@@ -46,9 +35,6 @@ public final class SchemaMigrations {
         MIGRATIONS.put(version, new Migration(version, description, action));
     }
 
-    /**
-     * 执行当前版本之后的所有迁移。currentVersion 为 null 表示全新安装。
-     */
     public static void runAll(DatabaseManager db, String currentVersion) {
         int startVersion = 0;
         if (currentVersion != null) {
@@ -80,6 +66,7 @@ public final class SchemaMigrations {
 
     @FunctionalInterface
     public interface MigrationAction {
+
         void run(DatabaseManager db) throws Exception;
     }
 }

@@ -17,23 +17,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-/**
- * /lban models 子命令 —— 云端模型管理。
- *
- * <p>子命令:
- * <pre>
- *   refresh                拉取云端索引 (立即)
- *   list                   列出本地 + 云端模型状态
- *   install &lt;id|all&gt;       下载安装指定/全部模型
- *   pin &lt;id&gt;               下载到本地并锁定 (云端更新不再覆盖)
- *   unpin &lt;id&gt;             解除锁定
- *   featured               显示本月精选模型
- *   stats                  本服安装统计
- * </pre>
- *
- * <p>线程模型：涉及网络 IO（索引拉取/模型下载）的操作一律在异步线程执行,
- * 结果通过 {@link SchedulerUtils#runTask} 回主线程(Folia 安全,避免看门狗)。
- */
 public class ModelsCommand implements CommandExecutor, TabCompleter {
 
     private final Lengbanlist plugin;
@@ -79,13 +62,6 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
-    // ====================== 异步封装 ======================
-
-    /**
-     * 异步执行任务（可能含网络 IO），完成后回主线程回调。
-     * 命令线程不再被 HTTP 阻塞（Folia 看门狗防护）。
-     * 异常不再静默吞掉，打日志 + 友好提示玩家。
-     */
     private <T> void runOffThread(CommandSender sender, Supplier<T> task, Consumer<T> onDone) {
         CompletableFuture.supplyAsync(task)
                 .thenAccept(result -> SchedulerUtils.runTask(plugin, sender, () -> onDone.accept(result)))
@@ -96,8 +72,6 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
                     return null;
                 });
     }
-
-    // ====================== 子命令 ======================
 
     private void cmdRefresh(CommandSender sender) {
         Utils.sendMessage(sender, plugin.prefix() + "§e正在从云端拉取模型索引喵…");
@@ -193,7 +167,7 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
         }
         String id = args[1].toLowerCase();
         if (pin) {
-            // pin 语义 = 下载到本地(models/ 目录) + 锁定,云端更新不再覆盖
+
             if (!cloud.isInstalled(id)) {
                 Utils.sendMessage(sender, plugin.prefix() + "§e模型 " + id + " 尚未下载，正在下载后锁定喵…");
                 runOffThread(sender, () -> cloud.installModel(id), result -> {
@@ -205,7 +179,7 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
                     } else if (result == ModelCloudManager.InstallResult.FAILED) {
                         Utils.sendMessage(sender, plugin.prefix() + "§c模型 " + id + " 下载失败，无法锁定");
                     } else {
-                        // ALREADY_INSTALLED / PINNED_SKIPPED 不适用(已判未安装),兜底直接锁
+
                         finishPin(sender, id);
                     }
                 });
@@ -248,7 +222,6 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
         });
     }
 
-    /** 展示本地安装统计排行（供作者参考月度精选的投票热度）。 */
     private void cmdStats(CommandSender sender) {
         List<String[]> stats = cloud.downloadStats();
         if (stats.isEmpty()) {
@@ -292,15 +265,15 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
             String sub = args[0].toLowerCase();
             String prefix = args[1].toLowerCase();
             if (sub.equals("pin") || sub.equals("unpin") || sub.equals("install")) {
-                // "all" 置顶（install all 一键下载）
+
                 if ("all".startsWith(prefix)) {
                     completions.add("all");
                 }
-                // 只读缓存索引（绝不触网,避免 Tab 补全阻塞主线程）
+
                 Optional<ModelCloudManager.ModelIndex> idx = cloud.cachedIndexOnly();
                 if (idx.isPresent()) {
                     for (ModelCloudManager.ModelInfo info : idx.get().models()) {
-                        // install/pin 只补已上架;unpin 只补已安装
+
                         boolean up = !"0.0.0".equals(info.version());
                         if (sub.equals("unpin")) {
                             if (cloud.isInstalled(info.id()) && info.id().startsWith(prefix)) {

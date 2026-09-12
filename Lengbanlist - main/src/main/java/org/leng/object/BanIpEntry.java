@@ -10,6 +10,7 @@ public record BanIpEntry(
         boolean isAuto,
         boolean active
 ) {
+
     public BanIpEntry {
         Objects.requireNonNull(ip, "IP cannot be null");
         Objects.requireNonNull(staff, "Staff cannot be null");
@@ -49,12 +50,17 @@ public record BanIpEntry(
         return ip + ":" + staff + ":" + time + ":" + reason + ":" + isAuto + ":" + active;
     }
 
-    // 兼容旧 getter 命名
     public String getIp() { return ip; }
+
     public String getStaff() { return staff; }
+
     public long getTime() { return time; }
+
     public long getEndTime() { return time; }
+
     public String getReason() { return reason; }
+
     public boolean isAuto() { return isAuto; }
+
     public boolean isActive() { return active; }
 }

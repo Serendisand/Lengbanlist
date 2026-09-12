@@ -6,6 +6,7 @@ import org.leng.Lengbanlist;
 import java.util.List;
 
 public class SaveIP {
+
     public static boolean isRealIP(String ip) {
         if (ip == null) return false;
         if (ip.startsWith("10.") || ip.startsWith("127.") || ip.startsWith("192.168.")) {
@@ -40,8 +41,8 @@ public class SaveIP {
         String newIP = inet.getHostAddress();
         if (newIP == null || !isRealIP(newIP)) return;
         Lengbanlist plugin = Lengbanlist.getInstance();
-        plugin.getDatabaseManager().upsertPlayerIp(player.getName(), newIP, System.currentTimeMillis());
-        plugin.getDatabaseManager().recordPlayerIp(player.getName(), newIP, System.currentTimeMillis());
+        if (plugin == null) return;
+        plugin.getDatabaseManager().recordPlayerLoginIp(player.getName(), newIP, System.currentTimeMillis());
     }
 
     public static String getIP(String player) {

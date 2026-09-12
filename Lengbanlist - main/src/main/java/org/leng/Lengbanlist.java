@@ -19,8 +19,6 @@ import org.leng.utils.Utils;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.BufferedReader;
 import java.lang.reflect.Field;
 
 import org.leng.web.WebServer;
@@ -49,6 +47,7 @@ public class Lengbanlist extends JavaPlugin {
     private FileConfiguration broadcastFC;
     private FileConfiguration chatConfig;
     private ModelChoiceListener modelChoiceListener;
+    private ChatListener chatListener;
     private String hitokoto;
     private ModelManager modelManager;
     private DatabaseManager databaseManager;
@@ -127,8 +126,6 @@ public void onLoad() {
     webServer = new WebServer(this);
     isBroadcast = getConfig().getBoolean("opensendtime");
 
-    // 生成自定义模型目录 + 预置内置 YAML（Default/English/示例）。
-    // 已存在的不覆盖（尊重用户修改/云端下载的同名文件）。
     File modelsDir = new File(getDataFolder(), "models");
     if (!modelsDir.exists()) {
         modelsDir.mkdirs();
@@ -198,18 +195,18 @@ public void onEnable() {
     });
     getServer().getConsoleSender().sendMessage(prefix() + "§f哇！传送锚点已解锁，当前Model: " + ModelManager.getInstance().getCurrentModelName());
 
-    // 注册公共 API 给其他插件使用
     org.leng.api.LengbanlistAPI.register(Lengbanlist.this);
 
     getServer().getPluginManager().registerEvents(new PlayerJoinListener(Lengbanlist.this), Lengbanlist.this);
-    getServer().getPluginManager().registerEvents(new ChatListener(Lengbanlist.this), Lengbanlist.this);
+    chatListener = new ChatListener(Lengbanlist.this);
+    getServer().getPluginManager().registerEvents(chatListener, Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new OpJoinListener(Lengbanlist.this), Lengbanlist.this);
     modelChoiceListener = new ModelChoiceListener(Lengbanlist.this);
     getServer().getPluginManager().registerEvents(modelChoiceListener, Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new MuteCommandBlockListener(this), Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new GuiCleanupListener(this), this);
     getServer().getPluginManager().registerEvents(guiCommand, Lengbanlist.this);
-    
+
     LengbanlistCommand lbanCmd = new LengbanlistCommand("lban", Lengbanlist.this);
     PluginCommand lban = getCommand("lban");
     if (lban != null) {
@@ -249,19 +246,13 @@ public void onEnable() {
     if (syncManager != null) {
         syncManager.startAutoSync();
     }
-    
+
     if (isFeatureEnabled("expiry-reminder")) {
         long periodTicks = Math.max(20L, getConfig().getInt("expiry-reminder.interval", 60) * 20L);
         expiryReminderTask = SchedulerUtils.runTaskTimerAsynchronously(this, new ExpiryReminderTask(this), 200L, periodTicks);
     }
 }
 
-/**
- * 重新注册所有 feature 命令。需要从 onEnable、/lban reload、/api/reload 同时调用,
- * 以确保 features.* 切换后命令能立即生效或被释放。
- * 注意:Bukkit 中已被 unregisterCommand 释放的命令无法在不重启的情况下重新注册,
- * 该次刷新后会保持释放状态直到下次重启,并在控制台提示。
- */
 public void registerFeatureCommands() {
     BanCommand banCmd = new BanCommand(Lengbanlist.this);
     setFeatureExecutor("ban", "ban", banCmd);
@@ -331,11 +322,6 @@ public boolean reloadWebServer() {
     return true;
 }
 
-/**
- * /lban reload 时重启定时任务（broadcast / expiryReminder）,
- * 让 config 里的 interval 变更生效。原本只重启 broadcast（toggle 走 setBroadcastEnabled）,
- * 其余 scheduler 不会跟着 reload 走,容易让运维以为生效实际未。
- */
 public void restartScheduledTasks() {
     if (broadcastTask != null) {
         broadcastTask.cancel();
@@ -352,7 +338,7 @@ public void restartScheduledTasks() {
         long periodTicks = Math.max(20L, getConfig().getInt("expiry-reminder.interval", 60) * 20L);
         expiryReminderTask = SchedulerUtils.runTaskTimerAsynchronously(this, new ExpiryReminderTask(this), 200L, periodTicks);
     }
-    // historyCleanupTask 周期固定,配置变化不影响,无需重启
+
 }
 
 @Override
@@ -367,7 +353,6 @@ public void onDisable() {
     }
     if (webServer != null) webServer.stop();
 
-    // 卸载 API 注册,防止其他插件持有已失效引用
     org.leng.api.LengbanlistAPI.unregister();
 
     if (eulaAgreed) {
@@ -403,13 +388,23 @@ void shutdownStorage() {
 
     private void startHistoryCleanupTask() {
         historyCleanupTask = SchedulerUtils.runTaskTimerAsynchronously(this, () -> {
-            databaseManager.deactivateExpiredBans();
-            databaseManager.cleanupOldData(Math.max(1, getConfig().getInt("history-retention-days", 7)));
+            try {
+                databaseManager.deactivateExpiredBans();
+                boolean removed = databaseManager.cleanupOldData(
+                        Math.max(1, getConfig().getInt("history-retention-days", 7)));
+
+                if (removed) {
+                    databaseManager.reclaimSpace();
+                }
+            } catch (Exception e) {
+
+                getLogger().warning("历史数据维护任务执行出错: " + e.getMessage());
+            }
         }, 6000L, 72000L);
     }
 
     public String prefix() {
-        // 给个默认值,避免老 config 缺 prefix 时整插件 NPE
+
         return getConfig().getString("prefix", "§b[Lengbanlist]§r ");
     }
 
@@ -435,7 +430,7 @@ void shutdownStorage() {
             return;
         }
         if (!isFeatureEnabled(feature)) {
-            // 功能禁用时释放该命令名,避免钩住并拦截其他插件注册的同名命令(如 /report)
+
             getLogger().info("功能 " + feature + " 已禁用,/" + commandName + " 命令已注销,可被其他插件接管。");
             unregisterCommand(command);
             return;
@@ -454,9 +449,6 @@ void shutdownStorage() {
         }
     }
 
-    /**
-     * 通过 Bukkit 内部 SimplePluginManager 反射拿 CommandMap,用于注销命令时告知 server。
-     */
     private CommandMap getCommandMap() {
         try {
             org.bukkit.plugin.PluginManager pm = Bukkit.getPluginManager();
@@ -502,7 +494,7 @@ void shutdownStorage() {
     public SyncManager getSyncManager() {
         return syncManager;
     }
-    
+
     public BanManager getBanManager() {
         return banManager;
     }
@@ -557,6 +549,10 @@ void shutdownStorage() {
 
     public ModelChoiceListener getModelChoiceListener() {
         return modelChoiceListener;
+    }
+
+    public ChatListener getChatListener() {
+        return chatListener;
     }
 
     public DatabaseManager getDatabaseManager() {

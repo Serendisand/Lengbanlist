@@ -54,7 +54,7 @@ class ReportEntryTest {
         long before = System.currentTimeMillis();
         ReportEntry entry = ReportEntry.deserialize(map);
         long after = System.currentTimeMillis();
-        assertEquals("未处理", entry.status()); // 默认状态
+        assertEquals("未处理", entry.status()); 
         assertTrue(entry.timestamp() >= before && entry.timestamp() <= after);
     }
 }

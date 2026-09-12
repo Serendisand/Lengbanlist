@@ -8,7 +8,6 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.leng.Lengbanlist;
 import org.leng.manager.BanManager;
 import org.leng.manager.IpAssociationManager;
-import org.leng.manager.ReportManager;
 import org.leng.object.BanIpEntry;
 import org.leng.object.ReportEntry;
 import org.leng.utils.SchedulerUtils;
@@ -16,7 +15,6 @@ import org.leng.utils.SaveIP;
 import org.leng.utils.TimeUtils;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class PlayerJoinListener implements Listener {
 
@@ -36,8 +34,9 @@ public class PlayerJoinListener implements Listener {
         }
 
         if (plugin.isFeatureEnabled("ip-association")) {
-            if (plugin.getIpAssociationManager().hasSuspiciousLogin(player)) {
-                List<String> associatedPlayers = plugin.getIpAssociationManager().getSuspiciousLoginDetails(player);
+
+            List<String> associatedPlayers = plugin.getIpAssociationManager().getOtherPlayersOnIp(player);
+            if (!associatedPlayers.isEmpty()) {
                 String msg = plugin.prefix() + "§e玩家 §f" + player.getName() + " §e的 IP 曾由以下玩家使用: §f" + String.join("§7, §f", associatedPlayers);
                 for (Player online : Bukkit.getOnlinePlayers()) {
                     if (online.hasPermission("lengbanlist.check") || online.isOp()) {
@@ -62,11 +61,9 @@ public class PlayerJoinListener implements Listener {
         }
 
         if (plugin.isFeatureEnabled("report")) {
-            ReportManager reportManager = plugin.getReportManager();
-            List<ReportEntry> reports = reportManager.getPendingReports().stream()
-                    .filter(report -> report.getReporter().equals(player.getName()))
-                    .filter(report -> "受理中".equals(report.getStatus()))
-                    .collect(Collectors.toList());
+
+            List<ReportEntry> reports = plugin.getReportManager()
+                    .getReportsByReporterWithStatus(player.getName(), "受理中");
 
             if (!reports.isEmpty()) {
                 player.sendMessage(plugin.prefix() + "§7——————————");

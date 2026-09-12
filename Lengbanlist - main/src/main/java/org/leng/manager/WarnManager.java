@@ -14,7 +14,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-
 public class WarnManager {
 
     private final Lengbanlist plugin;
@@ -226,14 +225,11 @@ public class WarnManager {
                     }
                     db.upsertWarning(warn);
                 } catch (NumberFormatException e) {
-                    // 单行格式损坏不阻断整个迁移,跳过即可
+
                     continue;
                 }
             }
         }
-    }
-
-    public void saveToConfig(org.bukkit.configuration.file.FileConfiguration config) {
     }
 
 }

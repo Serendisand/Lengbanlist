@@ -11,9 +11,6 @@ import org.leng.object.ReportEntry;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * 举报 controller：/api/reports /api/report/action
- */
 public class ReportController extends WebController {
 
     public ReportController(Lengbanlist plugin, AuthManager authManager) {

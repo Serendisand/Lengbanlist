@@ -31,7 +31,6 @@ public class ModelChoiceListener implements Listener {
     public void openModelSelectionUI(Player player) {
         Inventory modelSelection = Bukkit.createInventory(null, 27, "§b选择模型");
 
-
         ItemStack glass = new ItemStack(Material.BLUE_STAINED_GLASS_PANE);
         ItemMeta glassMeta = glass.getItemMeta();
         glassMeta.setDisplayName(" ");
@@ -40,12 +39,10 @@ public class ModelChoiceListener implements Listener {
             modelSelection.setItem(i, glass);
         }
 
-
         Map<String, Model> models = ModelManager.getInstance().getModels();
         int slot = 10;
         for (Map.Entry<String, Model> entry : models.entrySet()) {
             String modelName = entry.getKey();
-
 
             Material modelMaterial = ModelManager.getModelMaterial(modelName);
 
@@ -57,7 +54,6 @@ public class ModelChoiceListener implements Listener {
             lore.add("§7当前模型: " + ModelManager.getInstance().getCurrentModelName());
             meta.setLore(lore);
             modelItem.setItemMeta(meta);
-
 
             if (modelName.equals(ModelManager.getInstance().getCurrentModelName())) {
                 meta.addEnchant(Enchantment.PROTECTION, 1, true);

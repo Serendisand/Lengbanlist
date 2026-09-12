@@ -17,11 +17,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
-/**
- * AuditManager.cleanupExports 单元测试 —— 覆盖导出文件清理逻辑。
- *
- * <p>验证 maxFiles 配置、文件排序（按 lastModified）、删除数量统计。
- */
 @ExtendWith(MockitoExtension.class)
 class AuditManagerTest {
 
@@ -32,7 +27,7 @@ class AuditManagerTest {
     @BeforeEach
     void setUp() {
         when(plugin.getConfig()).thenReturn(config);
-        // getLogger() 仅在清理发生时才被调用,某些测试路径不触发 —— lenient 避免误报
+
         lenient().when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getGlobal());
         manager = new AuditManager(plugin);
     }
@@ -79,8 +74,6 @@ class AuditManagerTest {
         Thread.sleep(20);
         File new2 = touch(dir, "audit_export_new2.json");
 
-        // 文件 lastModified: old1 < old2 < new1 < new2
-        // maxFiles=2 应保留 new1 + new2,删除 old1 + old2
         assertEquals(2, manager.cleanupExports(dir));
         assertFalse(old1.exists());
         assertFalse(old2.exists());
@@ -96,7 +89,6 @@ class AuditManagerTest {
         File other = touch(dir, "other_file.json");
         File unrelated = touch(dir, "README.md");
 
-        // 其他文件不计入 maxFiles,不参与清理
         assertEquals(0, manager.cleanupExports(dir));
         assertTrue(export.exists());
         assertTrue(other.exists());

@@ -16,7 +16,12 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 
 @SuppressWarnings("SqlResolve")
@@ -34,10 +39,31 @@ public class DatabaseManager {
         }
     }
 
+    private static final long DEFAULT_BAN_CACHE_TTL_MS = 5000L;
+
+    private static final int INDEX_PREFIX_CHARS = 64;
+
+    private final BanCache banCache = new BanCache(new BanCache.Loader() {
+        @Override
+        public List<BanEntry> loadActiveBans() {
+            return queryActiveBans();
+        }
+
+        @Override
+        public List<BanIpEntry> loadActiveIpBans() {
+            return queryActiveIpBans();
+        }
+    }, DEFAULT_BAN_CACHE_TTL_MS);
+
     private final Lengbanlist plugin;
     private HikariDataSource dataSource;
     private boolean mysql;
-    // 串行化所有审计链写入,防止两个连接同时读到同一 prev_hash 并各自 INSERT → 链分叉
+
+    private boolean sqliteAutoVacuumPending;
+
+    private final Map<String, Set<String>> sqliteColumns = new HashMap<>();
+    private final Map<String, Set<String>> sqliteIndexes = new HashMap<>();
+
     private final Object auditChainLock = new Object();
 
     public DatabaseManager(Lengbanlist plugin) {
@@ -58,14 +84,25 @@ public class DatabaseManager {
             mysql = false;
             String fileName = plugin.getConfig().getString("database.sqlite.file", "lengbanlist.db");
             File dbFile = new File(plugin.getDataFolder(), fileName == null || fileName.trim().isEmpty() ? "lengbanlist.db" : fileName);
+
+            boolean existingDatabase = dbFile.isFile() && dbFile.length() > 0;
             HikariConfig config = new HikariConfig();
             config.setJdbcUrl("jdbc:sqlite:" + dbFile.getAbsolutePath());
             config.setMaximumPoolSize(1);
-            // SQLite JDBC 单条 initSql 仅支持一句 PRAGMA,其余在下方 initialize 中单独跑
+
             config.setConnectionInitSql("PRAGMA foreign_keys = ON");
             dataSource = new HikariDataSource(config);
             execute("PRAGMA journal_mode = WAL");
             execute("PRAGMA busy_timeout = 5000");
+
+            execute("PRAGMA synchronous = " + resolveSqliteSynchronous());
+
+            execute("PRAGMA journal_size_limit = 16777216");
+
+            if (plugin.getConfig().getBoolean("database.sqlite.auto-vacuum", true)) {
+                execute("PRAGMA auto_vacuum = INCREMENTAL");
+                sqliteAutoVacuumPending = existingDatabase;
+            }
         } else if ("mysql".equalsIgnoreCase(type)) {
             mysql = true;
             String host = plugin.getConfig().getString("database.mysql.host", "localhost");
@@ -77,19 +114,66 @@ public class DatabaseManager {
                 throw new SQLException("未配置 MySQL 密码 (database.mysql.password)，请在 config.yml 中显式设置后再启动。");
             }
             String url = "jdbc:mysql://" + host + ":" + port + "/" + database + "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&useUnicode=true&characterEncoding=utf8";
+            int poolSize = resolveMysqlPoolSize();
             HikariConfig config = new HikariConfig();
             config.setJdbcUrl(url);
             config.setUsername(username);
             config.setPassword(password);
-            config.setMaximumPoolSize(10);
+            config.setMaximumPoolSize(poolSize);
+
             config.setMinimumIdle(1);
+
+            config.setPoolName("Lengbanlist-MySQL");
             dataSource = new HikariDataSource(config);
             execute("SELECT 1");
+            plugin.getLogger().info("MySQL 连接池已建立，最大连接数 " + poolSize
+                    + "（database.mysql.pool-size 可调）");
         } else {
             throw new SQLException("未知 database.type: " + type);
         }
 
         ensureSchema();
+        applyCacheConfig();
+    }
+
+    private String resolveSqliteSynchronous() {
+        String configured = plugin.getConfig().getString("database.sqlite.synchronous", "NORMAL");
+        String upper = configured == null ? "NORMAL" : configured.trim().toUpperCase(Locale.ROOT);
+        if (upper.equals("FULL") || upper.equals("NORMAL") || upper.equals("OFF")) {
+            return upper;
+        }
+        plugin.getLogger().warning("database.sqlite.synchronous 取值非法: " + configured
+                + "，已按 NORMAL 处理（可选 FULL / NORMAL / OFF）。");
+        return "NORMAL";
+    }
+
+    private int resolveMysqlPoolSize() {
+        int configured = plugin.getConfig().getInt("database.mysql.pool-size", 10);
+        if (configured == 10) {
+            return 10;
+        }
+        if (configured < 1) {
+            plugin.getLogger().warning("database.mysql.pool-size 配置为 " + configured + "，已按 1 处理。");
+            return 1;
+        }
+        if (configured > 200) {
+            plugin.getLogger().warning("database.mysql.pool-size 配置为 " + configured + "，超出上限，已按 200 处理。");
+            return 200;
+        }
+        return configured;
+    }
+
+    public void applyCacheConfig() {
+        long ttlSeconds = plugin.getConfig().getLong("database.cache.ban-ttl-seconds", 5L);
+        banCache.setTtlMillis(ttlSeconds * 1000L);
+    }
+
+    public void reloadBanCache() {
+        banCache.reload();
+    }
+
+    public long getBanCacheTtlMillis() {
+        return banCache.getTtlMillis();
     }
 
     public Connection getConnection() throws SQLException {
@@ -154,47 +238,28 @@ public class DatabaseManager {
 
         execute("CREATE TABLE IF NOT EXISTS player_ip_history (id " + integerPrimaryKey() + ", player_name " + varcharType(191) + " NOT NULL, ip " + varcharType(191) + " NOT NULL, first_seen " + longType() + " NOT NULL, last_seen " + longType() + " NOT NULL, UNIQUE(player_name, ip))");
 
-        createIndexIfMissing("warnings", "idx_warnings_player", "player");
-        createIndexIfMissing("reports", "idx_reports_target", "target");
-        createIndexIfMissing("reports", "idx_reports_reporter", "reporter");
+        createIndexIfMissing("warnings", "idx_warnings_player", indexTextColumn("player"));
+        createIndexIfMissing("reports", "idx_reports_target", indexTextColumn("target"));
+        createIndexIfMissing("reports", "idx_reports_reporter", indexTextColumn("reporter"));
         createIndexIfMissing("audit_log", "idx_audit_log_timestamp", "timestamp");
-        createIndexIfMissing("audit_log", "idx_audit_log_actor", "actor");
-        createIndexIfMissing("audit_log", "idx_audit_log_target", "target");
+        createIndexIfMissing("audit_log", "idx_audit_log_actor", indexTextColumn("actor"));
+        createIndexIfMissing("audit_log", "idx_audit_log_target", indexTextColumn("target"));
 
         String currentVersion = getMeta("schema.version");
-        // 委托给 SchemaMigrations 统一调度,避免散落的 if-else 迁移代码
+
         SchemaMigrations.runAll(this, currentVersion);
         if (currentVersion == null) {
             setMeta("schema.version", String.valueOf(SchemaMigrations.CURRENT_VERSION));
         }
     }
 
-    private void migrateToV3() throws SQLException {
-        plugin.getLogger().info("正在升级数据库结构...");
-        migrateBanTableToV3("bans");
-        migrateBanTableToV3("ip_bans");
-        plugin.getLogger().info("数据库结构升级完成。");
-    }
-
-    @SuppressWarnings("unused")
-    private void migrateToV4() throws SQLException {
-        addColumnIfMissing("audit_log", "prev_hash", varcharType(64) + " NOT NULL DEFAULT ''");
-        if (mysql) {
-            execute("INSERT IGNORE INTO schema_meta (meta_key, meta_value) VALUES ('audit.tail', '')");
-        } else {
-            execute("INSERT OR IGNORE INTO schema_meta (meta_key, meta_value) VALUES ('audit.tail', '')");
-        }
-        backfillAuditChain();
-    }
-
-    /** 从头遍历审计日志，按链式哈希规则回填 prev_hash 列。供 v4 迁移调用。 */
     void backfillAuditChain() throws SQLException {
-        // 与 addAuditLogChained/verifyAudit 保持一致:row[N].prev_hash = hash(row[N-1].prev_hash, row[N-1].data)
+
         String prevHash = ZERO_HASH;
         AuditEntry prev = null;
-        int offset = 0;
+        long cursor = 0L;
         List<AuditEntry> batch;
-        while (!(batch = getAuditLogsAsc(offset, 1000)).isEmpty()) {
+        while (!(batch = getAuditLogsAfter(cursor, 1000)).isEmpty()) {
             for (AuditEntry row : batch) {
                 if (prev != null) {
                     prevHash = hashRow(prevHash, prev.getTimestamp(), prev.getActor(), prev.getAction(), prev.getTarget(), prev.getReason(), prev.isSuccess());
@@ -202,11 +267,10 @@ public class DatabaseManager {
                 executeUpdate("UPDATE audit_log SET prev_hash = ? WHERE id = ?", prevHash, row.getId());
                 prev = row;
             }
-            offset += batch.size();
+            cursor = batch.get(batch.size() - 1).getId();
         }
     }
 
-    /** 提供给 SchemaMigrations 访问 plugin 实例。 */
     Lengbanlist getPlugin() {
         return plugin;
     }
@@ -215,9 +279,14 @@ public class DatabaseManager {
         if (!columnExists(table, "id")) {
             String idCol = mysql ? "INT AUTO_INCREMENT PRIMARY KEY" : "INTEGER PRIMARY KEY AUTOINCREMENT";
             String newTable = table + "_v3";
-            execute("CREATE TABLE " + newTable + " (id " + idCol + ", " + (table.equals("bans") ? "target" : "ip") + " " + textType() + " NOT NULL, staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, is_auto " + booleanType() + " NOT NULL DEFAULT 0, active " + booleanType() + " NOT NULL DEFAULT 1)");
             String srcCol = table.equals("bans") ? "target" : "ip";
-            execute("INSERT INTO " + newTable + " (" + srcCol + ", staff, end_time, reason, is_auto, active) SELECT " + srcCol + ", staff, end_time, reason, is_auto, active FROM " + table);
+
+            execute("DROP TABLE IF EXISTS " + newTable);
+            execute("CREATE TABLE " + newTable + " (id " + idCol + ", " + srcCol + " " + textType() + " NOT NULL, staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, is_auto " + booleanType() + " NOT NULL DEFAULT 0, active " + booleanType() + " NOT NULL DEFAULT 1)");
+
+            execute("INSERT INTO " + newTable + " (" + srcCol + ", staff, end_time, reason, is_auto, active)"
+                    + " SELECT COALESCE(" + srcCol + ", ''), COALESCE(staff, ''), COALESCE(end_time, 0),"
+                    + " COALESCE(reason, ''), COALESCE(is_auto, 0), COALESCE(active, 1) FROM " + table);
             execute("DROP TABLE " + table);
             if (mysql) {
                 execute("RENAME TABLE " + newTable + " TO " + table);
@@ -225,11 +294,59 @@ public class DatabaseManager {
                 execute("ALTER TABLE " + newTable + " RENAME TO " + table);
             }
         }
-        createIndexIfMissing(table, "idx_" + table + "_target_active", (table.equals("bans") ? "target" : "ip") + ", active");
+
+        createIndexIfMissing(table, "idx_" + table + "_target_active", banTableIndexColumns(mysql, table));
     }
 
     public void upsertPlayerIp(String playerName, String ip, long updatedAt) {
         executeUpdate(upsertSql("player_ips", "player_name", new String[]{"player_name", "ip", "updated_at"}, new String[]{"ip", "updated_at"}), playerName, ip, updatedAt);
+    }
+
+    public void recordPlayerLoginIp(String playerName, String ip, long timestamp) {
+        Connection connection = null;
+        try {
+            connection = getConnection();
+            boolean originalAutoCommit = connection.getAutoCommit();
+            connection.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = connection.prepareStatement(
+                        upsertSql("player_ips", "player_name", new String[]{"player_name", "ip", "updated_at"}, new String[]{"ip", "updated_at"}))) {
+                    setValues(ps, new Object[]{playerName, ip, timestamp});
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = connection.prepareStatement(historyInsertSql())) {
+                    setValues(ps, new Object[]{playerName, ip, timestamp, timestamp});
+                    ps.executeUpdate();
+                }
+                connection.commit();
+            } catch (SQLException e) {
+                try {
+                    connection.rollback();
+                } catch (SQLException rollbackError) {
+                    logSql(rollbackError);
+                }
+                logSql(e);
+            } finally {
+                try {
+                    connection.setAutoCommit(originalAutoCommit);
+                } catch (SQLException e) {
+                    logSql(e);
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        } finally {
+            closeConnection(connection);
+        }
+    }
+
+    private String historyInsertSql() {
+        if (mysql) {
+            return "INSERT INTO player_ip_history (player_name, ip, first_seen, last_seen) VALUES (?, ?, ?, ?) "
+                    + "ON DUPLICATE KEY UPDATE last_seen = VALUES(last_seen)";
+        }
+        return "INSERT INTO player_ip_history (player_name, ip, first_seen, last_seen) VALUES (?, ?, ?, ?) "
+                + "ON CONFLICT(player_name, ip) DO UPDATE SET last_seen = excluded.last_seen";
     }
 
     public String getPlayerIp(String playerName) {
@@ -259,23 +376,9 @@ public class DatabaseManager {
         return players;
     }
 
-
     public void recordPlayerIp(String playerName, String ip, long timestamp) {
-        if (mysql) {
-            executeUpdate(
-                    "INSERT INTO player_ip_history (player_name, ip, first_seen, last_seen) VALUES (?, ?, ?, ?) " +
-                            "ON DUPLICATE KEY UPDATE last_seen = VALUES(last_seen)",
-                    playerName, ip, timestamp, timestamp
-            );
-        } else {
-            executeUpdate(
-                    "INSERT INTO player_ip_history (player_name, ip, first_seen, last_seen) VALUES (?, ?, ?, ?) " +
-                            "ON CONFLICT(player_name, ip) DO UPDATE SET last_seen = excluded.last_seen",
-                    playerName, ip, timestamp, timestamp
-            );
-        }
+        executeUpdate(historyInsertSql(), playerName, ip, timestamp, timestamp);
     }
-
 
     public List<String[]> getPlayerIpHistory(String playerName) {
         List<String[]> history = new ArrayList<>();
@@ -292,7 +395,6 @@ public class DatabaseManager {
         return history;
     }
 
-
     public List<String> getPlayersByIpFromHistory(String ip) {
         List<String> players = new ArrayList<>();
         try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT DISTINCT player_name FROM player_ip_history WHERE ip = ? ORDER BY player_name")) {
@@ -308,84 +410,71 @@ public class DatabaseManager {
         return players;
     }
 
-
     public WriteResult addBan(BanEntry entry) {
         return replaceActiveBan(entry);
     }
-
 
     public WriteResult upsertBan(BanEntry entry) {
         return replaceActiveBan(entry);
     }
 
     public WriteResult replaceActiveBan(BanEntry entry) {
-        return replaceActiveEntry(
+        return invalidateBans(replaceActiveEntry(
                 "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1",
                 new Object[]{entry.getTarget()},
                 "INSERT INTO bans (target, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
-                new Object[]{entry.getTarget(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()});
+                new Object[]{entry.getTarget(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()}));
     }
 
     public WriteResult replaceExistingActiveBan(BanEntry entry) {
-        return replaceExistingActiveEntry(
+        return invalidateBans(replaceExistingActiveEntry(
                 "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1",
                 new Object[]{entry.getTarget()},
                 "INSERT INTO bans (target, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
-                new Object[]{entry.getTarget(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()});
+                new Object[]{entry.getTarget(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()}));
     }
 
     public WriteResult replaceActiveBanAndUpdateReport(BanEntry banEntry, ReportEntry reportEntry,
                                                        String reportStatus) {
-        return replaceActiveEntry(
+        return invalidateBans(replaceActiveEntry(
                 "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1",
                 new Object[]{banEntry.getTarget()},
                 "INSERT INTO bans (target, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
                 new Object[]{banEntry.getTarget(), banEntry.getStaff(), banEntry.getTime(), banEntry.getReason(),
                         banEntry.isAuto(), banEntry.isActive()},
                 "UPDATE reports SET status = ? WHERE id = ? AND status = ?",
-                new Object[]{status(reportStatus), reportEntry.getId(), status(reportEntry.getStatus())});
+                new Object[]{status(reportStatus), reportEntry.getId(), status(reportEntry.getStatus())}));
     }
 
     public WriteResult deactivateBanForUnban(String target, long now) {
-        return deactivateForUnban(
+        return invalidateBans(deactivateForUnban(
                 "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1 AND end_time > ?",
                 "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1 AND end_time <= ?",
-                target, now);
+                target, now));
     }
 
     public void deleteBan(String target) {
         executeUpdate("DELETE FROM bans WHERE LOWER(target) = LOWER(?)", target);
+        banCache.invalidate();
+    }
+
+    private WriteResult invalidateBans(WriteResult result) {
+        if (result != WriteResult.NO_CHANGE) {
+            banCache.invalidate();
+        }
+        return result;
     }
 
     public boolean isPlayerBanned(String target) {
-        return exists("SELECT 1 FROM bans WHERE LOWER(target) = LOWER(?) AND active = 1 AND end_time > ?", target, System.currentTimeMillis());
+        return banCache.isBanned(target);
     }
 
     public BanEntry getBan(String target) {
-        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE LOWER(target) = LOWER(?) AND active = 1 ORDER BY end_time DESC LIMIT 1")) {
-            ps.setString(1, target);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? readBan(rs) : null;
-            }
-        } catch (SQLException e) {
-            logSql(e);
-            return null;
-        }
+        return banCache.getBan(target);
     }
 
     public List<BanEntry> getBans() {
-        List<BanEntry> entries = new ArrayList<>();
-        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE active = 1 AND end_time > ? ORDER BY target")) {
-            ps.setLong(1, System.currentTimeMillis());
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    entries.add(readBan(rs));
-                }
-            }
-        } catch (SQLException e) {
-            logSql(e);
-        }
-        return entries;
+        return banCache.getUnexpiredBans();
     }
 
     public List<BanEntry> getBansByPlayer(String player) {
@@ -423,6 +512,18 @@ public class DatabaseManager {
     }
 
     public List<BanEntry> getAllActiveBans() {
+        return banCache.getActiveBans();
+    }
+
+    public int countActiveBans() {
+        return banCache.countUnexpiredBans();
+    }
+
+    public int countActiveIpBans() {
+        return banCache.countUnexpiredIpBans();
+    }
+
+    private List<BanEntry> queryActiveBans() {
         List<BanEntry> entries = new ArrayList<>();
         try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE active = 1")) {
             try (ResultSet rs = ps.executeQuery()) {
@@ -436,67 +537,9 @@ public class DatabaseManager {
         return entries;
     }
 
-    public boolean isHealthy() {
-        return dataSource != null && !dataSource.isClosed();
-    }
-
-
-    public WriteResult addIpBan(BanIpEntry entry) {
-        return replaceActiveIpBan(entry);
-    }
-
-
-    public WriteResult upsertIpBan(BanIpEntry entry) {
-        return replaceActiveIpBan(entry);
-    }
-
-    public WriteResult replaceActiveIpBan(BanIpEntry entry) {
-        return replaceActiveEntry(
-                "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1",
-                new Object[]{entry.getIp()},
-                "INSERT INTO ip_bans (ip, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
-                new Object[]{entry.getIp(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()});
-    }
-
-    public WriteResult replaceExistingActiveIpBan(BanIpEntry entry) {
-        return replaceExistingActiveEntry(
-                "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1",
-                new Object[]{entry.getIp()},
-                "INSERT INTO ip_bans (ip, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
-                new Object[]{entry.getIp(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()});
-    }
-
-    public WriteResult deactivateIpBanForUnban(String ip, long now) {
-        return deactivateForUnban(
-                "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1 AND end_time > ?",
-                "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1 AND end_time <= ?",
-                ip, now);
-    }
-
-    public void deleteIpBan(String ip) {
-        executeUpdate("DELETE FROM ip_bans WHERE ip = ?", ip);
-    }
-
-    public boolean isIpBanned(String ip) {
-        return exists("SELECT 1 FROM ip_bans WHERE ip = ? AND active = 1 AND end_time > ?", ip, System.currentTimeMillis());
-    }
-
-    public BanIpEntry getIpBan(String ip) {
-        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT ip, staff, end_time, reason, is_auto, active FROM ip_bans WHERE ip = ? AND active = 1 ORDER BY end_time DESC LIMIT 1")) {
-            ps.setString(1, ip);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? readIpBan(rs) : null;
-            }
-        } catch (SQLException e) {
-            logSql(e);
-            return null;
-        }
-    }
-
-    public List<BanIpEntry> getIpBans() {
+    private List<BanIpEntry> queryActiveIpBans() {
         List<BanIpEntry> entries = new ArrayList<>();
-        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT ip, staff, end_time, reason, is_auto, active FROM ip_bans WHERE active = 1 AND end_time > ? ORDER BY ip")) {
-            ps.setLong(1, System.currentTimeMillis());
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT ip, staff, end_time, reason, is_auto, active FROM ip_bans WHERE active = 1")) {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     entries.add(readIpBan(rs));
@@ -506,6 +549,58 @@ public class DatabaseManager {
             logSql(e);
         }
         return entries;
+    }
+
+    public boolean isHealthy() {
+        return dataSource != null && !dataSource.isClosed();
+    }
+
+    public WriteResult addIpBan(BanIpEntry entry) {
+        return replaceActiveIpBan(entry);
+    }
+
+    public WriteResult upsertIpBan(BanIpEntry entry) {
+        return replaceActiveIpBan(entry);
+    }
+
+    public WriteResult replaceActiveIpBan(BanIpEntry entry) {
+        return invalidateBans(replaceActiveEntry(
+                "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1",
+                new Object[]{entry.getIp()},
+                "INSERT INTO ip_bans (ip, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
+                new Object[]{entry.getIp(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()}));
+    }
+
+    public WriteResult replaceExistingActiveIpBan(BanIpEntry entry) {
+        return invalidateBans(replaceExistingActiveEntry(
+                "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1",
+                new Object[]{entry.getIp()},
+                "INSERT INTO ip_bans (ip, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
+                new Object[]{entry.getIp(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()}));
+    }
+
+    public WriteResult deactivateIpBanForUnban(String ip, long now) {
+        return invalidateBans(deactivateForUnban(
+                "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1 AND end_time > ?",
+                "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1 AND end_time <= ?",
+                ip, now));
+    }
+
+    public void deleteIpBan(String ip) {
+        executeUpdate("DELETE FROM ip_bans WHERE ip = ?", ip);
+        banCache.invalidate();
+    }
+
+    public boolean isIpBanned(String ip) {
+        return banCache.isIpBanned(ip);
+    }
+
+    public BanIpEntry getIpBan(String ip) {
+        return banCache.getIpBan(ip);
+    }
+
+    public List<BanIpEntry> getIpBans() {
+        return banCache.getUnexpiredIpBans();
     }
 
     public List<BanIpEntry> getIpBansByIp(String ip) {
@@ -559,6 +654,10 @@ public class DatabaseManager {
             logSql(e);
             return new ArrayList<>();
         }
+    }
+
+    public int countActiveMutes() {
+        return count("SELECT COUNT(*) FROM mutes WHERE end_time = ? OR end_time > ?", Long.MAX_VALUE, System.currentTimeMillis());
     }
 
     List<MuteEntry> loadMutesForCache() throws SQLException {
@@ -677,6 +776,22 @@ public class DatabaseManager {
         return entries;
     }
 
+    public List<ReportEntry> getReportsByReporterWithStatus(String reporter, String reportStatus) {
+        List<ReportEntry> entries = new ArrayList<>();
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT id, target, reporter, reason, status, timestamp FROM reports WHERE reporter = ? AND status = ? ORDER BY timestamp ASC")) {
+            ps.setString(1, reporter);
+            ps.setString(2, status(reportStatus));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(readReport(rs));
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
+    }
+
     public int getPendingReportCount() {
         return count("SELECT COUNT(*) FROM reports WHERE status IS NULL OR (status <> ? AND status <> ?)", "已关闭", "已处理");
     }
@@ -758,14 +873,14 @@ public class DatabaseManager {
             logSql(e);
             return false;
         }
-        } // end synchronized auditChainLock
+        } 
     }
 
-    public List<AuditEntry> getAuditLogsAsc(int offset, int limit) {
+    public List<AuditEntry> getAuditLogsAfter(long afterId, int limit) {
         List<AuditEntry> entries = new ArrayList<>();
-        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT id, timestamp, actor, action, target, reason, success, prev_hash FROM audit_log ORDER BY id ASC LIMIT ? OFFSET ?")) {
-            ps.setInt(1, limit);
-            ps.setInt(2, offset);
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT id, timestamp, actor, action, target, reason, success, prev_hash FROM audit_log WHERE id > ? ORDER BY id ASC LIMIT ?")) {
+            ps.setLong(1, afterId);
+            ps.setInt(2, limit);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     entries.add(readAudit(rs));
@@ -801,14 +916,14 @@ public class DatabaseManager {
         List<AuditEntry> entries = new ArrayList<>();
         try (Connection connection = getConnection()) {
             if (actorOrTarget == null || actorOrTarget.isEmpty()) {
-                try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM audit_log ORDER BY timestamp DESC LIMIT ?")) {
+                try (PreparedStatement ps = connection.prepareStatement("SELECT id, timestamp, actor, action, target, reason, success, prev_hash FROM audit_log ORDER BY timestamp DESC LIMIT ?")) {
                     ps.setInt(1, limit);
                     try (ResultSet rs = ps.executeQuery()) {
                         while (rs.next()) entries.add(readAudit(rs));
                     }
                 }
             } else {
-                try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM audit_log WHERE actor = ? OR target = ? ORDER BY timestamp DESC LIMIT ?")) {
+                try (PreparedStatement ps = connection.prepareStatement("SELECT id, timestamp, actor, action, target, reason, success, prev_hash FROM audit_log WHERE actor = ? OR target = ? ORDER BY timestamp DESC LIMIT ?")) {
                     ps.setString(1, actorOrTarget);
                     ps.setString(2, actorOrTarget);
                     ps.setInt(3, limit);
@@ -829,7 +944,7 @@ public class DatabaseManager {
         }
         List<AuditEntry> entries = new ArrayList<>();
         try (Connection connection = getConnection()) {
-            try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM audit_log WHERE actor = ? ORDER BY timestamp DESC LIMIT ?")) {
+            try (PreparedStatement ps = connection.prepareStatement("SELECT id, timestamp, actor, action, target, reason, success, prev_hash FROM audit_log WHERE actor = ? ORDER BY timestamp DESC LIMIT ?")) {
                 ps.setString(1, actor);
                 ps.setInt(2, limit);
                 try (ResultSet rs = ps.executeQuery()) {
@@ -842,9 +957,6 @@ public class DatabaseManager {
         return entries;
     }
 
-    /**
-     * 查询指定操作人在指定时间范围（含两端）内的审计记录，按时间升序（回滚按原顺序执行）。
-     */
     public List<AuditEntry> getAuditLogsByActorInRange(String actor, long from, long to) {
         List<AuditEntry> entries = new ArrayList<>();
         if (actor == null || actor.trim().isEmpty()) {
@@ -893,22 +1005,124 @@ public class DatabaseManager {
         return new BanIpEntry(value(rs, "ip"), value(rs, "staff"), rs.getLong("end_time"), value(rs, "reason"), rs.getBoolean("is_auto"), rs.getBoolean("active"));
     }
 
-
-    public void cleanupOldData(int retentionDays) {
-        long cutoff = System.currentTimeMillis() - (retentionDays * 86400000L);
-        executeUpdate("DELETE FROM bans WHERE active = 0 AND end_time < ?", cutoff);
-        executeUpdate("DELETE FROM ip_bans WHERE active = 0 AND end_time < ?", cutoff);
-        executeUpdate("DELETE FROM mutes WHERE end_time != " + Long.MAX_VALUE + " AND end_time < ?", cutoff);
-        executeUpdate("DELETE FROM warnings WHERE revoked = 1 AND warn_time < ?", cutoff);
-        executeUpdate("DELETE FROM reports WHERE status != '未处理' AND timestamp < ?", cutoff);
-        executeUpdate("DELETE FROM audit_log WHERE timestamp < ?", cutoff);
+    public List<BanEntry> getBansExpiringBefore(long deadline) {
+        List<BanEntry> entries = new ArrayList<>();
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE active = 1 AND end_time <= ? ORDER BY end_time ASC")) {
+            ps.setLong(1, deadline);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(readBan(rs));
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
     }
 
+    public List<MuteEntry> getMutesExpiringBefore(long deadline) {
+        List<MuteEntry> entries = new ArrayList<>();
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason FROM mutes WHERE end_time <= ? ORDER BY end_time ASC")) {
+            ps.setLong(1, deadline);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    entries.add(readMute(rs));
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return entries;
+    }
 
-    public void deactivateExpiredBans() {
+    public boolean cleanupOldData(int retentionDays) {
+        long cutoff = System.currentTimeMillis() - (retentionDays * 86400000L);
+        boolean removed = false;
+        removed |= executeUpdateAffected("DELETE FROM bans WHERE active = 0 AND end_time < ?", cutoff) > 0;
+        removed |= executeUpdateAffected("DELETE FROM ip_bans WHERE active = 0 AND end_time < ?", cutoff) > 0;
+        removed |= executeUpdateAffected("DELETE FROM mutes WHERE end_time != " + Long.MAX_VALUE + " AND end_time < ?", cutoff) > 0;
+        removed |= executeUpdateAffected("DELETE FROM warnings WHERE revoked = 1 AND warn_time < ?", cutoff) > 0;
+        removed |= executeUpdateAffected("DELETE FROM reports WHERE status != '未处理' AND timestamp < ?", cutoff) > 0;
+        removed |= executeUpdateAffected("DELETE FROM audit_log WHERE timestamp < ?", cutoff) > 0;
+        int ipHistoryDays = plugin.getConfig().getInt("database.retention.ip-history-days", 0);
+        if (ipHistoryDays > 0) {
+            long ipCutoff = System.currentTimeMillis() - (ipHistoryDays * 86400000L);
+            removed |= executeUpdateAffected("DELETE FROM player_ip_history WHERE last_seen < ?", ipCutoff) > 0;
+        }
+        if (removed) {
+            banCache.invalidate();
+        }
+        return removed;
+    }
+
+    public boolean deactivateExpiredBans() {
         long now = System.currentTimeMillis();
-        executeUpdate("UPDATE bans SET active = 0 WHERE active = 1 AND end_time <= ? AND end_time != " + Long.MAX_VALUE, now);
-        executeUpdate("UPDATE ip_bans SET active = 0 WHERE active = 1 AND end_time <= ? AND end_time != " + Long.MAX_VALUE, now);
+        boolean changed = executeUpdateAffected("UPDATE bans SET active = 0 WHERE active = 1 AND end_time <= ? AND end_time != " + Long.MAX_VALUE, now) > 0;
+        changed |= executeUpdateAffected("UPDATE ip_bans SET active = 0 WHERE active = 1 AND end_time <= ? AND end_time != " + Long.MAX_VALUE, now) > 0;
+        if (changed) {
+            banCache.invalidate();
+        }
+        return changed;
+    }
+
+    public void reclaimSpace() {
+        if (mysql || dataSource == null) {
+            return;
+        }
+        if (!plugin.getConfig().getBoolean("database.sqlite.auto-vacuum", true)) {
+            return;
+        }
+        try {
+            long freePages = pragmaLong("freelist_count");
+            if (sqliteAutoVacuumPending) {
+
+                if (freePages <= 0) {
+                    return;
+                }
+                long start = System.currentTimeMillis();
+                plugin.getLogger().info("SQLite 首次空间整理开始（重建数据库文件以启用 auto_vacuum）...");
+                convertToIncrementalAutoVacuum();
+                sqliteAutoVacuumPending = false;
+                plugin.getLogger().info("SQLite 首次空间整理完成，耗时 " + (System.currentTimeMillis() - start) + " 毫秒");
+                return;
+            }
+            if (freePages > 0) {
+
+                execute("PRAGMA incremental_vacuum(2000)");
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+    }
+
+    private void convertToIncrementalAutoVacuum() throws SQLException {
+        try (Connection connection = getConnection(); Statement statement = connection.createStatement()) {
+            statement.execute("PRAGMA auto_vacuum = INCREMENTAL");
+            statement.execute("VACUUM");
+        }
+    }
+
+    private long pragmaLong(String pragma) {
+        String value = firstPragmaValue(pragma);
+        if (value == null) {
+            return -1L;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException e) {
+            return -1L;
+        }
+    }
+
+    private String firstPragmaValue(String pragma) {
+        try (Connection connection = getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery("PRAGMA " + pragma)) {
+            return rs.next() ? rs.getString(1) : null;
+        } catch (SQLException e) {
+            logSql(e);
+            return null;
+        }
     }
 
     private MuteEntry readMute(ResultSet rs) throws SQLException {
@@ -1111,23 +1325,16 @@ public class DatabaseManager {
     }
 
     private void executeUpdate(String sql, Object... values) {
-        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
-            setValues(ps, values);
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            logSql(e);
-        }
+        executeUpdateAffected(sql, values);
     }
 
-    private boolean exists(String sql, Object... values) {
+    private int executeUpdateAffected(String sql, Object... values) {
         try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
             setValues(ps, values);
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next();
-            }
+            return ps.executeUpdate();
         } catch (SQLException e) {
             logSql(e);
-            return false;
+            return -1;
         }
     }
 
@@ -1161,37 +1368,97 @@ public class DatabaseManager {
     }
 
     private boolean columnExists(String table, String column) throws SQLException {
-        try (Connection connection = getConnection()) {
-            DatabaseMetaData metaData = connection.getMetaData();
-            try (ResultSet rs = metaData.getColumns(null, null, table, column)) {
-                if (rs.next()) return true;
-            }
-            try (ResultSet rs = metaData.getColumns(null, null, table.toUpperCase(), column.toUpperCase())) {
-                return rs.next();
+        if (!mysql) {
+            return sqliteColumnsOf(table).contains(column.toLowerCase(Locale.ROOT));
+        }
+        return mysqlCatalogHas("COLUMNS", "COLUMN_NAME", table, column);
+    }
+
+    private Set<String> sqliteColumnsOf(String table) throws SQLException {
+        Set<String> cached = sqliteColumns.get(table);
+        if (cached != null) {
+            return cached;
+        }
+        Set<String> columns = new HashSet<>();
+        try (Connection connection = getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery("PRAGMA table_info(" + table + ")")) {
+            while (rs.next()) {
+                columns.add(rs.getString("name").toLowerCase(Locale.ROOT));
             }
         }
+        sqliteColumns.put(table, columns);
+        return columns;
+    }
+
+    private String indexTextColumn(String column) {
+        return indexTextColumn(mysql, column);
+    }
+
+    static String indexTextColumn(boolean mySql, String column) {
+        return mySql ? column + "(" + INDEX_PREFIX_CHARS + ")" : column;
+    }
+
+    static String banTableIndexColumns(boolean mySql, String table) {
+        return indexTextColumn(mySql, table.equals("bans") ? "target" : "ip") + ", active";
     }
 
     private void createIndexIfMissing(String table, String index, String column) throws SQLException {
-        if (!indexExists(table, index)) {
+        if (indexExists(table, index)) {
+            return;
+        }
+        try {
             execute("CREATE INDEX " + index + " ON " + table + " (" + column + ")");
+        } catch (SQLException e) {
+
+            if (indexExists(table, index)) {
+                return;
+            }
+            throw e;
         }
     }
 
     private boolean indexExists(String table, String index) throws SQLException {
-        try (Connection connection = getConnection()) {
-            DatabaseMetaData metaData = connection.getMetaData();
-            try (ResultSet rs = metaData.getIndexInfo(null, null, table, false, false)) {
-                while (rs.next()) {
-                    String name = rs.getString("INDEX_NAME");
-                    if (index.equalsIgnoreCase(name)) return true;
-                }
+        if (!mysql) {
+            return sqliteIndexesOf(table).contains(index.toLowerCase(Locale.ROOT));
+        }
+        return mysqlCatalogHas("STATISTICS", "INDEX_NAME", table, index);
+    }
+
+    private boolean mysqlCatalogHas(String catalogTable, String nameColumn, String table, String name) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM information_schema." + catalogTable
+                + " WHERE TABLE_SCHEMA = DATABASE() AND LOWER(TABLE_NAME) = LOWER(?)"
+                + " AND LOWER(" + nameColumn + ") = LOWER(?)";
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, table);
+            ps.setString(2, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() && rs.getInt(1) > 0;
             }
         }
-        return false;
+    }
+
+    private Set<String> sqliteIndexesOf(String table) throws SQLException {
+        Set<String> cached = sqliteIndexes.get(table);
+        if (cached != null) {
+            return cached;
+        }
+        Set<String> indexes = new HashSet<>();
+        try (Connection connection = getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery("PRAGMA index_list(" + table + ")")) {
+            while (rs.next()) {
+                indexes.add(rs.getString("name").toLowerCase(Locale.ROOT));
+            }
+        }
+        sqliteIndexes.put(table, indexes);
+        return indexes;
     }
 
     void execute(String sql) throws SQLException {
+
+        sqliteColumns.clear();
+        sqliteIndexes.clear();
         try (Connection connection = getConnection(); Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }

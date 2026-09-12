@@ -3,9 +3,6 @@ package org.leng.api.events;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
-/**
- * 解封事件（玩家或 IP）。
- */
 public final class LengbanlistUnbanEvent extends Event {
     private static final HandlerList HANDLERS = new HandlerList();
     private final String target;
@@ -19,9 +16,12 @@ public final class LengbanlistUnbanEvent extends Event {
     }
 
     public String getTarget() { return target; }
+
     public boolean isIp() { return isIp; }
+
     public String getActor() { return actor; }
 
     @Override public HandlerList getHandlers() { return HANDLERS; }
+
     public static HandlerList getHandlerList() { return HANDLERS; }
 }

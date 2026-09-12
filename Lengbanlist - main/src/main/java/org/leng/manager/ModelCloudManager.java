@@ -20,26 +20,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 
-/**
- * 模型云端仓库管理器 —— 从独立 GitHub 仓库拉取角色模型。
- *
- * <p>仓库结构约定（{@code Serendisand/Lengbanlist-Models}）:
- * <pre>
- *   /index.json                  ← 模型清单 + 月度精选
- *   /models/&lt;id&gt;/&lt;id&gt;.yml         ← 单个模型
- *   /models/&lt;id&gt;/meta.json          ← 可选元数据(version/author/tags)
- * </pre>
- *
- * <p>拉取策略:
- * <ul>
- *   <li>镜像列表（按顺序尝试,首个成功即用）</li>
- *   <li>本地缓存 {@code plugins/Lengbanlist/models/.cache/index.json},24h 过期</li>
- *   <li>失败静默回退（启动 / 定时任务 不阻塞主流程）</li>
- * </ul>
- *
- * <p>P1 范围:fetchIndex + 镜像回退 + 本地缓存 + 失败回退。
- * 模型文件下载 / pin / 命令集成在后续阶段。
- */
 public class ModelCloudManager {
 
     private static final String DEFAULT_REPO = "Serendisand/Lengbanlist-Models";
@@ -56,9 +36,8 @@ public class ModelCloudManager {
         this.plugin = plugin;
     }
 
-    // ====================== 数据类 ======================
-
     public record ModelInfo(String id, String name, String version, String author, String url, String sha256) {
+
         public static ModelInfo fromJson(JsonObject obj) {
             return new ModelInfo(
                     str(obj, "id"),
@@ -72,6 +51,7 @@ public class ModelCloudManager {
     }
 
     public record FeaturedModel(String month, String modelId, String title, String description) {
+
         public static FeaturedModel fromJson(JsonObject obj) {
             return new FeaturedModel(
                     str(obj, "month"),
@@ -83,6 +63,7 @@ public class ModelCloudManager {
     }
 
     public record ModelIndex(int version, String updated, List<ModelInfo> models, FeaturedModel featured) {
+
         public static ModelIndex fromJson(JsonObject obj) {
             int version = obj.has("version") ? obj.get("version").getAsInt() : 1;
             String updated = str(obj, "updated");
@@ -102,13 +83,9 @@ public class ModelCloudManager {
         }
     }
 
-    // ====================== 配置 ======================
-
-    /** 模型 id 白名单：小写字母/数字/连字符,≤32 字符。防路径穿越。 */
     private static final java.util.regex.Pattern ID_PATTERN =
             java.util.regex.Pattern.compile("[a-z0-9-]{1,32}");
 
-    /** 只允许 https 下载（防 http 明文注入 / 中间人篡改）。loopback 例外用于本地调试。 */
     private static final String HTTPS_PREFIX = "https://";
 
     private static boolean isAllowedUrl(String url) {
@@ -117,14 +94,13 @@ public class ModelCloudManager {
                 || url.startsWith("http://localhost"));
     }
 
-    /** 校验模型 id 是否合法（拒绝 ../、/、\ 等路径穿越字符）。 */
     public static boolean isValidModelId(String id) {
         return id != null && ID_PATTERN.matcher(id).matches();
     }
 
     public String repo() {
         String repo = plugin.getConfig().getString("models-cloud.repo", DEFAULT_REPO);
-        // 仓库名格式: owner/name（字母数字 -_.）
+
         if (repo == null || !repo.matches("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")) {
             repo = DEFAULT_REPO;
         }
@@ -142,7 +118,7 @@ public class ModelCloudManager {
     public List<String> mirrors() {
         List<String> list = plugin.getConfig().getStringList("models-cloud.mirrors");
         if (list == null || list.isEmpty()) {
-            // 默认镜像链：主源 + 镜像回退
+
             String baseRaw = "https://raw.githubusercontent.com/" + repo() + "/" + branch() + "/index.json";
             list = List.of(
                     baseRaw,
@@ -150,18 +126,12 @@ public class ModelCloudManager {
                     "https://mirror.ghproxy.com/" + baseRaw
             );
         } else {
-            // 只保留 https（防 http 明文注入）；loopback 例外
+
             list = list.stream().filter(ModelCloudManager::isAllowedUrl).toList();
         }
         return list;
     }
 
-    // ====================== 拉取 ======================
-
-    /**
-     * 同步获取模型索引（按镜像列表逐个尝试,首个成功即用）。
-     * 失败返回空 Optional,不抛异常。
-     */
     public Optional<ModelIndex> fetchIndex() {
         for (String url : mirrors()) {
             try (HttpHelper http = new HttpHelper(HTTP_TIMEOUT_MS, HTTP_TIMEOUT_MS)) {
@@ -185,16 +155,10 @@ public class ModelCloudManager {
         return Optional.empty();
     }
 
-    /**
-     * 异步获取索引（不阻塞调用线程）。失败返回空 Optional。
-     */
     public CompletableFuture<Optional<ModelIndex>> fetchIndexAsync() {
         return CompletableFuture.supplyAsync(this::fetchIndex);
     }
 
-    /**
-     * 仅读缓存索引（内存→磁盘）,绝不触网 —— 供主线程 Tab 补全等场景使用。
-     */
     public Optional<ModelIndex> cachedIndexOnly() {
         ModelIndex mem = cachedIndex.get();
         if (mem != null) {
@@ -203,10 +167,6 @@ public class ModelCloudManager {
         return readIndexCache();
     }
 
-    /**
-     * 取索引 —— 优先内存缓存,其次磁盘缓存,最后网络。
-     * 缓存过期时间由 {@link #INDEX_CACHE_TTL_MS} 控制。
-     */
     public Optional<ModelIndex> getIndex() {
         ModelIndex mem = cachedIndex.get();
         if (mem != null && System.currentTimeMillis() - cacheLoadedAt < INDEX_CACHE_TTL_MS) {
@@ -221,19 +181,14 @@ public class ModelCloudManager {
         return fetchIndex();
     }
 
-    // ====================== 缓存 IO ======================
-
     private Path cacheFile() {
         return plugin.getDataFolder().toPath().resolve("models/.cache/index.json");
     }
-
-    // ====================== 安装统计（用于月度精选评定参考） ======================
 
     private Path statsFile() {
         return plugin.getDataFolder().toPath().resolve("models/.cache/stats.json");
     }
 
-    /** 记录一次模型安装/更新（本地累计,跨服汇总由管理员导出后反馈作者）。 */
     public void recordInstall(String id) {
         try {
             Path p = statsFile();
@@ -253,9 +208,6 @@ public class ModelCloudManager {
         reportInstallAsync(id);
     }
 
-    // ---- 自动评选上报（可选参与,config models-cloud.stats.*） ----
-
-    /** 服务器唯一标识(首次生成,用于跨服去重统计)。 */
     private String serverId() {
         Path p = plugin.getDataFolder().toPath().resolve("models/.cache/server-id");
         try {
@@ -279,7 +231,6 @@ public class ModelCloudManager {
         return url != null && !url.trim().isEmpty();
     }
 
-    /** 异步上报一次安装事件（HTTP 200 即成功;失败静默,下次 install 再试）。 */
     private void reportInstallAsync(String modelId) {
         if (!statsReportingEnabled()) {
             return;
@@ -298,9 +249,6 @@ public class ModelCloudManager {
         });
     }
 
-    /**
-     * 读取安装统计,按次数降序返回 (id, count) 列表。
-     */
     public List<String[]> downloadStats() {
         List<String[]> result = new ArrayList<>();
         try {
@@ -343,12 +291,6 @@ public class ModelCloudManager {
         }
     }
 
-    // ====================== 业务方法 ======================
-
-    /**
-     * 当前月份是否匹配 featured.month（用于 GUI banner）。
-     * 格式约定 yyyy-MM。
-     */
     public boolean isFeaturedForCurrentMonth(FeaturedModel featured) {
         if (featured == null || featured.month() == null) return false;
         return featured.month().equals(currentMonth());
@@ -368,9 +310,6 @@ public class ModelCloudManager {
                 : null;
     }
 
-    // ====================== 模型安装 / pin ======================
-
-    /** 本地模型存放目录（与 ModelManager.loadCustomModels 扫描目录一致）。 */
     public Path localModelsDir() {
         return plugin.getDataFolder().toPath().resolve("models");
     }
@@ -379,10 +318,6 @@ public class ModelCloudManager {
         return localModelsDir().resolve(id + ".yml");
     }
 
-    /**
-     * 元数据（pinned/version）内嵌在模型 yml 尾部,避免零散小文件。
-     * 用文本级读写,不做 Bukkit YAML 序列化（会丢失注释/格式）。
-     */
     private static final String META_PREFIX_PINNED = "pinned: ";
     private static final String META_PREFIX_VERSION = "version: ";
     private static final String META_COMMENT = "# 以下元数据由 Lengbanlist 自动维护（pinned=锁定,version=云端版本）";
@@ -403,7 +338,6 @@ public class ModelCloudManager {
         return "";
     }
 
-    /** 文本级设置元数据行（有则替换,无则追加到文件尾）。返回是否成功。 */
     private boolean setMetaValue(String id, String prefix, String value) {
         Path f = modelFile(id);
         if (!Files.exists(f)) {
@@ -437,17 +371,14 @@ public class ModelCloudManager {
         }
     }
 
-    /** 该模型是否已锁定（云端更新不覆盖本地）。 */
     public boolean isPinned(String id) {
         return "true".equals(readMetaValue(id, META_PREFIX_PINNED));
     }
 
-    /** 锁定模型:云端更新不再覆盖。需先安装。 */
     public boolean pin(String id) {
         return setMetaValue(id, META_PREFIX_PINNED, "true");
     }
 
-    /** 解除锁定（幂等:未安装/未锁定也算成功）。 */
     public boolean unpin(String id) {
         Path f = modelFile(id);
         if (!Files.exists(f)) {
@@ -456,14 +387,10 @@ public class ModelCloudManager {
         return setMetaValue(id, META_PREFIX_PINNED, "false");
     }
 
-    /** 本地是否已安装该模型文件。 */
     public boolean isInstalled(String id) {
         return Files.exists(modelFile(id));
     }
 
-    /**
-     * 从云端索引中查找模型。若索引未加载,先尝试拉取/磁盘缓存。
-     */
     public Optional<ModelInfo> findInIndex(String id) {
         Optional<ModelIndex> idx = getIndex();
         if (idx.isEmpty()) {
@@ -475,17 +402,6 @@ public class ModelCloudManager {
                 .findFirst();
     }
 
-    /**
-     * 安装（下载）指定模型到本地。
-     *
-     * <p>规则:
-     * <ul>
-     *   <li>已 pinned 的模型跳过（保留本地）</li>
-     *   <li>已安装且版本一致跳过（幂等）</li>
-     *   <li>version=0.0.0 视为"尚未上架"的占位条目,拒绝安装</li>
-     *   <li>下载内容需包含合法的 YAML name 字段,否则拒绝安装</li>
-     * </ul>
-     */
     public InstallResult installModel(String id) {
         if (!isValidModelId(id)) {
             return InstallResult.NOT_FOUND;
@@ -507,10 +423,6 @@ public class ModelCloudManager {
         return downloadModel(found.get());
     }
 
-    /**
-     * 同步:下载索引中所有非 pinned、非占位且未安装 / 版本落后的模型。
-     * 返回本次安装数量。
-     */
     public int syncAll() {
         Optional<ModelIndex> idx = getIndex();
         if (idx.isEmpty()) {
@@ -531,12 +443,10 @@ public class ModelCloudManager {
         return installed;
     }
 
-    /** version=0.0.0 表示索引中的占位条目（模型尚未上架）。 */
     private boolean isPlaceholder(ModelInfo info) {
         return info.version() == null || info.version().isEmpty() || "0.0.0".equals(info.version());
     }
 
-    /** 本地版本是否与云端一致（读取模型 yml 内嵌 version 元数据）。 */
     private boolean isCurrent(String id, String version) {
         return version != null && !version.isEmpty() && version.equals(readMetaValue(id, META_PREFIX_VERSION));
     }
@@ -546,13 +456,13 @@ public class ModelCloudManager {
             return InstallResult.FAILED;
         }
         for (String url : modelDownloadCandidates(info)) {
-            // 只允许 https（防 http 明文注入）；loopback 例外
+
             if (!isAllowedUrl(url)) {
                 continue;
             }
             try (HttpHelper http = new HttpHelper(HTTP_TIMEOUT_MS, HTTP_TIMEOUT_MS)) {
                 String body = http.get(url, "Lengbanlist-ModelCloud/1.0", "text/yaml");
-                // 基础校验:必须包含 name 字段,防止垃圾响应被写进本地
+
                 if (!body.contains("name:")) {
                     plugin.getLogger().warning("[ModelCloud] 模型 " + info.id() + " 下载内容缺少 name 字段,拒绝安装 (" + url + ")");
                     return InstallResult.FAILED;
@@ -578,11 +488,6 @@ public class ModelCloudManager {
         return InstallResult.FAILED;
     }
 
-    /**
-     * 生成模型下载候选 URL 列表：
-     * 优先各镜像 base（与 index.json 同源,天然绕过直连证书/墙问题），
-     * 最后兜底索引里声明的直连 url。
-     */
     List<String> modelDownloadCandidates(ModelInfo info) {
         List<String> result = new ArrayList<>();
         for (String indexUrl : mirrors()) {
@@ -597,7 +502,6 @@ public class ModelCloudManager {
         return result;
     }
 
-    /** 安装结果枚举。 */
     public enum InstallResult {
         INSTALLED,
         ALREADY_INSTALLED,

@@ -12,16 +12,13 @@ import org.leng.object.BanIpEntry;
 import org.leng.object.AuditEntry;
 import org.leng.object.MuteEntry;
 import org.leng.object.ReportEntry;
-import org.leng.object.WarnEntry;
 import org.leng.manager.EscalationManager.EscalationResult;
 import org.leng.manager.BanManager;
 import org.leng.manager.BanMutationFeedback;
 import org.leng.manager.ModelManager;
 import org.leng.models.Model;
-import org.leng.utils.SchedulerUtils;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
-import org.leng.utils.SaveIP;
 import org.leng.utils.IpMatcher;
 import org.leng.utils.IpGeoLookup;
 
@@ -72,8 +69,8 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     Utils.sendMessage(sender, plugin.prefix() + "§c广播消息未配置，请在 broadcast.yml 中设置 default-message。");
                     break;
                 }
-                int banCount = plugin.getBanManager().getBanList().size();
-                int banIpCount = plugin.getBanManager().getBanIpList().size();
+                int banCount = plugin.getBanManager().countActiveBans();
+                int banIpCount = plugin.getBanManager().countActiveIpBans();
                 int totalBans = banCount + banIpCount;
 
                 String replacedMessage = defaultMessage
@@ -121,13 +118,21 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 plugin.registerFeatureCommands();
                 Utils.sendMessage(sender, currentModel.reloadConfig());
                 plugin.reloadWebServer();
-                // 之前 reload 漏刷新：ThemeManager 主题、PlayerProfileHelper 缓存、MuteManager 缓存、ModelCloudManager 索引、Reminder/Broadcast 周期
+
                 if (plugin.getThemeManager() != null) {
                     plugin.getThemeManager().load();
                 }
                 org.leng.utils.PlayerProfileHelper.clearCache();
                 if (plugin.getMuteManager() != null) {
                     plugin.getMuteManager().reloadMuteCache();
+                }
+
+                if (plugin.getDatabaseManager() != null) {
+                    plugin.getDatabaseManager().applyCacheConfig();
+                    plugin.getDatabaseManager().reloadBanCache();
+                }
+                if (plugin.getChatListener() != null) {
+                    plugin.getChatListener().invalidateFilterCache();
                 }
                 if (plugin.getModelCloudManager() != null) {
                     plugin.getModelCloudManager().cachedIndexOnly();
@@ -149,14 +154,13 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                         return true;
                     }
                 }
-                // 权限：ban 或 banip 任一即可（路由器层放行,精确校验交由独立命令类）
+
                 if (!sender.hasPermission("lengbanlist.ban") && !sender.hasPermission("lengbanlist.banip")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
                 }
                 String[] delegateArgs = Arrays.copyOfRange(args, 1, args.length);
-                // 之前只看 args[0] 是否含 ".",导致 /lban add 1.2.3.4 -s 7d test 把 "-s" 错认成时间失败
-                // 剥离前导 -s 再判断,保证 IP 路径对 -s 位置不再敏感
+
                 int ipOffset = 0;
                 if (delegateArgs.length > 0 && delegateArgs[0].equalsIgnoreCase("-s")) {
                     ipOffset = 1;
@@ -179,7 +183,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 }
                 return new UnbanCommand(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
             case "help":
-                // 与无参 /lban 走同一份内容,门槛保持一致（不再额外卡 lengbanlist.help,避免告诉玩家去 /lban help 又被踢）
+
                 currentModel.showHelp(sender);
                 break;
             case "open":
@@ -510,7 +514,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                             : TimeUtils.formatDuration(handleEndTime - System.currentTimeMillis(), TimeUtils.isEnglishLocale());
                     Utils.sendMessage(sender, plugin.prefix() + "§a已处理举报 " + handleReport.getId() + "，封禁玩家 " + handleTarget + "（" + handleDurationText + "）");
                 } catch (IllegalArgumentException e) {
-                    // e.getMessage() 可能为 null,需要保护
+
                     String detail = e.getMessage();
                     Utils.sendMessage(sender, plugin.prefix() + "§c" + (detail == null ? "参数无效" : detail));
                 }
@@ -557,7 +561,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 String[] rollbackArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
                 return new RollbackCommand(plugin).onCommand(sender, null, "lban rollback", rollbackArgs);
             default:
-                // 未知子命令时列出可用列表,避免玩家两眼一抹黑
+
                 Utils.sendMessage(sender, plugin.prefix() + "§c未知子命令喵: §f" + args[0] + "§c，输入 §f/lban help §c看看能用什么喵。");
                 StringBuilder available = new StringBuilder("§6§l可用子命令： §b");
                 for (String s : new String[]{"toggle", "a", "list", "reload", "add", "remove", "help", "open",
@@ -588,7 +592,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 if (s.startsWith(prefix)) completions.add(s);
             }
         } else if (args.length >= 2 && args[0].equalsIgnoreCase("models")) {
-            // /lban models <sub> [id] —— 委派给 ModelsCommand（仅此一处分支,line 608 重复块已删）
+
             return new ModelsCommand(plugin).onTabComplete(sender, null, "", Arrays.copyOfRange(args, 1, args.length));
         } else if (args.length == 2) {
             String sub = args[0].toLowerCase();

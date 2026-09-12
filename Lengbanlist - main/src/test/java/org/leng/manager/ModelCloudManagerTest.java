@@ -21,21 +21,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
-/**
- * ModelCloudManager 单元测试 —— 拉取 + 镜像回退 + 缓存 + 失败回退。
- *
- * <p>使用 JDK 内置 HttpServer 启动本地 mock 端点,
- * 覆盖以下场景:成功 / 全失败 / 首失败次成功 / 无效 JSON / 缓存命中 / 网络穿透。
- */
 @ExtendWith(MockitoExtension.class)
 class ModelCloudManagerTest {
 
@@ -51,7 +43,6 @@ class ModelCloudManagerTest {
             "  \"featured\": {\"month\": \"%s\", \"modelId\": \"hutao\", \"title\": \"本月精选\", \"description\": \"\"}\n" +
             "}";
 
-    /** 用于写缓存的 index.json（model url 占位,test 不访问真实仓库） */
     private static String mockIndexWithModelUrl(String month, String modelUrl) {
         return String.format(MOCK_INDEX_JSON, modelUrl, modelUrl, month);
     }
@@ -78,7 +69,6 @@ class ModelCloudManagerTest {
         server.start();
     }
 
-    // 测试内统一"当前月份",避免跨月边界 flaky
     static final String currentMonth = java.time.LocalDate.now()
             .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM"));
 
@@ -94,7 +84,7 @@ class ModelCloudManagerTest {
             public void handle(HttpExchange ex) throws IOException {
                 int code;
                 if (codeOrNegative < 0) {
-                    // 间歇性:第一次 500,后续 200
+
                     int hit = intermittentHits.incrementAndGet();
                     code = (hit % 2 == 1) ? 500 : 200;
                 } else {
@@ -125,11 +115,8 @@ class ModelCloudManagerTest {
         manager = new ModelCloudManager(plugin);
     }
 
-    // Mockito any() 静态导入别名（避免与 JDK any 冲突）
     private static <T> T any() { return org.mockito.ArgumentMatchers.any(); }
     private static String eq(String s) { return org.mockito.ArgumentMatchers.eq(s); }
-
-    // ====================== fetchIndex 成功路径 ======================
 
     @Test
     void fetchIndex_success_parsesModelsAndFeatured() {
@@ -145,8 +132,6 @@ class ModelCloudManagerTest {
         assertNotNull(idx.featured());
         assertEquals(currentMonth, idx.featured().month());
     }
-
-    // ====================== 镜像回退 ======================
 
     @Test
     void fetchIndex_allMirrorsFail_returnsEmpty() {
@@ -176,17 +161,11 @@ class ModelCloudManagerTest {
         assertFalse(result.isPresent());
     }
 
-    // fetchIndex 不重试单个 mirror (按镜像列表逐个尝试,首个成功即用)。
-    // 重试语义留给上层调度 (P4 定时任务)。
-
-    // ====================== 缓存 ======================
-
     @Test
     void getIndex_usesMemoryCache_whenFresh() {
         when(config.getStringList("models-cloud.mirrors")).thenReturn(List.of(url("success")));
-        manager.fetchIndex(); // 填内存缓存
+        manager.fetchIndex(); 
 
-        // 不重 stub mirrors,getIndex 直接走内存缓存,不应访问网络
         Optional<ModelCloudManager.ModelIndex> result = manager.getIndex();
         assertTrue(result.isPresent());
         assertEquals(2, result.get().models().size());
@@ -194,12 +173,11 @@ class ModelCloudManagerTest {
 
     @Test
     void getIndex_usesDiskCache_whenMemoryExpired() throws Exception {
-        // 先写磁盘缓存
+
         Path cacheFile = tmp.resolve("models/.cache/index.json");
         Files.createDirectories(cacheFile.getParent());
         Files.writeString(cacheFile, mockIndexWithModelUrl(currentMonth, url("model")));
 
-        // mirrors stub 在 getIndex 走磁盘路径时不被使用 —— lenient
         lenient().when(config.getStringList("models-cloud.mirrors")).thenReturn(List.of(url("fail")));
 
         Optional<ModelCloudManager.ModelIndex> result = manager.getIndex();
@@ -225,8 +203,6 @@ class ModelCloudManagerTest {
         assertTrue(body.contains("hutao"));
     }
 
-    // ====================== 异步 ======================
-
     @Test
     void fetchIndexAsync_returnsCompletableFutureWithResult() throws Exception {
         when(config.getStringList("models-cloud.mirrors")).thenReturn(List.of(url("success")));
@@ -244,8 +220,6 @@ class ModelCloudManagerTest {
 
         assertFalse(result.isPresent());
     }
-
-    // ====================== featured / currentMonth ======================
 
     @Test
     void isFeaturedForCurrentMonth_match_returnsTrue() {
@@ -278,8 +252,6 @@ class ModelCloudManagerTest {
         assertTrue(result.isPresent());
     }
 
-    // ====================== mirrors 配置 ======================
-
     @Test
     void mirrors_emptyConfig_buildsDefaultChain() {
         List<String> mirrors = manager.mirrors();
@@ -297,8 +269,6 @@ class ModelCloudManagerTest {
         assertEquals(custom, mirrors);
     }
 
-    // ====================== pin / unpin ======================
-
     private void ensureModelFile(String id) throws Exception {
         Files.createDirectories(tmp.resolve("models"));
         Files.writeString(tmp.resolve("models/" + id + ".yml"), "name: " + id + "\nmessages: {}\n");
@@ -310,7 +280,7 @@ class ModelCloudManagerTest {
         assertFalse(manager.isPinned("hutao"));
         assertTrue(manager.pin("hutao"));
         assertTrue(manager.isPinned("hutao"));
-        // 元数据内嵌在模型文件尾部（不新增独立文件）
+
         String content = Files.readString(tmp.resolve("models/hutao.yml"));
         assertTrue(content.contains("pinned: true"));
     }
@@ -327,7 +297,7 @@ class ModelCloudManagerTest {
 
     @Test
     void unpin_whenNotInstalled_returnsTrue() {
-        // 未安装/未锁定幂等成功
+
         assertTrue(manager.unpin("hutao"));
         assertFalse(manager.pin("hutao"));
     }
@@ -338,25 +308,23 @@ class ModelCloudManagerTest {
         assertTrue(manager.pin("hutao"));
         assertTrue(manager.pin("hutao"));
         assertTrue(manager.isPinned("hutao"));
-        // 不应产生重复元数据行
+
         long cnt = Files.readAllLines(tmp.resolve("models/hutao.yml"))
                 .stream().filter(l -> l.startsWith("pinned: ")).count();
         assertEquals(1, cnt);
     }
 
-    // ====================== install ======================
-
     @Test
     void installModel_pinned_skipsDownload() throws Exception {
         ensureModelFile("hutao");
         manager.pin("hutao");
-        // pinned 的模型不访问网络,无需 stub mirrors
+
         assertEquals(ModelCloudManager.InstallResult.PINNED_SKIPPED, manager.installModel("hutao"));
     }
 
     @Test
     void installModel_notInIndex_returnsNotFound() throws Exception {
-        // 构造只含成功索引的缓存（不带 models）
+
         Path cacheFile = tmp.resolve("models/.cache/index.json");
         Files.createDirectories(cacheFile.getParent());
         Files.writeString(cacheFile, "{\"version\":1,\"models\":[],\"featured\":null}");
@@ -366,12 +334,11 @@ class ModelCloudManagerTest {
 
     @Test
     void installModel_success_writesFile() throws Exception {
-        // 需要一个能返回模型的索引 —— 直接写缓存含 hutao
+
         Path cacheFile = tmp.resolve("models/.cache/index.json");
         Files.createDirectories(cacheFile.getParent());
         Files.writeString(cacheFile, mockIndexWithModelUrl(currentMonth, url("model")));
 
-        // mirrors 候选全部 404（未注册路径）→ fallback 到 info.url() 的 mock /model 端点
         when(config.getStringList("models-cloud.mirrors"))
                 .thenReturn(List.of(url("b1"), url("b2")));
 
@@ -379,7 +346,7 @@ class ModelCloudManagerTest {
         assertTrue(manager.isInstalled("hutao"));
         Path installed = tmp.resolve("models/hutao.yml");
         assertTrue(Files.exists(installed));
-        // version 元数据内嵌在文件内
+
         String content = Files.readString(installed);
         assertTrue(content.contains("version: 1.2.0"));
         assertFalse(content.contains("pinned: true"));
@@ -391,7 +358,6 @@ class ModelCloudManagerTest {
         Files.createDirectories(cacheFile.getParent());
         Files.writeString(cacheFile, mockIndexWithModelUrl(currentMonth, url("model")));
 
-        // 已有 hutao.yml,version 元数据与云端一致
         Files.createDirectories(tmp.resolve("models"));
         Files.writeString(tmp.resolve("models/hutao.yml"),
                 "name: hutao\nmessages: {}\nversion: 1.2.0\n");

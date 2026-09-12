@@ -11,6 +11,7 @@ import net.md_5.bungee.api.chat.ComponentBuilder;
 import java.util.List;
 
 public class BroadCastBanCountMessage implements Runnable {
+
     @Override
     public void run() {
         if (!Lengbanlist.getInstance().isEnabled()) {
@@ -33,8 +34,8 @@ public class BroadCastBanCountMessage implements Runnable {
                     return;
                 }
 
-                int banCount = Lengbanlist.getInstance().getBanManager().getBanList().size();
-                int banIpCount = Lengbanlist.getInstance().getBanManager().getBanIpList().size();
+                int banCount = Lengbanlist.getInstance().getBanManager().countActiveBans();
+                int banIpCount = Lengbanlist.getInstance().getBanManager().countActiveIpBans();
                 int totalBans = banCount + banIpCount;
 
                 final String replacedMessage = template

@@ -19,10 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * 玩家管理 controller：玩家列表/在线列表/踢出/历史记录。
- * /api/players /api/online /api/kick /api/history
- */
 public class PlayerController extends WebController {
 
     public PlayerController(Lengbanlist plugin, AuthManager authManager) {

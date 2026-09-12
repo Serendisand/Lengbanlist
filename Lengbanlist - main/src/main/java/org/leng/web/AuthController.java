@@ -8,9 +8,6 @@ import org.leng.Lengbanlist;
 
 import java.io.IOException;
 
-/**
- * 登录/登出 controller。
- */
 public class AuthController extends WebController {
 
     public AuthController(Lengbanlist plugin, AuthManager authManager) {

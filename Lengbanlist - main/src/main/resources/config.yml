@@ -116,12 +116,36 @@ database:
   type: "sqlite"
   sqlite:
     file: "lengbanlist.db"
+    # WAL 模式下的落盘策略。NORMAL 是 SQLite 官方对 WAL 的推荐值：
+    # 不会损坏数据库，最坏情况下断电丢失最后几个已提交事务。
+    # 实测 100 次封禁写入 FULL≈3950ms、NORMAL≈38ms，改回 FULL 会明显拖慢每个封禁/进服操作。
+    # 可选 FULL（每次提交都 fsync，最严格）/ NORMAL（推荐）/ OFF（不落盘，仅调试用）。
+    synchronous: "NORMAL"
+    # 定期回收已删除数据占用的文件空间。SQLite 删行不会自动缩小文件，
+    # 长跑服务器的 .db 会一直停在历史峰值；开启后由维护任务增量回收。
+    # 老库首次回收需要重建一次文件（VACUUM），只在真正存在碎片时触发。
+    auto-vacuum: true
+  retention:
+    # IP 历史（player_ip_history）保留天数，0 = 永久保留（默认，与旧版本一致）。
+    # IP 关联/小号检测依赖这张表，调小会削弱关联检测范围；这张表也是唯一无上限增长的表，
+    # 玩家数多、换 IP 频繁的服务器可以设为 180 左右来控制体积。
+    ip-history-days: 0
+  # 封禁快照缓存。封禁查询分散在登录拦截、PlaceholderAPI 占位符、Web 面板等处，
+  # %lengbanlist_banned% 一类占位符会被计分板插件按 tick 轮询，没有缓存时等于每 tick 打一次数据库。
+  # 本服封禁/解封会立即刷新缓存；跨服（MySQL 共享库）靠这里的 TTL 兜底。
+  # 单机服务器可适当调大，多服共享库建议不超过 sync.interval-seconds。
+  cache:
+    ban-ttl-seconds: 5
   mysql:
     host: "localhost"
     port: 3306
     database: "lengbanlist"
     username: "root"
     password: ""
+    # 连接池最大连接数（默认 10，上限 200）。
+    # 调大前先确认 MySQL 的 max_connections 余量：这里的连接是常驻的，
+    # 开太大可能把其它插件挤出连接数。封禁查询本身很稀疏，一般 10 足够。
+    pool-size: 10
 
 # ---------- VPN/代理检测 ----------
 vpn-detection:

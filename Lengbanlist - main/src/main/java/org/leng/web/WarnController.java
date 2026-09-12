@@ -9,10 +9,6 @@ import org.leng.Lengbanlist;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * 警告 controller。
- * 处理 /api/warn。
- */
 public class WarnController extends WebController {
 
     public WarnController(Lengbanlist plugin, AuthManager authManager) {

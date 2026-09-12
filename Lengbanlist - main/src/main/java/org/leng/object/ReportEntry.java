@@ -56,11 +56,15 @@ public record ReportEntry(
         return value == null ? "" : String.valueOf(value);
     }
 
-    // 兼容旧 getter 命名
     public String getStatus() { return status; }
+
     public String getTarget() { return target; }
+
     public String getReporter() { return reporter; }
+
     public String getReason() { return reason; }
+
     public String getId() { return id; }
+
     public long getTimestamp() { return timestamp; }
 }

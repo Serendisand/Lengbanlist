@@ -13,7 +13,7 @@ import java.util.jar.Manifest;
 import java.util.logging.Logger;
 
 public class AutoUpdateManager {
-    private static final long MAX_DOWNLOAD_BYTES = 64L * 1024 * 1024; // 64MB 上限，防磁盘填满
+    private static final long MAX_DOWNLOAD_BYTES = 64L * 1024 * 1024; 
     private static final String MANIFEST_MAIN_CLASS = "org.leng.Lengbanlist";
 
     private final Lengbanlist plugin;
@@ -26,7 +26,6 @@ public class AutoUpdateManager {
         this.currentPluginFile = getCurrentPluginFile();
     }
 
-
     private File getCurrentPluginFile() {
         try {
 
@@ -38,7 +37,6 @@ public class AutoUpdateManager {
             return null;
         }
     }
-
 
     private String getPluginBaseName(String fileName) {
         if (fileName == null) {
@@ -71,15 +69,12 @@ public class AutoUpdateManager {
             throw new Exception("无法获取当前插件文件");
         }
 
-        // 防止被劫持的 release 用 ../../payload 形式污染磁盘路径;允许 v 前缀、MAJOR.MINOR 或 MAJOR.MINOR.PATCH、可选 pre-release/build 元数据
         if (!version.matches("^v?\\d+\\.\\d+(\\.\\d+)?(-[\\w.]+)?(\\+[\\w.]+)?$")) {
             throw new IOException("拒绝非法版本号: " + version + "（需形如 1.0 / 1.0.0 / v1.0.0 / 1.0.0-beta.1）");
         }
 
-
         String currentFileName = currentPluginFile.getName();
         String baseName = getPluginBaseName(currentFileName);
-
 
         String newFileName;
         if (currentFileName.startsWith("Lengbanlist-")) {
@@ -91,13 +86,10 @@ public class AutoUpdateManager {
             newFileName = "Lengbanlist-" + version + ".jar";
         }
 
-
         String downloadUrl = GitHubUpdateChecker.getLatestDownloadUrl();
-
 
         File tempFile = new File(currentPluginFile.getParentFile(),
                                newFileName + ".temp");
-
 
         logger.info("正在从 " + downloadUrl + " 下载新版本...");
         long[] totalBytes = {0};
@@ -134,13 +126,13 @@ public class AutoUpdateManager {
                             throw new IllegalStateException("下载内容超过 " + MAX_DOWNLOAD_BYTES + " 字节，疑似非插件文件，已中断并拒绝安装。");
                         }
                     },
-                    total -> { /* HttpHelper 已限制单 chunk, 此处仅作记录 */ });
+                    total -> {  });
 
             if (!headerValidated[0]) {
                 throw new IOException("下载内容为空");
             }
         } catch (IllegalStateException e) {
-            // 校验失败抛出的状态,转换为 IO 异常以兼容调用方
+
             throw new IOException(e.getMessage(), e);
         } catch (RuntimeException e) {
             throw new IOException(e.getMessage(), e);
@@ -164,9 +156,6 @@ public class AutoUpdateManager {
             throw new IOException("无法获取官方 SHA-256 摘要（当前更新源未提供），出于安全考虑，拒绝安装未经校验的 JAR 文件。请改用 GitHub 直连/代理镜像或手动下载更新。");
         }
 
-        // 校验 jar 包结构（zip 完整性 + plugin.yml 主类），防止镜像返回被截断/篡改的文件。
-        // 注意：不能校验 MANIFEST 的 Main-Class —— Bukkit 插件的 jar 从不写该字段
-        // （由 plugin.yml 的 main: 决定主类），官方构建即如此，校验它会把正常文件误判为非法。
         try {
             validatePluginJar(tempFile);
         } catch (Exception e) {
@@ -175,7 +164,6 @@ public class AutoUpdateManager {
         }
 
         File newPluginFile = new File(currentPluginFile.getParentFile(), newFileName);
-
 
         if (newPluginFile.exists()) {
             logger.info("删除已存在的文件: " + newPluginFile.getName());
@@ -188,7 +176,6 @@ public class AutoUpdateManager {
                 }
             }
         }
-
 
         if (tempFile.renameTo(newPluginFile)) {
             logger.info("临时文件已重命名为: " + newFileName);
@@ -207,7 +194,6 @@ public class AutoUpdateManager {
                 }
             }
         }
-
 
         if (!currentPluginFile.equals(newPluginFile) && currentPluginFile.exists()) {
             logger.info("删除旧插件文件: " + currentPluginFile.getName());
@@ -229,12 +215,6 @@ public class AutoUpdateManager {
                 && ((header[2] & 0xFF) == 0x03 || (header[2] & 0xFF) == 0x05 || (header[2] & 0xFF) == 0x07);
     }
 
-    /**
-     * 校验下载的 jar 是否是可安装的 Lengbanlist 插件包：
-     * 必须含可解析的 plugin.yml 且主类为 {@link #MANIFEST_MAIN_CLASS}。
-     * 不校验 MANIFEST 的 Main-Class —— Bukkit 插件的 jar 从不写该字段，
-     * 官方构建即如此；仅当 manifest 显式声明了冲突的主类时才拒绝（防注入）。
-     */
     static void validatePluginJar(File jarFile) throws IOException {
         try (JarFile jar = new JarFile(jarFile)) {
             JarEntry pluginYml = jar.getJarEntry("plugin.yml");
@@ -250,8 +230,7 @@ public class AutoUpdateManager {
             if (!MANIFEST_MAIN_CLASS.equals(mainClass)) {
                 throw new IOException("下载的 JAR 的 plugin.yml 主类不是 " + MANIFEST_MAIN_CLASS + "（实际: " + mainClass + "），已拒绝安装，请检查更新源。");
             }
-            // 兼容旧版防篡改校验：若 manifest 声明了 Main-Class（非 Bukkit 插件常规构建），
-            // 仍要求与期望主类一致，防止镜像在 plugin.yml 之外注入可执行入口。
+
             Manifest manifest = jar.getManifest();
             if (manifest != null) {
                 String declared = manifest.getMainAttributes().getValue("Main-Class");
@@ -284,7 +263,6 @@ public class AutoUpdateManager {
         }
         return value.toLowerCase();
     }
-
 
     private void copyFile(File source, File destination) throws IOException {
         try (InputStream in = new FileInputStream(source);

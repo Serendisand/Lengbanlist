@@ -33,7 +33,6 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
             return true;
         }
 
-
         if (sender instanceof Player) {
             Player player = (Player) sender;
             if (!sender.isOp() && !player.hasPermission("lengbanlist.banip")) {
@@ -41,7 +40,6 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
                 return false;
             }
         }
-
 
         boolean silent = false;
         if (args.length > 0 && args[0].equalsIgnoreCase("-s")) {
@@ -57,13 +55,11 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
             return false;
         }
 
-
         if (!isValidIp(args[0])) {
             Utils.sendMessage(sender, "§c无效的IP地址或不允许封禁此IP");
             return false;
         }
 
-        // IP 路径之前漏了 canPunish 检查,低权限 OP 能 ban 高权限家庭 IP,补齐与 BanCommand 对齐
         if (!plugin.getImmunityManager().canPunish(sender, args[0])) {
             Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(args[0]));
             return false;
@@ -73,7 +69,6 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
             Utils.sendMessage(sender, "§cIP " + args[0] + " 已经被封禁");
             return false;
         }
-
 
         boolean isAuto = args[1].equalsIgnoreCase("auto");
         long banDuration;
@@ -93,7 +88,6 @@ public class BanIpCommand extends Command implements CommandExecutor, TabComplet
         long banEndTime = TimeUtils.calculateEndTime(banDuration);
         String rawReason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
         String reason = resolvePresetReason(rawReason);
-
 
         BanManager.BanMutationResult result = plugin.getBanManager().tryBanIp(
                 new org.leng.object.BanIpEntry(args[0], Utils.getSenderName(sender), banEndTime, reason, isAuto),

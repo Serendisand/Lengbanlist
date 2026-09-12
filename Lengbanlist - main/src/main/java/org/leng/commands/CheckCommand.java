@@ -1,6 +1,5 @@
 package org.leng.commands;
 
-import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -45,8 +44,7 @@ public class CheckCommand extends Command implements CommandExecutor {
         }
 
         String target = args[0];
-        // 之前只看是否含 ".",导致 Steve.123(合法玩家名)被当 IP、IPv6(无 ".")被当玩家名
-        // 优先按 IP 形态校验,失败再走玩家路径
+
         if (IpMatcher.isValidIpOrCidrOrWildcard(target) || target.contains(":")) {
             checkIpInfo(sender, target);
         } else {
@@ -122,7 +120,7 @@ public class CheckCommand extends Command implements CommandExecutor {
     }
 
     private void checkIpInfo(CommandSender sender, String ip) {
-        // 严格校验,只接受合法形态的 IP/CIDR/wildcard;否则提示玩家输入有误
+
         if (!IpMatcher.isValidIpOrCidrOrWildcard(ip) && !ip.contains(":")) {
             Utils.sendMessage(sender, plugin.prefix() + "§c这不是合法的 IP 地址: §f" + ip);
             return;
@@ -155,15 +153,12 @@ public class CheckCommand extends Command implements CommandExecutor {
         if (sender instanceof Player) {
             Player player = (Player) sender;
 
-
             TextComponent sponsorButton = new TextComponent(plugin.prefix() + "§6支持作者，让他更有动力开发插件！§b[§a点击赞助§b]");
             sponsorButton.setHoverEvent(new HoverEvent(net.md_5.bungee.api.chat.HoverEvent.Action.SHOW_TEXT,
                     new ComponentBuilder("§a点击支持作者§bawa").create()));
             sponsorButton.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, "https://afdian.com/a/lengmc"));
 
-
             player.spigot().sendMessage(sponsorButton);
-
 
             Utils.sendMessage(player, plugin.prefix() + "§b请我喝杯奶茶：￥20.00 CNY/月 - 加入感谢名单，优先反馈");
             Utils.sendMessage(player, plugin.prefix() + "§bBETA权限组：￥50.00 CNY/月 - 解锁高级功能，优先支持");

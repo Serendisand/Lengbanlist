@@ -4,53 +4,62 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import javax.crypto.Mac;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.util.Base64;
-import java.util.Set;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * JWT 鉴权管理器,从 WebServer 内嵌类抽离。
- */
 public class AuthManager {
 
     private static final long TOKEN_EXP_MS = 86_400_000L;
+    private static final int PBKDF2_ITERATIONS = 210_000;
+    private static final int PBKDF2_KEY_BITS = 256;
 
     private String secret;
     private String username;
-    private String passwordHash;
-    private final Set<String> revokedTokens = ConcurrentHashMap.newKeySet();
+    private byte[] passwordSalt;
+    private byte[] passwordKey;
+
+    private final Map<String, Long> revokedTokens = new ConcurrentHashMap<>();
 
     public AuthManager(String secret, String username, String password) {
         this.secret = secret;
         this.username = username;
-        this.passwordHash = sha256(password);
+        setPassword(password);
     }
 
-    /** /lban reload 时更新密钥/账号/密码(已签发 token 全部失效) */
     public void reload(String newSecret, String newUsername, String newPassword) {
         this.secret = newSecret;
         this.username = newUsername;
-        this.passwordHash = sha256(newPassword);
+        setPassword(newPassword);
         this.revokedTokens.clear();
     }
 
     public String login(String user, String pass) {
-        if (!username.equals(user) || !sha256(pass).equals(passwordHash)) return null;
+        if (!username.equals(user)) return null;
+        if (!MessageDigest.isEqual(pbkdf2(pass, passwordSalt), passwordKey)) return null;
         return createToken(username);
     }
 
     public boolean validateToken(String token) {
-        if (token == null || revokedTokens.contains(token)) return false;
+        if (token == null || revokedTokens.containsKey(token)) return false;
         return parseToken(token) != null;
     }
 
     public void revokeToken(String token) {
-        if (token != null && !token.isEmpty()) {
-            revokedTokens.add(token);
-        }
+        if (token == null || token.isEmpty()) return;
+        JsonObject payload = parseToken(token);
+        long expiresAt = payload == null
+                ? System.currentTimeMillis() / 1000 + TOKEN_EXP_MS / 1000
+                : payload.get("exp").getAsLong();
+        revokedTokens.put(token, expiresAt);
+        pruneRevoked();
     }
 
     public String getUsernameFromToken(String token) {
@@ -89,7 +98,9 @@ public class AuthManager {
         try {
             String[] parts = token.split("\\.");
             if (parts.length != 3) return null;
-            if (!hmacSha256(parts[0] + "." + parts[1], secret).equals(parts[2])) return null;
+            if (!MessageDigest.isEqual(
+                    hmacSha256(parts[0] + "." + parts[1], secret).getBytes(StandardCharsets.UTF_8),
+                    parts[2].getBytes(StandardCharsets.UTF_8))) return null;
 
             String json = new String(Base64.getUrlDecoder().decode(parts[1]));
             JsonObject payload = JsonParser.parseString(json).getAsJsonObject();
@@ -110,12 +121,26 @@ public class AuthManager {
         }
     }
 
-    private static String sha256(String s) {
+    private void setPassword(String password) {
+        this.passwordSalt = new byte[16];
+        new SecureRandom().nextBytes(this.passwordSalt);
+        this.passwordKey = pbkdf2(password, this.passwordSalt);
+    }
+
+    private void pruneRevoked() {
+        long now = System.currentTimeMillis() / 1000;
+        Iterator<Map.Entry<String, Long>> it = revokedTokens.entrySet().iterator();
+        while (it.hasNext()) {
+            if (it.next().getValue() < now) {
+                it.remove();
+            }
+        }
+    }
+
+    private static byte[] pbkdf2(String password, byte[] salt) {
         try {
-            byte[] hash = MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hex = new StringBuilder();
-            for (byte b : hash) hex.append(String.format("%02x", b));
-            return hex.toString();
+            PBEKeySpec spec = new PBEKeySpec(password.toCharArray(), salt, PBKDF2_ITERATIONS, PBKDF2_KEY_BITS);
+            return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).getEncoded();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

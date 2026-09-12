@@ -28,7 +28,7 @@ class BanEntryTest {
     void withEndTime_returnsNewInstance() {
         BanEntry original = new BanEntry("alice", "admin", 1000L, "spam", false);
         BanEntry extended = original.withEndTime(2000L);
-        assertEquals(1000L, original.getEndTime()); // 不变
+        assertEquals(1000L, original.getEndTime()); 
         assertEquals(2000L, extended.getEndTime());
         assertEquals(original.getTarget(), extended.getTarget());
     }
@@ -59,7 +59,7 @@ class BanEntryTest {
 
     @Test
     void isExpired_checksCurrentTime() {
-        BanEntry past = new BanEntry("alice", "admin", 1L, "r", false); // 1970+1ms
+        BanEntry past = new BanEntry("alice", "admin", 1L, "r", false); 
         BanEntry future = new BanEntry("alice", "admin", Long.MAX_VALUE, "r", false);
         assertTrue(past.isExpired());
         assertFalse(future.isExpired());

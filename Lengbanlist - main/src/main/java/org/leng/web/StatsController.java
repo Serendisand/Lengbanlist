@@ -11,15 +11,7 @@ import org.leng.utils.TimeUtils;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * 概览信息 controller：面板首页的服务器统计卡 + 最近封禁。
- * 处理 GET /api/stats。
- *
- * <p>注意：此端点曾在 D1 WebServer 拆分时被误删，前端 index.html 仍在调用，
- * 导致"插件版本/数据库状态/数据库类型"等统计卡无法显示。本类为恢复实现。
- */
 public class StatsController extends WebController {
 
     public StatsController(Lengbanlist plugin, AuthManager authManager) {
@@ -42,7 +34,6 @@ public class StatsController extends WebController {
         }
         if (!requireAuth(exchange)) return;
 
-        // 在线人数/最大人数必须在主线程读（Bukkit API 非线程安全）
         AtomicInteger onlineRef = new AtomicInteger(0);
         AtomicInteger maxRef = new AtomicInteger(0);
         boolean completed = runSync(exchange, () -> {

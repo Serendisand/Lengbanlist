@@ -33,13 +33,12 @@ public class ModelManager {
     }
 
     private ModelManager() {
-        // 内置模型已全部 YAML 化(Default/English/example-custom-model 预置在 models/),
-        // 角色模型从 Lengbanlist-Models 云端仓库拉取 —— 此处只做 YAML 扫描加载
+
         loadCustomModels();
 
         String modelName = Lengbanlist.getInstance().getConfig().getString("Model", "Default");
         if (!models.containsKey(modelName.toLowerCase())) {
-            // 配置的模型不可用(未安装/云端未拉到)时回退 Default,避免启动即切换失败
+
             Lengbanlist.getInstance().getLogger().warning("配置的模型 " + modelName + " 当前不可用，回退到 Default（可 /lban models refresh 拉取）");
             modelName = "Default";
         }
@@ -47,7 +46,7 @@ public class ModelManager {
     }
 
     private void loadCustomModels() {
-        // 重新加载前，先移除上一次加载的模型（YAML 模型重新加载,防止改名/删除后残留）
+
         models.clear();
 
         File modelsDir = new File(Lengbanlist.getInstance().getDataFolder(), "models");
@@ -74,7 +73,6 @@ public class ModelManager {
 
                 String lowerName = modelName.toLowerCase();
 
-                // 内置模型优先：名称冲突则跳过自定义模型
                 if (models.containsKey(lowerName)) {
                     Lengbanlist.getInstance().getLogger().warning("跳过自定义模型 " + modelName + "（来自 " + file.getName() + "）：与内置模型 " + lowerName + " 冲突，内置模型优先");
                     continue;
@@ -117,7 +115,7 @@ public class ModelManager {
     }
 
     public void reloadModel() {
-        // 重新加载自定义模型文件（新增/删除/修改的模型在 /lban reload 时生效，无需重启服务器）
+
         loadCustomModels();
 
         String modelName = Lengbanlist.getInstance().getConfig().getString("Model", "Default");

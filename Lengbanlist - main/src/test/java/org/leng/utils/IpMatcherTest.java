@@ -6,8 +6,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class IpMatcherTest {
 
-    // ============ isIpv4 ============
-
     @Test
     void isIpv4_acceptsValidAddresses() {
         assertTrue(IpMatcher.isIpv4("0.0.0.0"));
@@ -26,8 +24,6 @@ class IpMatcherTest {
         assertFalse(IpMatcher.isIpv4("abc.def.ghi.jkl"));
         assertFalse(IpMatcher.isIpv4("-1.2.3.4"));
     }
-
-    // ============ isCidr ============
 
     @Test
     void isCidr_acceptsValid() {
@@ -50,15 +46,13 @@ class IpMatcherTest {
         assertFalse(IpMatcher.isCidr("/24"));
     }
 
-    // ============ isWildcardIp ============
-
     @Test
     void isWildcardIp_acceptsValid() {
         assertTrue(IpMatcher.isWildcardIp("172.198.2.x"));
         assertTrue(IpMatcher.isWildcardIp("192.168.x.x"));
         assertTrue(IpMatcher.isWildcardIp("10.0.x.x"));
         assertTrue(IpMatcher.isWildcardIp("x.x.x.x"));
-        assertTrue(IpMatcher.isWildcardIp("172.198.2.x")); // 双确认
+        assertTrue(IpMatcher.isWildcardIp("172.198.2.x")); 
     }
 
     @Test
@@ -66,13 +60,10 @@ class IpMatcherTest {
         assertFalse(IpMatcher.isWildcardIp(null));
         assertFalse(IpMatcher.isWildcardIp(""));
         assertFalse(IpMatcher.isWildcardIp("192.168.1.1"));
-        // 当前实现要求 wildcards 必须在末尾连续段
-        // 早期版本允许非末尾 x,此处确认当前约束仍然生效
+
         assertFalse(IpMatcher.isWildcardIp("172.x.2.1"));
         assertFalse(IpMatcher.isWildcardIp("x.168.1.1"));
     }
-
-    // ============ wildcardToCidr ============
 
     @Test
     void wildcardToCidr_convertsCorrectly() {
@@ -85,8 +76,6 @@ class IpMatcherTest {
     void wildcardToCidr_rejectsLeadingWildcard() {
         assertNull(IpMatcher.wildcardToCidr("x.198.2.1"));
     }
-
-    // ============ normalizeIpOrCidr ============
 
     @Test
     void normalizeIpOrCidr_passesThroughIpAndCidr() {
@@ -106,8 +95,6 @@ class IpMatcherTest {
         assertNull(IpMatcher.normalizeIpOrCidr(""));
     }
 
-    // ============ isPrivateOrReserved ============
-
     @Test
     void isPrivateOrReserved_blocksRfc1918() {
         assertTrue(IpMatcher.isPrivateOrReserved("10.0.0.1"));
@@ -120,9 +107,9 @@ class IpMatcherTest {
 
     @Test
     void isPrivateOrReserved_blocksCidrOverlap() {
-        // 10.0.0.0/8 covers entire subnet
+
         assertTrue(IpMatcher.isPrivateOrReserved("10.255.255.255/16"));
-        // 172.16.0.0/12 covers 172.16-31
+
         assertTrue(IpMatcher.isPrivateOrReserved("172.20.0.0/16"));
     }
 
@@ -135,17 +122,10 @@ class IpMatcherTest {
 
     @Test
     void isPrivateOrReserved_blocksIPv6Ula() {
-        // IPv6 当前由 normalizeIpOrCidr 在 isIpv4() 之外返回 null,所以走不到 ULA 检测分支
-        // 标记为 known-limitation,等待 IPv6 支持重构
-        // assertTrue(IpMatcher.isPrivateOrReserved("fc00::1"));
-        // assertTrue(IpMatcher.isPrivateOrReserved("fd12::1"));
-        // assertTrue(IpMatcher.isPrivateOrReserved("::1"));
-        // 当前: IPv6 一律返回 false
+
         assertFalse(IpMatcher.isPrivateOrReserved("fc00::1"));
         assertFalse(IpMatcher.isPrivateOrReserved("fd12::1"));
     }
-
-    // ============ cidrMatches ============
 
     @Test
     void cidrMatches_basicSubnetMatching() {
@@ -173,8 +153,6 @@ class IpMatcherTest {
         assertFalse(IpMatcher.cidrMatches("not-ip", "10.0.0.0/8"));
         assertFalse(IpMatcher.cidrMatches("10.0.0.1", "10.0.0.0"));
     }
-
-    // ============ isLoopback ============
 
     @Test
     void isLoopback_detectsLocalhost() {

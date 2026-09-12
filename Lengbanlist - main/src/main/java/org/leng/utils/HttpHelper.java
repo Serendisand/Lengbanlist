@@ -16,15 +16,6 @@ import java.time.Duration;
 import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 
-/**
- * 封装 JDK 11+ {@link HttpClient}，统一 Lengbanlist 所有 HTTP 调用。
- * 替代各处零散的 HttpURLConnection 实现。
- *
- * 特性：
- * - 默认超时通过构造器注入，全插件复用同一个 HttpClient
- * - 支持 SSL 校验关闭（兼容国内镜像被劫持的情况）
- * - 同步 GET/POST 一行调用；下载文件专用 {@link #download}
- */
 public final class HttpHelper implements AutoCloseable {
 
     private final HttpClient client;
@@ -48,14 +39,13 @@ public final class HttpHelper implements AutoCloseable {
     }
 
     public Duration getConnectTimeout() { return connectTimeout; }
+
     public Duration getReadTimeout() { return readTimeout; }
 
-    /** GET 请求，应用 application/json 接受类型。 */
     public String get(String url, String userAgent) throws IOException, InterruptedException {
         return get(url, userAgent, "application/json");
     }
 
-    /** GET 请求并以字符串返回响应体。 */
     public String get(String url, String userAgent, String accept) throws IOException, InterruptedException {
         HttpRequest req = HttpRequest.newBuilder(URI.create(url))
                 .timeout(readTimeout)
@@ -70,7 +60,6 @@ public final class HttpHelper implements AutoCloseable {
         return resp.body();
     }
 
-    /** POST JSON 请求，返回 HTTP 状态码。 */
     public int postJson(String url, String jsonBody, String userAgent) throws IOException, InterruptedException {
         HttpRequest req = HttpRequest.newBuilder(URI.create(url))
                 .timeout(readTimeout)
@@ -82,7 +71,6 @@ public final class HttpHelper implements AutoCloseable {
         return resp.statusCode();
     }
 
-    /** 流式下载（用于大文件）。 */
     public void download(String url, String userAgent,
                          Consumer<byte[]> chunkConsumer,
                          LongConsumer byteCounter) throws IOException, InterruptedException {
@@ -128,6 +116,6 @@ public final class HttpHelper implements AutoCloseable {
 
     @Override
     public void close() {
-        // java.net.http.HttpClient 没有 close 方法，留作 AutoCloseable 约定
+
     }
 }

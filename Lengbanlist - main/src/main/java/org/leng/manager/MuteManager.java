@@ -12,7 +12,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
-
 public class MuteManager {
     private static final int MAX_RELOAD_ATTEMPTS = 3;
 
@@ -32,18 +31,13 @@ public class MuteManager {
         }
     }
 
-    /**
-     * 禁言目标。若目标已被禁言且新禁言时长不同，则刷新时长并返回新时长；
-     * 时长相同或目标是已被禁言的同网段 IP 时，返回 null（未发生变更）。
-     * 玩家名匹配大小写不敏感（统一小写处理）。
-     */
     public Long mutePlayer(MuteEntry muteEntry) {
         synchronized (muteLock) {
             String target = muteEntry.getTarget().toLowerCase();
             Long existing = existingActiveMute(target);
             if (existing != null) {
                 if (existing.equals(muteEntry.getTime())) {
-                    return null; // 时长未变化，避免重复广播/审计
+                    return null; 
                 }
                 db.upsertMute(muteEntry);
                 muteCache.put(target, muteEntry.getTime());
@@ -67,7 +61,6 @@ public class MuteManager {
         }
     }
 
-    /** 返回目标当前活跃禁言的结束时间，不存在返回 null。 */
     private Long existingActiveMute(String target) {
         Long cached = muteCache.get(target);
         if (cached != null) {
@@ -81,7 +74,7 @@ public class MuteManager {
             return null;
         }
         if (IpMatcher.isIpv4(target) && hasEquivalentIpv4Mute(target)) {
-            return Long.MAX_VALUE; // 同网段已有等价禁言，视为已禁言（不可叠加）
+            return Long.MAX_VALUE; 
         }
         MuteEntry entry = db.getMute(target);
         if (entry == null) return null;
@@ -115,7 +108,7 @@ public class MuteManager {
                 }
                 muteCache.remove(cacheKey);
                 ipMuteCache.remove(storedTarget);
-                // 在锁内删除 DB 行,防止并发 mutePlayer 刚插入的行被静默擦掉
+
                 db.deleteMute(cacheKey);
             }
             mutationGeneration++;
@@ -126,10 +119,6 @@ public class MuteManager {
         }
     }
 
-    /**
-     * 解除禁言的幂等版本：仅当目标当前确实被禁言时才执行,返回是否实际变更。
-     * 解决 UnmuteCommand 之前对未禁言目标仍广播假消息的问题。
-     */
     public boolean unmutePlayerIfMuted(String target, String actor) {
         synchronized (muteLock) {
             if (!hasActiveMuteLocked(target)) {
@@ -140,7 +129,6 @@ public class MuteManager {
         return true;
     }
 
-    /** 必须在持有 muteLock 的情况下调用,避免 TOCTOU。 */
     private boolean hasActiveMuteLocked(String target) {
         String key = target.toLowerCase();
         Long cached = muteCache.get(key);
@@ -149,14 +137,6 @@ public class MuteManager {
         }
         MuteEntry entry = db.getMute(key);
         return entry != null && isActive(entry.getTime());
-    }
-
-    public void clearMuteCache() {
-        synchronized (muteLock) {
-            muteCache.clear();
-            ipMuteCache.clear();
-            mutationGeneration++;
-        }
     }
 
     public boolean reloadMuteCache() {
@@ -217,6 +197,43 @@ public class MuteManager {
 
     public List<MuteEntry> getMuteList() {
         return db.getMutes();
+    }
+
+    public int countActiveMutes() {
+        return db.countActiveMutes();
+    }
+
+    public Long getActiveMuteEndTime(String target) {
+        if (target == null) {
+            return null;
+        }
+        String normalized = target.toLowerCase();
+        synchronized (muteLock) {
+            Long cached = muteCache.get(normalized);
+            if (cached != null) {
+                if (cached == Long.MAX_VALUE || cached > System.currentTimeMillis()) {
+                    return cached;
+                }
+                muteCache.remove(normalized, cached);
+                ipMuteCache.remove(normalized, cached);
+                db.deleteMuteIfExpiresAt(normalized, cached);
+                mutationGeneration++;
+                return null;
+            }
+        }
+        MuteEntry entry = db.getMute(normalized);
+        if (entry == null) {
+            return null;
+        }
+        long endTime = entry.getTime();
+        if (endTime == Long.MAX_VALUE || endTime > System.currentTimeMillis()) {
+            synchronized (muteLock) {
+                muteCache.put(normalized, endTime);
+            }
+            return endTime;
+        }
+        db.deleteMuteIfExpiresAt(normalized, endTime);
+        return null;
     }
 
     public boolean isPlayerMuted(String playerName) {

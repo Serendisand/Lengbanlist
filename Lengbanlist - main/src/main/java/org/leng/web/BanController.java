@@ -15,10 +15,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * 封禁/解封 controller。
- * 处理 /api/ban、/api/unban、/api/bans、/api/ipbans。
- */
 public class BanController extends WebController {
 
     public BanController(Lengbanlist plugin, AuthManager authManager) {
@@ -60,7 +56,6 @@ public class BanController extends WebController {
             String feature = target.contains(".") ? "ban-ip" : "ban";
             if (!requireFeature(exchange, feature)) return;
 
-            // 校验 IP 合法性,避免非法字符串以"IP 封禁"名义入库
             if (target.contains(".") && !org.leng.utils.IpMatcher.isValidIpOrCidrOrWildcard(target)) {
                 WebResponse.sendError(exchange, 400, "无效的 IP 或 CIDR 格式");
                 return;

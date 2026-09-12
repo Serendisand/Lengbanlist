@@ -40,7 +40,7 @@ public class MuteCommandBlockListener implements Listener {
         }
 
         event.setCancelled(true);
-        // noinspection AccessStaticViaInstance
+
         player.sendMessage(plugin.getModelManager().getCurrentModel().onMuteCommandBlocked());
     }
 }

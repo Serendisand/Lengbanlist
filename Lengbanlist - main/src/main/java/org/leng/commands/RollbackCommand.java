@@ -13,17 +13,10 @@ import java.util.regex.Pattern;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 
-/**
- * 管理员操作回滚命令。
- * 用法：/lban rollback [-y] <操作人> <开始时间> <结束时间> [操作类型]
- * 时间格式：YYYY-MM-DD 或 YYYY-MM-DD HH:mm:ss（未指定时分秒时按当天 00:00:00 / 23:59:59）
- *
- * 安全：涉及数据库批量写,默认先预览待回滚条数,30 秒内带 -y 才执行,避免误操作大范围撤销。
- */
 public class RollbackCommand implements CommandExecutor {
     private static final Pattern DATE_ONLY = Pattern.compile("^(\\d{4})-(\\d{1,2})-(\\d{1,2})$");
     private static final Pattern DATETIME = Pattern.compile("^(\\d{4})-(\\d{1,2})-(\\d{1,2})[ T](\\d{1,2}):(\\d{1,2})(?::(\\d{1,2}))?$");
-    /** 每个发送者的最近一次预览 token,30 秒内同 token + -y 才执行,避免他人借用 */
+
     private static final Map<String, PendingRollback> PENDING = new ConcurrentHashMap<>();
     private static final long CONFIRM_WINDOW_MS = 30_000L;
 
@@ -48,7 +41,6 @@ public class RollbackCommand implements CommandExecutor {
             return true;
         }
 
-        // -y/--yes: 跳过预览,直接执行。需先有有效 preview token 才能通过校验。
         boolean confirm = false;
         int argOffset = 0;
         if (args[0].equalsIgnoreCase("-y") || args[0].equalsIgnoreCase("--yes")) {
@@ -75,14 +67,14 @@ public class RollbackCommand implements CommandExecutor {
         String type = args.length - argOffset >= 4 ? args[argOffset + 3] : null;
         String senderKey = Utils.getSenderName(sender);
         String tokenKey = actor + "|" + from + "|" + to + "|" + (type == null ? "" : type);
-        // 捕获到 final 局部变量,便于在 lambda 内引用 args[argOffset + ...]
+
         final int oFrom = argOffset + 1;
         final int oTo = argOffset + 2;
         final String[] capturedArgs = args;
         final String capturedType = type;
 
         if (!confirm) {
-            // 预览模式:计算会回滚的条数并写 pending token
+
             org.leng.utils.SchedulerUtils.runAsync(plugin, () -> {
                 int previewCount = new RollbackManager(plugin).previewCount(actor, from, to, capturedType);
                 org.leng.utils.SchedulerUtils.runTask(plugin, sender, () -> {
@@ -102,7 +94,6 @@ public class RollbackCommand implements CommandExecutor {
             return true;
         }
 
-        // 确认模式:校验 pending token,过期/缺失则拒绝
         PendingRollback pending = PENDING.remove(senderKey + "|" + tokenKey);
         if (pending == null || System.currentTimeMillis() - pending.at > CONFIRM_WINDOW_MS) {
             Utils.sendMessage(sender, plugin.prefix() + "§c缺少预览或已过期,请先执行 §f/lban rollback " +
@@ -115,7 +106,6 @@ public class RollbackCommand implements CommandExecutor {
                 TimeUtils.timestampToReadable(from) + " ~ " + TimeUtils.timestampToReadable(to) +
                 " 的操作" + (type == null ? "（全部类型）" : "（类型: " + type + "）") + "...");
 
-        // 回滚涉及多个数据库写操作，放到异步线程执行，完成后回到主线程提示
         final String rollbackActor = Utils.getSenderName(sender);
         org.leng.utils.SchedulerUtils.runAsync(plugin, () -> {
             RollbackManager.RollbackResult result = new RollbackManager(plugin).rollback(actor, from, to, type, rollbackActor);
@@ -135,9 +125,6 @@ public class RollbackCommand implements CommandExecutor {
 
     private record PendingRollback(long at) {}
 
-    /**
-     * 解析时间字符串。isStart 为 true 时，纯日期按当天 00:00:00 处理；否则按当天 23:59:59 处理。
-     */
     private Long parseTime(String text, boolean isStart) {
         if (text == null || text.trim().isEmpty()) {
             return null;

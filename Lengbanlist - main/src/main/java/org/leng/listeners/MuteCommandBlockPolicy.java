@@ -15,11 +15,6 @@ final class MuteCommandBlockPolicy {
     private MuteCommandBlockPolicy() {
     }
 
-    /**
-     * 解析被屏蔽的命令列表。
-     * 若 chatconfig.yml 未配置但旧 config.yml 中有配置，则由 migrateLegacyConfig 处理迁移。
-     * @return 被屏蔽的命令列表
-     */
     static List<String> resolveBlockedCommands(FileConfiguration chatConfig,
                                                  FileConfiguration legacyConfig) {
         if (chatConfig != null && chatConfig.contains(CONFIG_PATH)) {
@@ -31,10 +26,6 @@ final class MuteCommandBlockPolicy {
         return Collections.emptyList();
     }
 
-    /**
-     * 若 chatconfig.yml 未配置 mute-blocked-commands 但旧 config.yml 中有配置，则自动迁移写入 chatconfig.yml。
-     * @return 是否发生了迁移
-     */
     static boolean migrateLegacyConfig(FileConfiguration chatConfig, FileConfiguration legacyConfig, File chatConfigFile) {
         if (chatConfig == null || legacyConfig == null || chatConfigFile == null) {
             return false;

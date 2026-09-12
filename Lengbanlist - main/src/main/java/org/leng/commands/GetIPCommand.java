@@ -11,7 +11,6 @@ import org.leng.utils.SchedulerUtils;
 
 import java.net.InetSocketAddress;
 
-
 public class GetIPCommand implements CommandExecutor {
     private final Lengbanlist plugin;
     private final IpGeoLookup ipGeoLookup;
@@ -41,7 +40,7 @@ public class GetIPCommand implements CommandExecutor {
                 sender.sendMessage(plugin.prefix() + "§c请指定一个玩家名称，例如: /lban getip <玩家名称>");
             }
         } else {
-            // 在线：拿实时地址；离线：拿 SaveIP 缓存（兼容 /lban getip 离线查询能力）
+
             Player targetPlayer = plugin.getServer().getPlayer(args[0]);
             if (targetPlayer != null) {
                 java.net.InetSocketAddress addr = targetPlayer.getAddress();

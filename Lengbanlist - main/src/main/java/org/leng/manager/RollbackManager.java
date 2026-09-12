@@ -5,43 +5,17 @@ import org.leng.object.AuditEntry;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.object.MuteEntry;
-import org.leng.utils.IpMatcher;
 import org.leng.utils.TimeUtils;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-/**
- * 管理员操作回滚：基于审计日志，回滚指定管理员在指定时间范围内的操作。
- *
- * 支持的操作类型（type）：
- *   ban      封禁玩家         → 回滚为解封该玩家
- *   ban-ip   封禁IP           → 回滚为解封该 IP
- *   unban    解封玩家         → 回滚为恢复封禁（时长 30 天）
- *   unban-ip 解封IP           → 回滚为恢复封禁 IP（时长 30 天）
- *   mute     禁言玩家         → 回滚为解除禁言
- *   unmute   解除禁言         → 回滚为恢复禁言（时长 7 天）
- *   warn     警告玩家         → 回滚为撤销该警告
- *   unwarn   取消警告         → 回滚为恢复该警告
- *   kick     踢出玩家         → 无法回滚，跳过并计入跳过数
- * 其余操作类型一律跳过。
- *
- * 说明：审计日志中的目标（target）同时用于玩家名与 IP；
- * 解封/解除禁言等操作的审计记录不包含原封禁时长，恢复时使用固定时长，
- * 恢复操作的执行人记录为发起回滚的管理员（rollback 的 executor 参数）。
- */
 public class RollbackManager {
 
-    /** 恢复封禁/禁言时使用的默认时长。 */
     public static final long DEFAULT_BAN_MILLIS = TimeUtils.daysToMillis(30);
     public static final long DEFAULT_MUTE_MILLIS = TimeUtils.daysToMillis(7);
-
-    /** 警告记录 ID 提取（格式：<player>|<staff>|<time>|<reason>|<revoked>）。 */
-    private static final Pattern WARN_ID_PATTERN = Pattern.compile("^([^|]*)\\|([^|]*)\\|(\\d+)\\|");
 
     private final Lengbanlist plugin;
 
@@ -49,7 +23,6 @@ public class RollbackManager {
         this.plugin = plugin;
     }
 
-    /** 回滚结果统计。 */
     public static class RollbackResult {
         public int matched;
         public int executed;
@@ -57,18 +30,6 @@ public class RollbackManager {
         public List<String> details = new ArrayList<>();
     }
 
-    /**
-     * 回滚指定操作人在 [fromMillis, toMillis] 时间范围内、类型为 type 的操作。
-     * @param actor 操作人（必填）
-     * @param fromMillis 开始时间戳（含）
-     * @param toMillis 结束时间戳（含）
-     * @param type 操作类型，null 或空表示全部
-     * @param executor 发起回滚的管理员（记录为恢复操作的执行人，出现在审计日志中）
-     * @return 回滚结果统计
-     */
-    /**
-     * /lban rollback 预览模式: 只统计匹配条数, 不动数据库, 避免误操作前看到破坏半径。
-     */
     public int previewCount(String actor, long fromMillis, long toMillis, String type) {
         if (actor == null || actor.trim().isEmpty() || fromMillis > toMillis) {
             return 0;
@@ -100,7 +61,7 @@ public class RollbackManager {
         }
 
         List<AuditEntry> logs = plugin.getDatabaseManager().getAuditLogsByActorInRange(actor.trim(), fromMillis, toMillis);
-        // 按操作类型分组去重：同一目标同类型多次操作只回滚一次，避免重复解封/重复恢复
+
         Map<String, AuditEntry> toApply = new LinkedHashMap<>();
         for (AuditEntry log : logs) {
             String action = log.getAction() == null ? "" : log.getAction();
@@ -121,7 +82,6 @@ public class RollbackManager {
             }
         }
 
-        // /lban rollback 的预览模式:只统计匹配条数,不动数据库,避免误操作前看到破坏半径
         for (Map.Entry<String, AuditEntry> entry : toApply.entrySet()) {
             AuditEntry log = entry.getValue();
             String action = log.getAction();
@@ -232,7 +192,6 @@ public class RollbackManager {
         }
     }
 
-    /** 封禁 → 解封。 */
     private boolean rollbackBan(String target, String actor) {
         if (!plugin.getBanManager().isPlayerBanned(target)) {
             return false;
@@ -240,17 +199,15 @@ public class RollbackManager {
         return plugin.getBanManager().tryUnbanPlayer(target, actor, true).isApplied();
     }
 
-    /** 封禁IP → 解封。 */
     private boolean rollbackBanIp(String target, String actor) {
         boolean bannedExact = plugin.getBanManager().isIpBanned(target);
-        boolean bannedCidr = !IpMatcher.isIpv4(target) && plugin.getBanManager().isIpBannedByCidr(target);
+        boolean bannedCidr = plugin.getBanManager().isIpBannedByCidr(target);
         if (!bannedExact && !bannedCidr) {
             return false;
         }
         return plugin.getBanManager().tryUnbanIp(target, actor, true).isApplied();
     }
 
-    /** 解封 → 恢复封禁（30 天）。 */
     private boolean rollbackUnban(String target, String actor) {
         if (plugin.getBanManager().isPlayerBanned(target)) {
             return false;
@@ -260,7 +217,6 @@ public class RollbackManager {
                 new BanEntry(target, actor, endTime, "管理员操作回滚（原解封）", false), true).isApplied();
     }
 
-    /** 解封IP → 恢复封禁 IP（30 天）。 */
     private boolean rollbackUnbanIp(String target, String actor) {
         if (plugin.getBanManager().isIpBanned(target)) {
             return false;
@@ -274,7 +230,6 @@ public class RollbackManager {
         return result.isApplied();
     }
 
-    /** 禁言 → 解除禁言。 */
     private boolean rollbackMute(String target, String actor) {
         if (!plugin.getMuteManager().isPlayerMuted(target)) {
             return false;
@@ -283,7 +238,6 @@ public class RollbackManager {
         return true;
     }
 
-    /** 解除禁言 → 恢复禁言（7 天）。 */
     private boolean rollbackUnmute(String target, String actor) {
         if (plugin.getMuteManager().isPlayerMuted(target)) {
             return false;
@@ -293,11 +247,6 @@ public class RollbackManager {
         return applied != null;
     }
 
-    /**
-     * 警告 → 撤销该警告。
-     * "警告"动作的审计 reason 是玩家可输入的原始原因文本（不含警告 ID），
-     * 因此优先尝试按原因文本 + 时间范围匹配；找不到时回退为撤销该目标范围内任一条未撤销警告。
-     */
     private boolean rollbackWarn(AuditEntry log, String target, long fromMillis, long toMillis) {
         String reason = log.getReason() == null ? "" : log.getReason();
         List<org.leng.object.WarnEntry> warnings = plugin.getWarnManager().getAllWarnings(target);
@@ -325,7 +274,6 @@ public class RollbackManager {
         return false;
     }
 
-    /** 取消警告 → 恢复该警告。从审计 reason 中的"警告ID: <id>"列表定位,可一次恢复多条。 */
     private boolean rollbackUnwarn(AuditEntry log, String target) {
         List<String> warnIds = extractWarnIds(log);
         List<org.leng.object.WarnEntry> warnings = plugin.getWarnManager().getAllWarnings(target);
@@ -343,11 +291,6 @@ public class RollbackManager {
         return anyRestored;
     }
 
-    /**
-     * 从审计日志的 reason 中提取所有警告 ID。
-     * 批量取消警告的 reason 形如 "警告ID: &lt;id1&gt;,警告ID: &lt;id2&gt;,..."。
-     * package-private 便于 RollbackManagerTest 直接验证解析逻辑。
-     */
     List<String> extractWarnIds(AuditEntry log) {
         String reason = log.getReason() == null ? "" : log.getReason();
         if (!reason.contains("警告ID: ")) {

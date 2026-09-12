@@ -10,6 +10,7 @@ public record BanEntry(
         boolean isAuto,
         boolean active
 ) {
+
     public BanEntry {
         Objects.requireNonNull(target, "Target cannot be null");
         Objects.requireNonNull(staff, "Staff cannot be null");
@@ -71,12 +72,17 @@ public record BanEntry(
         );
     }
 
-    // 兼容旧 getter / setter 命名
     public String getTarget() { return target; }
+
     public String getStaff() { return staff; }
+
     public long getTime() { return time; }
+
     public long getEndTime() { return time; }
+
     public String getReason() { return reason; }
+
     public boolean isAuto() { return isAuto; }
+
     public boolean isActive() { return active; }
 }

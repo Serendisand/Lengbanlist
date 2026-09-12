@@ -14,16 +14,6 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
-/**
- * BanManager 单元测试 —— 覆盖纯函数与可 mock 链路。
- *
- * <p>封禁主链路涉及 Bukkit/Player/广播等重型 side-effect,本测试聚焦:
- * <ul>
- *   <li>isValidIp: IP 格式校验</li>
- *   <li>mapWriteResult: DatabaseManager.WriteResult → BanMutationResult 映射</li>
- *   <li>getMatchingIpBan: IP/CIDR 匹配规则</li>
- * </ul>
- */
 @ExtendWith(MockitoExtension.class)
 class BanManagerTest {
 
@@ -36,8 +26,6 @@ class BanManagerTest {
         when(plugin.getDatabaseManager()).thenReturn(db);
         manager = new BanManager(plugin);
     }
-
-    // ====================== isValidIp ======================
 
     @Test
     void isValidIp_validIpv4_returnsTrue() {
@@ -69,20 +57,15 @@ class BanManagerTest {
         assertFalse(manager.isValidIp(""));
     }
 
-    // ====================== mapWriteResult ======================
-
     @Test
     void mapWriteResult_appliedReturnsApplied() {
-        // 通过 tryBanPlayer 间接测试（用 mock db 模拟 APPLIED）
+
         when(db.replaceActiveBan(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(DatabaseManager.WriteResult.APPLIED);
 
-        // 触发模型 + 审计 mock 缺一不可 —— 用宽松 stub 避免 NPE
         org.mockito.Mockito.lenient()
                 .when(plugin.getModelManager()).thenReturn(null);
-        // 不 mock getAuditManager/getServer 会 NPE,所以只测 NOT_ACTIVE 分支(在写之前 return)
 
-        // 切到 NOT_ACTIVE: 不需要后续 side-effect
         when(db.replaceActiveBan(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(DatabaseManager.WriteResult.NO_CHANGE);
         org.leng.object.BanEntry entry = new org.leng.object.BanEntry(
@@ -98,8 +81,6 @@ class BanManagerTest {
                 "test", "staff", Long.MAX_VALUE, "reason", false);
         assertEquals(BanManager.BanMutationResult.DATABASE_ERROR, manager.tryBanPlayer(entry, true));
     }
-
-    // ====================== getMatchingIpBan / CIDR ======================
 
     @Test
     void getMatchingIpBan_nullIp_returnsNull() {

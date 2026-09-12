@@ -69,9 +69,10 @@ public class AuditManager {
                 try (BufferedWriter writer = Files.newBufferedWriter(file.toPath(), StandardCharsets.UTF_8)) {
                     writer.write('[');
                     boolean first = true;
-                    for (int offset = 0; offset < max; ) {
-                        int fetch = Math.min(step, max - offset);
-                        List<AuditEntry> rows = db.getAuditLogsAsc(offset, fetch);
+                    long cursor = 0L;
+                    while (total < max) {
+                        int fetch = Math.min(step, max - total);
+                        List<AuditEntry> rows = db.getAuditLogsAfter(cursor, fetch);
                         if (rows.isEmpty()) {
                             break;
                         }
@@ -84,7 +85,7 @@ public class AuditManager {
                             writer.write("{\"id\":" + row.getId() + ",\"timestamp\":" + row.getTimestamp() + ",\"actor\":" + JSONObject.quote(row.getActor()) + ",\"action\":" + JSONObject.quote(row.getAction()) + ",\"target\":" + JSONObject.quote(row.getTarget()) + ",\"reason\":" + JSONObject.quote(row.getReason()) + ",\"success\":" + row.isSuccess() + ",\"prev_hash\":" + JSONObject.quote(row.getPrevHash()) + ",\"hash\":" + JSONObject.quote(hash) + "}");
                             total++;
                         }
-                        offset += rows.size();
+                        cursor = rows.get(rows.size() - 1).getId();
                         if (rows.size() < fetch) {
                             break;
                         }
@@ -102,10 +103,6 @@ public class AuditManager {
         });
     }
 
-    /**
-     * 清理 exports 目录:仅保留 {@code maxFiles} 个最新文件,超出按最后修改时间从旧到新删除。
-     * 上限从 {@code audit.export.max-files} 读取,缺省 20。
-     */
     public int cleanupExports(File dir) {
         int maxFiles = plugin.getConfig().getInt("audit.export.max-files", 20);
         if (maxFiles <= 0) return 0;
@@ -138,10 +135,10 @@ public class AuditManager {
             String brokenActual = "";
             try {
                 int step = 1000;
-                int offset = 0;
+                long cursor = 0L;
                 AuditEntry prevRow = null;
                 while (intact) {
-                    List<AuditEntry> rows = db.getAuditLogsAsc(offset, step);
+                    List<AuditEntry> rows = db.getAuditLogsAfter(cursor, step);
                     if (rows.isEmpty()) {
                         break;
                     }
@@ -161,7 +158,7 @@ public class AuditManager {
                         prevRow = row;
                         total++;
                     }
-                    offset += rows.size();
+                    cursor = rows.get(rows.size() - 1).getId();
                 }
             } catch (Exception e) {
                 plugin.getLogger().warning("校验审计日志失败: " + e.getMessage());

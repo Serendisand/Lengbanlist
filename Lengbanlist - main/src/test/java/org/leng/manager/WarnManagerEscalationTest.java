@@ -11,11 +11,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.lenient;
 
-/**
- * WarnManager.calculateBanDuration 是纯函数（不依赖实例状态），
- * 但 WarnManager 构造依赖 Lengbanlist/DatabaseManager。
- * 用 Mockito 解耦后测纯逻辑。
- */
 @ExtendWith(MockitoExtension.class)
 class WarnManagerEscalationTest {
 

@@ -46,6 +46,10 @@ public class ReportManager {
         return plugin.getDatabaseManager().getPendingReports();
     }
 
+    public List<ReportEntry> getReportsByReporterWithStatus(String reporter, String status) {
+        return plugin.getDatabaseManager().getReportsByReporterWithStatus(reporter, status);
+    }
+
     public int getPendingReportCount() {
         return plugin.getDatabaseManager().getPendingReportCount();
     }

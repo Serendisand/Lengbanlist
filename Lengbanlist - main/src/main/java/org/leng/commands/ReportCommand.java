@@ -152,7 +152,6 @@ public class ReportCommand implements CommandExecutor {
         plugin.getAuditManager().log("提交举报", reporter.getName(), target, reason);
         Utils.sendMessage(reporter, plugin.prefix() + "§a举报已提交: " + target + " - " + reason + "，举报编号：" + reportId);
 
-
         for (org.bukkit.entity.Player op : org.bukkit.Bukkit.getOnlinePlayers()) {
             if (op.isOp()) {
                 org.bukkit.entity.Player targetPlayer = org.bukkit.Bukkit.getPlayer(target);
@@ -160,7 +159,7 @@ public class ReportCommand implements CommandExecutor {
                 net.md_5.bungee.api.chat.BaseComponent targetComponent;
                 if (targetPlayer != null) {
                     targetLoc = " §7(世界: " + targetPlayer.getWorld().getName() + " X:" + (int)targetPlayer.getLocation().getX() + " Y:" + (int)targetPlayer.getLocation().getY() + " Z:" + (int)targetPlayer.getLocation().getZ() + ")";
-                    // 玩家名转义后嵌入命令,杜绝 "恶意名 ban 别人" 命令注入
+
                     targetComponent = org.leng.utils.Utils.clickableText("§c" + target, "/lban tp " + org.leng.utils.Utils.escapeCommandArg(target));
                 } else {
                     targetComponent = new net.md_5.bungee.api.chat.TextComponent("§7" + target);

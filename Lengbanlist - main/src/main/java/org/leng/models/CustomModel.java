@@ -24,7 +24,6 @@ public class CustomModel implements Model {
         return name;
     }
 
-    /** 构建占位符 map（Java 8 兼容，替代 Map.of） */
     private static Map<String, String> placeholders(String... kv) {
         Map<String, String> map = new HashMap<>();
         for (int i = 0; i < kv.length - 1; i += 2) {
@@ -39,11 +38,6 @@ public class CustomModel implements Model {
         return msg(key, Collections.<String, String>emptyMap());
     }
 
-    /**
-     * 天数文案（可被模型 YAML 覆盖）：
-     * {@code days-forever} 永久文案（默认"永久"）、{@code days-suffix} 单位后缀（默认" 天"）。
-     * 让 English 等非中文模型输出 "permanently" / "N days"。
-     */
     private String banDays(int days) {
         String forever = config.getString("days-forever", "永久");
         String suffix = config.getString("days-suffix", " 天");
@@ -77,7 +71,7 @@ public class CustomModel implements Model {
 
     @Override
     public String toggleBroadcast(boolean enabled) {
-        // enabled-on/enabled-off 可被模型 YAML 覆盖（English 模型用 enabled/disabled）
+
         String on = config.getString("enabled-on", "开启");
         String off = config.getString("enabled-off", "关闭");
         return msg("toggle-broadcast", placeholders("enabled", enabled ? on : off));
@@ -148,7 +142,7 @@ public class CustomModel implements Model {
         for (String entry : entries) {
             sb.append("\n").append(msg("history-entry-format", placeholders("entry", entry)));
         }
-        // 可选 footer（从内置 Java 模型迁移时保持 4 段结构）
+
         String footer = msg("history-footer", placeholders("player", player));
         if (footer != null && !footer.startsWith("§c[模型") && !footer.trim().isEmpty()) {
             sb.append("\n").append(footer);
