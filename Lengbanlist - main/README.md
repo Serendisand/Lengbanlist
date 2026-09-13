@@ -1,6 +1,6 @@
 # Lengbanlist 开发说明
 
-Lengbanlist 是一个面向高版本 Bukkit / Paper / Folia 服务端的轻量处罚与管理插件。当前代码以 `org.leng.Lengbanlist` 为插件入口，在生命周期中初始化配置、数据库、业务管理器、事件监听器、命令、Web 管理面板、统计和更新检查。
+Lengbanlist 是一个面向高版本 Bukkit / Paper / Folia 服务端的轻量处罚与管理插件。当前代码以 `org.leng.Lengbanlist` 为插件入口。
 
 ## 项目结构
 
