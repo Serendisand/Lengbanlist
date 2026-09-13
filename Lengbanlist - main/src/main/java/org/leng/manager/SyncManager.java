@@ -14,7 +14,7 @@ public class SyncManager {
     }
 
     public boolean isAvailable() {
-        return plugin.getDatabaseManager().isMySql();
+        return plugin.getDatabaseManager().isNetworkDatabase();
     }
 
     public boolean isAutoSyncEnabled() {
@@ -44,7 +44,7 @@ public class SyncManager {
 
     public void execute(CommandSender sender) {
         if (!isAvailable()) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c当前为 SQLite 数据库，仅 MySQL 共享数据库支持跨服同步。");
+            Utils.sendMessage(sender, plugin.prefix() + "§c当前为单机 SQLite 数据库，仅共享数据库（MySQL / MariaDB / PostgreSQL）支持跨服同步。");
             return;
         }
         performSync(sender);
@@ -59,6 +59,7 @@ public class SyncManager {
             result.warnings = plugin.getDatabaseManager().getWarnedPlayers().size();
 
             plugin.getDatabaseManager().reloadBanCache();
+            plugin.getDatabaseManager().reloadWarnCache();
             boolean muteCacheReloaded = plugin.getMuteManager().reloadMuteCache();
             if (sender == null) {
                 if (!muteCacheReloaded) {

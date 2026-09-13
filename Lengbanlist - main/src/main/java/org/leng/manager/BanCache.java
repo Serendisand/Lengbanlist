@@ -10,6 +10,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 final class BanCache {
 
@@ -19,6 +21,14 @@ final class BanCache {
 
         List<BanIpEntry> loadActiveIpBans();
     }
+
+    static final class LoadFailure extends RuntimeException {
+        LoadFailure(Throwable cause) {
+            super(cause);
+        }
+    }
+
+    static final long FAILURE_RETRY_MILLIS = 1000L;
 
     private static final class Snapshot {
         final Map<String, BanEntry> bansByTarget;
@@ -42,14 +52,17 @@ final class BanCache {
             Comparator.comparing(BanEntry::getTarget, String.CASE_INSENSITIVE_ORDER);
 
     private final Loader loader;
+    private final Logger logger;
     private final Object refreshLock = new Object();
 
     private volatile Snapshot snapshot = EMPTY;
     private volatile long loadedAt;
     private volatile long ttlMillis;
+    private volatile boolean degraded;
 
-    BanCache(Loader loader, long ttlMillis) {
+    BanCache(Loader loader, long ttlMillis, Logger logger) {
         this.loader = loader;
+        this.logger = logger;
         setTtlMillis(ttlMillis);
     }
 
@@ -86,11 +99,25 @@ final class BanCache {
             }
             try {
                 snapshot = build();
+                loadedAt = System.currentTimeMillis();
+                if (degraded) {
+                    degraded = false;
+                    logger.info("封禁缓存已恢复刷新，重新以数据库结果为准。");
+                }
             } catch (RuntimeException e) {
 
+                scheduleRetryIn(FAILURE_RETRY_MILLIS);
+                if (!degraded) {
+                    degraded = true;
+                    logger.log(Level.WARNING, "封禁缓存刷新失败，沿用上一次快照继续拦截封禁玩家，"
+                            + FAILURE_RETRY_MILLIS + " 毫秒后重试。", e.getCause() == null ? e : e.getCause());
+                }
             }
-            loadedAt = System.currentTimeMillis();
         }
+    }
+
+    private void scheduleRetryIn(long millis) {
+        loadedAt = System.currentTimeMillis() + millis - ttlMillis;
     }
 
     private Snapshot build() {

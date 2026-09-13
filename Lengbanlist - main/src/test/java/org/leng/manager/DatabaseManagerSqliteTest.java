@@ -14,6 +14,7 @@ import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.object.MuteEntry;
 import org.leng.object.ReportEntry;
+import org.leng.object.WarnEntry;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -288,6 +289,41 @@ class DatabaseManagerSqliteTest {
         assertTrue(dbFile.exists());
         assertTrue(db.isHealthy());
         assertTrue(db.getAllActiveBans().isEmpty());
+    }
+
+    @Test
+    void warningWrites_areVisibleImmediatelyDespiteCache() {
+        long now = System.currentTimeMillis();
+        db.upsertWarning(new WarnEntry("w1", "Warned", "staff", now, "第一次"));
+        assertEquals(1, db.getWarnings("Warned", true).size());
+
+        db.upsertWarning(new WarnEntry("w2", "warned", "staff", now + 1L, "第二次"));
+        assertEquals(2, db.getWarnings("WARNED", true).size(), "新增警告后必须立刻可见(写路径要失效缓存)");
+
+        db.updateWarningRevoked("w2", true);
+        assertEquals(1, db.getWarnings("Warned", true).size(), "撤销警告后必须立刻不可见");
+        assertEquals(2, db.getWarnings("Warned", false).size(), "全部警告里仍保留被撤销的那行");
+    }
+
+    @Test
+    void warnCache_onlySeesExternalWritesAfterReload() throws Exception {
+        long now = System.currentTimeMillis();
+        db.upsertWarning(new WarnEntry("w3", "Remote", "staff", now, "本地写入"));
+        assertEquals(1, db.getWarnings("Remote", true).size());
+
+        try (Connection c = db.getConnection(); PreparedStatement ps = c.prepareStatement(
+                "INSERT INTO warnings (id, player, staff, warn_time, reason, revoked) VALUES (?, ?, ?, ?, ?, 0)")) {
+            ps.setString(1, "w4");
+            ps.setString(2, "Remote");
+            ps.setString(3, "other-server");
+            ps.setLong(4, now + 1L);
+            ps.setString(5, "跨服警告");
+            ps.executeUpdate();
+        }
+        assertEquals(1, db.getWarnings("Remote", true).size(), "TTL 内仍读旧快照,这是预期行为");
+
+        db.reloadWarnCache();
+        assertEquals(2, db.getWarnings("Remote", true).size(), "显式重载后必须看到外部写入");
     }
 
     @Test

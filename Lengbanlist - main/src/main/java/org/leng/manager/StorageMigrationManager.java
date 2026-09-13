@@ -37,7 +37,7 @@ public class StorageMigrationManager {
 
     private void migratePlayerIps() {
         File file = new File(plugin.getDataFolder(), "ip.yml");
-        if (!file.exists()) return;
+        if (!file.exists() || alreadyMigrated("yaml.ip.migrated", file)) return;
         int count = 0;
         for (String entry : load(file).getStringList("ip")) {
             int index = entry.indexOf(':');
@@ -53,7 +53,7 @@ public class StorageMigrationManager {
 
     private void migrateBans() {
         File file = new File(plugin.getDataFolder(), "ban-list.yml");
-        if (!file.exists()) return;
+        if (!file.exists() || alreadyMigrated("yaml.bans.migrated", file)) return;
         int count = 0;
         for (String entry : load(file).getStringList("ban-list")) {
             ParsedEntry parsed = parseEntry(entry, 3, true);
@@ -78,7 +78,7 @@ public class StorageMigrationManager {
 
     private void migrateIpBans() {
         File file = new File(plugin.getDataFolder(), "banip-list.yml");
-        if (!file.exists()) return;
+        if (!file.exists() || alreadyMigrated("yaml.ip_bans.migrated", file)) return;
         int count = 0;
         for (String entry : load(file).getStringList("banip-list")) {
             ParsedEntry parsed = parseEntry(entry, 3, true);
@@ -103,7 +103,7 @@ public class StorageMigrationManager {
 
     private void migrateMutes() {
         File file = new File(plugin.getDataFolder(), "mute-list.yml");
-        if (!file.exists()) return;
+        if (!file.exists() || alreadyMigrated("yaml.mutes.migrated", file)) return;
         int count = 0;
         for (String entry : load(file).getStringList("mute-list")) {
             ParsedEntry parsed = parseEntry(entry, 3, false);
@@ -123,7 +123,7 @@ public class StorageMigrationManager {
 
     private void migrateWarnings() {
         File file = new File(plugin.getDataFolder(), "warn-list.yml");
-        if (!file.exists()) return;
+        if (!file.exists() || alreadyMigrated("yaml.warnings.migrated", file)) return;
         FileConfiguration config = load(file);
         List<String> entries = new ArrayList<>();
         entries.addAll(config.getStringList("warnings"));
@@ -154,7 +154,7 @@ public class StorageMigrationManager {
 
     private void migrateReports() {
         File file = new File(plugin.getDataFolder(), "reports.yml");
-        if (!file.exists()) return;
+        if (!file.exists() || alreadyMigrated("yaml.reports.migrated", file)) return;
         FileConfiguration config = load(file);
         ConfigurationSection section = config.getConfigurationSection("reports");
         if (section == null) {
@@ -206,6 +206,15 @@ public class StorageMigrationManager {
         }
         parsed.reason = reason.toString();
         return parsed;
+    }
+
+    private boolean alreadyMigrated(String metaKey, File file) {
+        if (databaseManager.getMeta(metaKey) == null) {
+            return false;
+        }
+        plugin.getLogger().info(file.getName() + " 中的数据此前已迁移过，本次跳过"
+                + "（确需重新导入请先删除 schema_meta 表中的 " + metaKey + " 记录）。");
+        return true;
     }
 
     private FileConfiguration load(File file) {

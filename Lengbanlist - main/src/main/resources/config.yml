@@ -111,7 +111,9 @@ webhook:
   event-types: []
 
 # ---------- 数据库 ----------
-# 类型: sqlite 或 mysql（旧版本 yml 数据会自动按 sqlite 处理并从旧文件迁移）
+# 类型: sqlite / mysql / mariadb / postgresql
+# （旧版本 yml 数据会自动按 sqlite 处理并从旧文件迁移）
+# 除 sqlite 外都是共享数据库，可多服共用一份数据做跨服同步。
 database:
   type: "sqlite"
   sqlite:
@@ -132,7 +134,7 @@ database:
     ip-history-days: 0
   # 封禁快照缓存。封禁查询分散在登录拦截、PlaceholderAPI 占位符、Web 面板等处，
   # %lengbanlist_banned% 一类占位符会被计分板插件按 tick 轮询，没有缓存时等于每 tick 打一次数据库。
-  # 本服封禁/解封会立即刷新缓存；跨服（MySQL 共享库）靠这里的 TTL 兜底。
+  # 本服封禁/解封会立即刷新缓存；跨服（共享数据库）靠这里的 TTL 兜底。
   # 单机服务器可适当调大，多服共享库建议不超过 sync.interval-seconds。
   cache:
     ban-ttl-seconds: 5
@@ -145,6 +147,22 @@ database:
     # 连接池最大连接数（默认 10，上限 200）。
     # 调大前先确认 MySQL 的 max_connections 余量：这里的连接是常驻的，
     # 开太大可能把其它插件挤出连接数。封禁查询本身很稀疏，一般 10 足够。
+    pool-size: 10
+  # MariaDB 与 MySQL 协议兼容，整段可以省略：省略时直接沿用上面的 mysql 段配置。
+  mariadb:
+    host: "localhost"
+    port: 3306
+    database: "lengbanlist"
+    username: "root"
+    password: ""
+    pool-size: 10
+  postgresql:
+    host: "localhost"
+    port: 5432
+    database: "lengbanlist"
+    username: "postgres"
+    password: ""
+    # 连接池最大连接数
     pool-size: 10
 
 # ---------- VPN/代理检测 ----------
@@ -207,4 +225,4 @@ models-cloud:
   mirrors: []          # 自定义镜像列表(完整 index.json URL);留空用默认链
   stats:               # 安装统计上报(用于月度精选自动评选)
     enabled: true      # 关闭后仅本地统计,不参与跨服自动评选
-    url: ""            # 统计聚合端点(作者托管,POST {server,model,version});留空=不上报
+    url: "https://lengbanlist-stats.sanno.workers.dev/"            # 统计聚合端点(作者托管,POST {server,model,version});留空=不上报

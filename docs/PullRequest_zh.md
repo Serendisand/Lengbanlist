@@ -20,3 +20,27 @@
 2. **提交规范**
 
 > 详细说明请查看 [commit_help.md](commit_help.md)
+
+## 验证数据库后端
+
+默认测试全部跑在临时 SQLite 上，不依赖任何外部服务：
+
+```bash
+mvn test
+```
+
+MariaDB / PostgreSQL 的分支（方言 SQL、布尔列读写、审计链行锁）需要真实数据库才跑得到。
+指向一个**一次性测试库**并设置环境变量后，`DatabaseManagerNetworkTest` 会自动接管：
+
+```bash
+export LENGBANLIST_TEST_MARIADB_URL="jdbc:mariadb://127.0.0.1:3306/lengbanlist_test"
+export LENGBANLIST_TEST_MARIADB_USER="root"
+export LENGBANLIST_TEST_MARIADB_PASSWORD="your-password"
+export LENGBANLIST_TEST_POSTGRESQL_URL="jdbc:postgresql://127.0.0.1:5432/lengbanlist_test"
+export LENGBANLIST_TEST_POSTGRESQL_USER="postgres"
+export LENGBANLIST_TEST_POSTGRESQL_PASSWORD="your-password"
+mvn test -Dtest=DatabaseManagerNetworkTest
+```
+
+未设置变量的方言会被自动跳过（而不是失败）。测试会建表、写入以 `Lbtest` 开头的少量数据，
+覆盖封禁/IP封禁/禁言/警告/举报/IP历史/审计链，最后清理掉自己建的封禁行。
