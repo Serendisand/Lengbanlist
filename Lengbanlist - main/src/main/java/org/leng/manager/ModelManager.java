@@ -11,6 +11,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
 import org.bukkit.enchantments.Enchantment;
 
 import java.io.File;
@@ -146,6 +147,20 @@ public class ModelManager {
         return material != null ? material : Material.PAPER;
     }
 
+    private static Enchantment selectionGlow;
+
+    public static void applySelectionGlow(ItemMeta meta) {
+        if (meta == null) {
+            return;
+        }
+        if (selectionGlow == null) {
+            selectionGlow = Enchantment.getByKey(NamespacedKey.minecraft("protection"));
+        }
+        if (selectionGlow != null) {
+            meta.addEnchant(selectionGlow, 1, true);
+        }
+    }
+
     public void openModelSelectionUI(Player player) {
         Inventory modelSelectionUI = Bukkit.createInventory(null, 27, "§b选择模型");
 
@@ -175,7 +190,7 @@ public class ModelManager {
                 lore.add("§7当前模型: " + getCurrentModelName());
                 meta.setLore(lore);
                 if (entry.getValue() == currentModel) {
-                    meta.addEnchant(Enchantment.PROTECTION, 1, true);
+                    applySelectionGlow(meta);
                 }
                 item.setItemMeta(meta);
             }

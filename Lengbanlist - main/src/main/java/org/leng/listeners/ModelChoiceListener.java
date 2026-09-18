@@ -10,7 +10,6 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.enchantments.Enchantment;
 import org.leng.Lengbanlist;
 import org.leng.manager.ModelManager;
 import org.leng.models.Model;
@@ -56,7 +55,7 @@ public class ModelChoiceListener implements Listener {
             modelItem.setItemMeta(meta);
 
             if (modelName.equals(ModelManager.getInstance().getCurrentModelName())) {
-                meta.addEnchant(Enchantment.PROTECTION, 1, true);
+                ModelManager.applySelectionGlow(meta);
                 modelItem.setItemMeta(meta);
             }
 
