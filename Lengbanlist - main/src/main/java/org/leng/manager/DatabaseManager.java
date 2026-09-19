@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Level;
 
 @SuppressWarnings("SqlResolve")
 public class DatabaseManager {
@@ -32,7 +31,7 @@ public class DatabaseManager {
     private static final String AUDIT_TAIL_KEY = "audit.tail";
 
     private static final String AUDIT_SELECT =
-            "SELECT id, timestamp, actor, action, target, reason, success, prev_hash FROM audit_log ";
+            "SELECT id, timestamp, actor, action, target, reason, success, prev_hash, server FROM audit_log ";
 
     private static final String WARN_SELECT =
             "SELECT id, player, staff, warn_time, reason, revoked FROM warnings ";
@@ -86,7 +85,7 @@ public class DatabaseManager {
     }
 
     public void initialize() throws SQLException {
-        String type = plugin.getConfig().getString("database.type", "sqlite");
+        String type = plugin.getStorageConfig().getString("database.type", "sqlite");
         if (type == null || type.trim().isEmpty()) {
             type = "sqlite";
         }
@@ -111,7 +110,7 @@ public class DatabaseManager {
     }
 
     private void initializeSqlite() throws SQLException {
-        String fileName = plugin.getConfig().getString("database.sqlite.file", "lengbanlist.db");
+        String fileName = plugin.getStorageConfig().getString("database.sqlite.file", "lengbanlist.db");
         File dbFile = new File(plugin.getDataFolder(), fileName == null || fileName.trim().isEmpty() ? "lengbanlist.db" : fileName);
 
         boolean existingDatabase = dbFile.isFile() && dbFile.length() > 0;
@@ -128,7 +127,7 @@ public class DatabaseManager {
 
         execute("PRAGMA journal_size_limit = 16777216");
 
-        if (plugin.getConfig().getBoolean("database.sqlite.auto-vacuum", true)) {
+        if (plugin.getStorageConfig().getBoolean("database.sqlite.auto-vacuum", true)) {
             execute("PRAGMA auto_vacuum = INCREMENTAL");
             sqliteAutoVacuumPending = existingDatabase;
         }
@@ -142,7 +141,7 @@ public class DatabaseManager {
         String password = connectionSetting("password", "");
         if (password == null || password.isEmpty()) {
             throw new SQLException("未配置 " + dialect.displayName() + " 密码 (database."
-                    + dialect.configKey() + ".password)，请在 config.yml 中显式设置后再启动。");
+                    + dialect.configKey() + ".password)，请在 storage.yml 中显式设置后再启动。");
         }
         int poolSize = resolvePoolSize();
         HikariConfig config = new HikariConfig();
@@ -190,12 +189,12 @@ public class DatabaseManager {
 
     private String connectionSetting(String key, String fallback) {
         String path = "database." + dialect.configKey() + "." + key;
-        if (plugin.getConfig().contains(path)) {
-            String value = plugin.getConfig().getString(path, fallback);
+        if (plugin.getStorageConfig().contains(path)) {
+            String value = plugin.getStorageConfig().getString(path, fallback);
             return value == null || value.trim().isEmpty() ? fallback : value.trim();
         }
         if (dialect == DatabaseDialect.MARIADB) {
-            String value = plugin.getConfig().getString("database.mysql." + key, fallback);
+            String value = plugin.getStorageConfig().getString("database.mysql." + key, fallback);
             return value == null || value.trim().isEmpty() ? fallback : value.trim();
         }
         return fallback;
@@ -207,13 +206,13 @@ public class DatabaseManager {
             return plugin.getConfig().getInt(path, fallback);
         }
         if (dialect == DatabaseDialect.MARIADB) {
-            return plugin.getConfig().getInt("database.mysql." + key, fallback);
+            return plugin.getStorageConfig().getInt("database.mysql." + key, fallback);
         }
         return fallback;
     }
 
     private String resolveSqliteSynchronous() {
-        String configured = plugin.getConfig().getString("database.sqlite.synchronous", "NORMAL");
+        String configured = plugin.getStorageConfig().getString("database.sqlite.synchronous", "NORMAL");
         String upper = configured == null ? "NORMAL" : configured.trim().toUpperCase(Locale.ROOT);
         if (upper.equals("FULL") || upper.equals("NORMAL") || upper.equals("OFF")) {
             return upper;
@@ -237,9 +236,9 @@ public class DatabaseManager {
     }
 
     public void applyCacheConfig() {
-        long ttlSeconds = plugin.getConfig().getLong("database.cache.ban-ttl-seconds", 5L);
+        long ttlSeconds = plugin.getStorageConfig().getLong("database.cache.ban-ttl-seconds", 5L);
         banCache.setTtlMillis(ttlSeconds * 1000L);
-        long warnTtlSeconds = plugin.getConfig().getLong("database.cache.warn-ttl-seconds", ttlSeconds);
+        long warnTtlSeconds = plugin.getStorageConfig().getLong("database.cache.warn-ttl-seconds", ttlSeconds);
         warnCache.setTtlMillis(warnTtlSeconds * 1000L);
     }
 
@@ -302,8 +301,9 @@ public class DatabaseManager {
         execute("CREATE TABLE IF NOT EXISTS mutes (target " + textPrimaryKey() + ", staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL)");
         execute("CREATE TABLE IF NOT EXISTS warnings (id " + textPrimaryKey() + ", player " + textType() + " NOT NULL, staff " + textType() + " NOT NULL, warn_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, revoked " + booleanType() + " NOT NULL DEFAULT 0)");
         execute("CREATE TABLE IF NOT EXISTS reports (id " + textPrimaryKey() + ", target " + textType() + " NOT NULL, reporter " + textType() + " NOT NULL, reason " + textType() + " NOT NULL, status " + varcharType(32) + " NOT NULL DEFAULT '" + STATUS_PENDING + "', timestamp " + longType() + " NOT NULL)");
-        execute("CREATE TABLE IF NOT EXISTS audit_log (id " + integerPrimaryKey() + ", timestamp " + longType() + " NOT NULL, actor " + textType() + " NOT NULL, action " + textType() + " NOT NULL, target " + textType() + " NOT NULL, reason " + textType() + " NOT NULL, success " + booleanType() + " NOT NULL DEFAULT 1)");
+        execute("CREATE TABLE IF NOT EXISTS audit_log (id " + integerPrimaryKey() + ", timestamp " + longType() + " NOT NULL, actor " + textType() + " NOT NULL, action " + textType() + " NOT NULL, target " + textType() + " NOT NULL, reason " + textType() + " NOT NULL, success " + booleanType() + " NOT NULL DEFAULT 1, server " + textType() + " NOT NULL DEFAULT '')");
 
+        addColumnIfMissing("audit_log", "server", textType() + " NOT NULL DEFAULT ''");
         addColumnIfMissing("schema_meta", "meta_value", nullableTextType());
         addColumnIfMissing("player_ips", "ip", nullableTextType());
         addColumnIfMissing("player_ips", "updated_at", longType() + " NOT NULL DEFAULT 0");
@@ -750,13 +750,14 @@ public class DatabaseManager {
 
     public boolean addAuditLog(String actor, String action, String target, String reason, boolean success) {
         try (Connection connection = getConnection();
-             PreparedStatement ps = connection.prepareStatement("INSERT INTO audit_log (timestamp, actor, action, target, reason, success) VALUES (?, ?, ?, ?, ?, ?)")) {
+             PreparedStatement ps = connection.prepareStatement("INSERT INTO audit_log (timestamp, actor, action, target, reason, success, server) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
             ps.setLong(1, System.currentTimeMillis());
             ps.setString(2, actor);
             ps.setString(3, action);
             ps.setString(4, target);
             ps.setString(5, reason);
             dialect.bindBoolean(ps, 6, success);
+            ps.setString(7, serverTag());
             ps.executeUpdate();
             return true;
         } catch (SQLException e) {
@@ -780,7 +781,7 @@ public class DatabaseManager {
                     }
                 }
                 String chainHash = prevHash;
-                try (PreparedStatement ps = connection.prepareStatement("INSERT INTO audit_log (timestamp, actor, action, target, reason, success, prev_hash) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
+                try (PreparedStatement ps = connection.prepareStatement("INSERT INTO audit_log (timestamp, actor, action, target, reason, success, prev_hash, server) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")) {
                     ps.setLong(1, System.currentTimeMillis());
                     ps.setString(2, actor == null ? "" : actor);
                     ps.setString(3, action == null ? "" : action);
@@ -788,6 +789,7 @@ public class DatabaseManager {
                     ps.setString(5, reason == null ? "" : reason);
                     dialect.bindBoolean(ps, 6, success);
                     ps.setString(7, chainHash);
+                    ps.setString(8, serverTag());
                     ps.executeUpdate();
                 }
                 return true;
@@ -864,7 +866,12 @@ public class DatabaseManager {
     }
 
     private AuditEntry readAudit(ResultSet rs) throws SQLException {
-        return new AuditEntry(rs.getLong("id"), rs.getLong("timestamp"), value(rs, "actor"), value(rs, "action"), value(rs, "target"), value(rs, "reason"), readBoolean(rs, "success"), value(rs, "prev_hash"));
+        return new AuditEntry(rs.getLong("id"), rs.getLong("timestamp"), value(rs, "actor"), value(rs, "action"), value(rs, "target"), value(rs, "reason"), readBoolean(rs, "success"), value(rs, "prev_hash"), value(rs, "server"));
+    }
+
+    public String serverTag() {
+        String name = plugin.getServerName();
+        return name == null ? "" : name;
     }
 
     public String getMeta(String key) {
@@ -903,7 +910,7 @@ public class DatabaseManager {
         removed |= warnsRemoved;
         removed |= executeUpdateAffected("DELETE FROM reports WHERE status != '" + STATUS_PENDING + "' AND timestamp < ?", cutoff) > 0;
         removed |= executeUpdateAffected("DELETE FROM audit_log WHERE timestamp < ?", cutoff) > 0;
-        int ipHistoryDays = plugin.getConfig().getInt("database.retention.ip-history-days", 0);
+        int ipHistoryDays = plugin.getStorageConfig().getInt("database.retention.ip-history-days", 0);
         if (ipHistoryDays > 0) {
             long ipCutoff = System.currentTimeMillis() - (ipHistoryDays * 86400000L);
             removed |= executeUpdateAffected("DELETE FROM player_ip_history WHERE last_seen < ?", ipCutoff) > 0;
@@ -931,7 +938,7 @@ public class DatabaseManager {
         if (!isSqlite() || dataSource == null) {
             return;
         }
-        if (!plugin.getConfig().getBoolean("database.sqlite.auto-vacuum", true)) {
+        if (!plugin.getStorageConfig().getBoolean("database.sqlite.auto-vacuum", true)) {
             return;
         }
         try {
@@ -1310,7 +1317,7 @@ public class DatabaseManager {
         return dialect.textPrimaryKey();
     }
 
-    private String textType() {
+    String textType() {
         return dialect.textType();
     }
 
@@ -1357,7 +1364,9 @@ public class DatabaseManager {
     }
 
     private void logSql(SQLException e) {
-        plugin.getLogger().log(Level.SEVERE, "数据库操作失败", e);
+        plugin.getLogger().warning("数据库操作失败：" + e.getMessage()
+                + "（详细堆栈见 " + org.leng.utils.ErrorLog.fileName(plugin) + "）");
+        org.leng.utils.ErrorLog.record(plugin, "数据库操作失败", e);
     }
 
 }

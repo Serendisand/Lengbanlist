@@ -64,6 +64,20 @@ public interface Model {
 
     String getImmunityDenied(String target);
 
+    String getFreezeNotify(String reason);
+
+    String getFreezeTitle();
+
+    String getFreezeSubtitle(String reason);
+
+    String getFreezeReminder();
+
+    String onFreeze(String player, String reason);
+
+    String onUnfreeze(String player);
+
+    String onVanish(boolean vanished);
+
     String getRollbackPreview(int matched, String actor, String timeRange);
 
     String getRollbackResult(int matched, int executed, int skipped);

@@ -87,6 +87,15 @@ public class CheckCommand extends Command implements CommandExecutor {
         Utils.sendMessage(sender, plugin.prefix() + "§b是否禁言: " + (isMuted ? "是" : "否"));
         Utils.sendMessage(sender, plugin.prefix() + "§b是否封禁: " + (isBanned ? "是" : "否"));
         Utils.sendMessage(sender, plugin.prefix() + "§b是否是OP: " + (isOp ? "是" : "否"));
+        if (online != null) {
+            org.leng.object.FreezeEntry freeze = plugin.getFreezeManager().get(online);
+            if (freeze != null) {
+                Utils.sendMessage(sender, plugin.prefix() + "§b冻结状态: §c已冻结 §7(处理人 " + freeze.staff() + "，理由：" + freeze.reason() + ")");
+            }
+            if (plugin.getVanishManager().isVanished(online)) {
+                Utils.sendMessage(sender, plugin.prefix() + "§b隐身状态: §d隐身中");
+            }
+        }
 
         if (plugin.isFeatureEnabled("ip-association")) {
             Utils.sendMessage(sender, "§7--- §cIP关联信息 §7---");

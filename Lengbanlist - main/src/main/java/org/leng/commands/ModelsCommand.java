@@ -66,7 +66,7 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
         CompletableFuture.supplyAsync(task)
                 .thenAccept(result -> SchedulerUtils.runTask(plugin, sender, () -> onDone.accept(result)))
                 .exceptionally(throwable -> {
-                    plugin.getLogger().log(java.util.logging.Level.WARNING, "[models] 异步任务执行失败", throwable);
+                    org.leng.utils.ErrorLog.record(plugin, "[models] 异步任务执行失败", throwable);
                     SchedulerUtils.runTask(plugin, sender, () ->
                             Utils.sendMessage(sender, plugin.prefix() + "§c内部错误，请查看控制台日志"));
                     return null;

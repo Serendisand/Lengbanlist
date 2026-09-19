@@ -46,17 +46,26 @@ Players can report rule-breaking. Reports are stored in the database, and the re
 **Ban Broadcast**
 Periodically announces the current ban count in chat. Fully customizable message format. Toggle it on/off anytime, or broadcast manually.
 
-**Character Models**
-12 built-in character skins — Hutao, Furina, Zhongli, Keqing, Nahida, Klee, Yaemiko, and more. Switch between them and all plugin messages change tone and wording. Also supports custom models — drop a YAML file in plugins/Lengbanlist/models/ to define your own message style. An example file is auto-generated on first startup.
+**Character Models (cloud-downloaded)**
+Models are no longer hardcoded. They come from the [Lengbanlist-Models](https://github.com/Serendisand/Lengbanlist-Models) cloud repo: `/lban models list` to browse, `/lban models install <ID>` to install, `/lban model <name>` to switch — every plugin message then changes tone and wording. 25 character styles (HuTao, Furina, Zhongli, Keqing, Klee, YaeMiko, Aino, Columbina and more), updated monthly with a featured model.
+
+Model text supports **inheritance**: the global baseline lives in `models/_base.yml`, and a model file only declares what it overrides. Adding new keys to the plugin never leaves old models behind, and writing your own model means copying a few fields.
 
 **GUI — `/lban open`**
-A 54-slot chest interface. Ban, unban, mute, reload, switch models — all clickable. Banning and unbanning also have a chat wizard that walks you through it step by step.
+A 54-slot chest interface. Ban, unban, mute, warn, freeze, vanish, switch models, reload — every button is shown according to your permissions and actually works. Ban, mute, warn and freeze come with a chat wizard that walks you through it step by step (send `cancel` to abort).
 
 **Web Management Panel**
 Built-in HTTP management page — open it in your browser. JWT authentication and rate limiting included. Ban, unban, mute, warn, check history, reload config, all from the web UI.
 
 **Lookup Tools — `/check` `/history` `/getip`**
 Check a player's or IP's current punishment status, full history, associated players, and geographical location.
+
+**Admin Vanish & Freeze — `/lban vanish` `/lban freeze`**
+`/lban vanish` makes you completely invisible to other players — equipment included, and you disappear from the player list too. Staff with `lengbanlist.vanish.see` can still see you.
+`/lban freeze <player> <reason>` pins a player in place: no movement, block breaking, interaction, item dropping, commands or teleports. They get a red title and the reason, and only `/lban unfreeze <player|all>` releases them. Freeze state is persisted to `frozen.yml`.
+
+**Shared Database Across Sub-servers**
+Database settings moved to `storage.yml`. Give each sub-server a `server-name` and, when they share one MySQL / MariaDB / PostgreSQL instance, every audit entry records which server and which operator performed the action (visible in `/lban audit` and the web panel).
 
 **Staff Chat — `/sc`**
 A private chat channel for staff only.
@@ -71,7 +80,7 @@ Made a mistake? Roll it back. Based on the audit log, specify an operator and a 
 
 1. Drop the jar into your server's `plugins` folder.
 2. Restart the server — the plugin generates config files automatically.
-3. Edit `config.yml` and other configs to your liking.
+3. Edit `config.yml` (features & behaviour) and `storage.yml` (database, retention, server tag). Legacy `database:` sections in config.yml are migrated automatically.
 4. `/lban reload` to apply changes, or restart the server.
 
 ## Command Help

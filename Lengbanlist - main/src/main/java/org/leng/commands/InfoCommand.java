@@ -41,6 +41,11 @@ public class InfoCommand implements CommandExecutor {
         infoMessage.append("§7当前内存占用：§b").append(usedMemory / (1024 * 1024)).append("MB / ").append(totalMemory / (1024 * 1024)).append("MB\n");
         infoMessage.append("§7当前在线玩家：§b").append(onlinePlayers).append("\n");
         infoMessage.append("§7当前CPU占用：§b").append(String.format("%.2f", cpuLoad)).append("%\n");
+        String serverName = plugin.getServerName();
+        infoMessage.append("§7本服标识：§b").append(serverName.isEmpty() ? "未设置" : serverName)
+                .append(" §7| §b存储：").append(plugin.getDatabaseManager().getDatabaseProductName()).append("\n");
+        infoMessage.append("§7隐身中：§b").append(plugin.getVanishManager().count())
+                .append(" §7| §b冻结中：§b").append(plugin.getFreezeManager().count()).append("\n");
 
         if (plugin.isUpdateCheckEnabled()) {
             GitHubUpdateChecker.getLatestReleaseVersionAsync(plugin).thenAccept(latestVersion -> {

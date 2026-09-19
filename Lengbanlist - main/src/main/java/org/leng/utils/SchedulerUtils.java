@@ -64,10 +64,10 @@ public class SchedulerUtils {
             entityRun = entitySchedulerClass.getMethod("run", Plugin.class, Consumer.class, Runnable.class);
             entityRunDelayed = entitySchedulerClass.getMethod("runDelayed", Plugin.class, Consumer.class, Runnable.class, long.class);
 
-            plugin.getLogger().info("Folia 调度器已初始化（反射缓存模式）");
+            plugin.getLogger().fine("Folia 调度器已初始化（反射缓存模式）");
         } catch (Exception e) {
             folia = false;
-            plugin.getLogger().info("使用传统 Bukkit 调度器");
+            plugin.getLogger().fine("使用传统 Bukkit 调度器");
         }
     }
 

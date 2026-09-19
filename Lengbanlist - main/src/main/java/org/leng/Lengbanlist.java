@@ -5,6 +5,7 @@ import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.SimplePluginManager;
@@ -13,6 +14,7 @@ import org.leng.commands.*;
 import org.leng.listeners.*;
 import org.leng.manager.*;
 import org.leng.utils.GitHubUpdateChecker;
+import org.leng.utils.Metrics;
 import org.leng.utils.AutoUpdateManager;
 import org.leng.utils.SchedulerUtils;
 import org.leng.utils.Utils;
@@ -52,7 +54,12 @@ public class Lengbanlist extends JavaPlugin {
     private ModelManager modelManager;
     private DatabaseManager databaseManager;
     private ThemeManager themeManager;
+    private VanishManager vanishManager;
+    private FreezeManager freezeManager;
+    private WizardManager wizardManager;
+    private BroadCastManager broadCastManager;
     private FileConfiguration eulaFC;
+    private FileConfiguration storageConfig;
 
     private boolean eulaAgreed = false;
     private boolean initializationFailed = false;
@@ -100,13 +107,15 @@ public void onLoad() {
         saveConfig();
     }
 
+    loadStorageConfig();
+
     databaseManager = new DatabaseManager(this);
     try {
         databaseManager.initialize();
         new StorageMigrationManager(this, databaseManager).migrateYamlIfNeeded();
         muteManager = new MuteManager(this);
     } catch (Exception e) {
-        getLogger().log(java.util.logging.Level.SEVERE, "数据库初始化失败，插件将停止启用", e);
+        org.leng.utils.ErrorLog.record(this, "数据库初始化失败，插件将停止启用", e);
         initializationFailed = true;
         return;
     }
@@ -123,6 +132,10 @@ public void onLoad() {
     reportManager = new ReportManager(this);
     ipAssociationManager = new IpAssociationManager(this);
     themeManager = new ThemeManager(this);
+    vanishManager = new VanishManager(this);
+    freezeManager = new FreezeManager(this);
+    wizardManager = new WizardManager(this);
+    broadCastManager = new BroadCastManager(this);
     webServer = new WebServer(this);
     isBroadcast = getConfig().getBoolean("opensendtime");
 
@@ -130,7 +143,12 @@ public void onLoad() {
     if (!modelsDir.exists()) {
         modelsDir.mkdirs();
     }
-    for (String builtin : new String[]{"default", "english", "example-custom-model"}) {
+    File baseModelFile = new File(modelsDir, "_base.yml");
+    if (!baseModelFile.exists()) {
+        saveResource("models/_base.yml", false);
+        getLogger().info("已预置全局默认文本: models/_base.yml（模型未覆写的字段自动沿用此处）");
+    }
+    for (String builtin : new String[]{"default", "english"}) {
         File target = new File(modelsDir, builtin + ".yml");
         if (!target.exists()) {
             saveResource("models/" + builtin + ".yml", false);
@@ -154,6 +172,64 @@ public void onLoad() {
     }
     broadcastFC = YamlConfiguration.loadConfiguration(broadcastFile);
 
+}
+
+private void loadStorageConfig() {
+    File storageFile = new File(getDataFolder(), "storage.yml");
+    if (!storageFile.exists()) {
+        saveResource("storage.yml", false);
+    }
+    storageConfig = YamlConfiguration.loadConfiguration(storageFile);
+    migrateLegacyStorageConfig(storageFile);
+}
+
+private void migrateLegacyStorageConfig(File storageFile) {
+    boolean migrated = false;
+    ConfigurationSection legacyDatabase = getConfig().getConfigurationSection("database");
+    if (legacyDatabase != null) {
+        for (String key : legacyDatabase.getKeys(true)) {
+            if (legacyDatabase.isConfigurationSection(key)) {
+                continue;
+            }
+            storageConfig.set("database." + key, legacyDatabase.get(key));
+        }
+        getConfig().set("database", null);
+        migrated = true;
+    }
+    if (getConfig().contains("history-retention-days")) {
+        storageConfig.set("database.retention.history-days", getConfig().getInt("history-retention-days", 7));
+        getConfig().set("history-retention-days", null);
+        migrated = true;
+    }
+    if (!migrated) {
+        return;
+    }
+    try {
+        storageConfig.save(storageFile);
+        saveConfig();
+        getLogger().info("已把 config.yml 中的数据库配置迁移到 storage.yml");
+    } catch (IOException e) {
+        getLogger().warning("迁移数据库配置失败: " + e.getMessage());
+    }
+}
+
+public FileConfiguration getStorageConfig() {
+    return storageConfig;
+}
+
+public String getServerName() {
+    if (storageConfig == null) {
+        return "";
+    }
+    String name = storageConfig.getString("server-name", "");
+    return name == null ? "" : name.trim();
+}
+
+public int historyRetentionDays() {
+    if (storageConfig != null && storageConfig.contains("database.retention.history-days")) {
+        return Math.max(1, storageConfig.getInt("database.retention.history-days", 7));
+    }
+    return Math.max(1, getConfig().getInt("history-retention-days", 7));
 }
 
 @Override
@@ -193,7 +269,6 @@ public void onEnable() {
             getServer().getConsoleSender().sendMessage(prefix() + ModelManager.getInstance().getCurrentModelName() + "§6偷偷告诉你: §e" + hitokoto);
         });
     });
-    getServer().getConsoleSender().sendMessage(prefix() + "§f哇！传送锚点已解锁，当前Model: " + ModelManager.getInstance().getCurrentModelName());
 
     org.leng.api.LengbanlistAPI.register(Lengbanlist.this);
 
@@ -206,6 +281,8 @@ public void onEnable() {
     getServer().getPluginManager().registerEvents(new MuteCommandBlockListener(this), Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new GuiCleanupListener(this), this);
     getServer().getPluginManager().registerEvents(guiCommand, Lengbanlist.this);
+    getServer().getPluginManager().registerEvents(new VanishListener(this), Lengbanlist.this);
+    getServer().getPluginManager().registerEvents(new FreezeListener(this), Lengbanlist.this);
 
     LengbanlistCommand lbanCmd = new LengbanlistCommand("lban", Lengbanlist.this);
     PluginCommand lban = getCommand("lban");
@@ -215,11 +292,11 @@ public void onEnable() {
     }
     registerFeatureCommands();
 
-    getServer().getConsoleSender().sendMessage("§bLengbanlist §6干杯[]~(￣▽￣)~* ");
-    getServer().getConsoleSender().sendMessage("§6插件版本：v" + getPluginVersion());
-    getServer().getConsoleSender().sendMessage("§3服务端版本：" + Bukkit.getServer().getVersion());
+    getServer().getConsoleSender().sendMessage("§bLengbanlist §6干杯[]~(￣▽￣)~* §7v" + getPluginVersion()
+            + " §7| §3模型 " + ModelManager.getInstance().getCurrentModelName()
+            + " §7| §3服务端 " + Bukkit.getServer().getVersion());
 
-    new Metrics(Lengbanlist.this, 33262);
+    new Metrics(this, 33262);
 
     if (getConfig().getBoolean("features.auto-update", false)) {
         getLogger().info("§a自动更新功能已启用，正在检查更新...");
@@ -305,7 +382,7 @@ public void registerFeatureCommands() {
     setFeatureExecutor("staffchat", "sc", new StaffChatCommand(Lengbanlist.this));
     altsCommand = new AltsCommand(this);
     setFeatureExecutor("alts", "alts", altsCommand);
-    getLogger().info("功能命令刷新完成(features.* 变更已生效)。");
+    getLogger().fine("功能命令刷新完成(features.* 变更已生效)。");
 }
 
 public boolean reloadWebServer() {
@@ -353,6 +430,10 @@ public void onDisable() {
     }
     if (webServer != null) webServer.stop();
 
+    if (vanishManager != null) {
+        vanishManager.restoreAll();
+    }
+
     org.leng.api.LengbanlistAPI.unregister();
 
     if (eulaAgreed) {
@@ -383,15 +464,14 @@ void shutdownStorage() {
         long interval = Math.max(getConfig().getInt("sendtime") * 1200L, 1200L);
         long delay = 200L;
         broadcastTask = SchedulerUtils.runTaskTimer(this,
-                new BroadCastBanCountMessage(), delay, interval);
+                broadCastManager, delay, interval);
     }
 
     private void startHistoryCleanupTask() {
         historyCleanupTask = SchedulerUtils.runTaskTimerAsynchronously(this, () -> {
             try {
                 databaseManager.deactivateExpiredBans();
-                boolean removed = databaseManager.cleanupOldData(
-                        Math.max(1, getConfig().getInt("history-retention-days", 7)));
+                boolean removed = databaseManager.cleanupOldData(historyRetentionDays());
 
                 if (removed) {
                     databaseManager.reclaimSpace();
@@ -431,7 +511,7 @@ void shutdownStorage() {
         }
         if (!isFeatureEnabled(feature)) {
 
-            getLogger().info("功能 " + feature + " 已禁用,/" + commandName + " 命令已注销,可被其他插件接管。");
+            getLogger().fine("功能 " + feature + " 已禁用,/" + commandName + " 命令已注销。");
             unregisterCommand(command);
             return;
         }
@@ -563,6 +643,22 @@ void shutdownStorage() {
         return themeManager;
     }
 
+    public VanishManager getVanishManager() {
+        return vanishManager;
+    }
+
+    public FreezeManager getFreezeManager() {
+        return freezeManager;
+    }
+
+    public WizardManager getWizardManager() {
+        return wizardManager;
+    }
+
+    public BroadCastManager getBroadCastManager() {
+        return broadCastManager;
+    }
+
     public FileConfiguration getBroadcastFC() {
         return broadcastFC;
     }
@@ -575,7 +671,7 @@ void shutdownStorage() {
         try {
             broadcastFC.save(new File(getDataFolder(), "broadcast.yml"));
         } catch (IOException e) {
-            getLogger().log(java.util.logging.Level.WARNING, "保存 broadcast.yml 失败", e);
+            org.leng.utils.ErrorLog.record(this, "保存 broadcast.yml 失败", e);
         }
     }
 

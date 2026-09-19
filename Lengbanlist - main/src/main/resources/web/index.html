@@ -1122,11 +1122,11 @@ async function loadAudit() {
     return;
   }
   var html = '<div class="action-bar" style="margin-bottom:12px">共 <strong>' + d.total + '</strong> 条</div>';
-  html += '<div class="table-wrap"><table><tr><th>时间</th><th>操作</th><th>操作人</th><th>目标</th><th>原因</th><th>结果</th></tr>';
+  html += '<div class="table-wrap"><table><tr><th>时间</th><th>操作</th><th>操作人</th><th>服务器</th><th>目标</th><th>原因</th><th>结果</th></tr>';
   for (var i = 0; i < d.logs.length; i++) {
     var e = d.logs[i];
     var badge = e.success ? '<span class="badge badge-green">成功</span>' : '<span class="badge badge-red">失败</span>';
-    html += '<tr><td>' + escapeHtml(e.timestamp) + '</td><td>' + escapeHtml(e.action) + '</td><td>' + escapeHtml(e.actor) + '</td><td>' + escapeHtml(e.target) + '</td><td>' + escapeHtml(e.reason) + '</td><td>' + badge + '</td></tr>';
+    html += '<tr><td>' + escapeHtml(e.timestamp) + '</td><td>' + escapeHtml(e.action) + '</td><td>' + escapeHtml(e.actor) + '</td><td>' + escapeHtml(e.server||'-') + '</td><td>' + escapeHtml(e.target) + '</td><td>' + escapeHtml(e.reason) + '</td><td>' + badge + '</td></tr>';
   }
   html += '</table></div>';
   el.innerHTML = html;

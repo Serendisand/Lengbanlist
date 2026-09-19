@@ -20,6 +20,8 @@ features:
   kick: true           # 踢出玩家（/lban kick）
   mute: true           # 禁言/解禁（/lban mute）
   setban: true         # 自定义封禁（/lban setban）
+  vanish: true         # 管理员隐身（/lban vanish，对无 lengbanlist.vanish.see 权限者完全不可见）
+  freeze: true         # 冻结玩家（/lban freeze、/lban unfreeze）
 
   # --- 查询与信息 ---
   check: true          # 查询玩家封禁/警告信息（/lban check）
@@ -88,6 +90,14 @@ update-check:
       type: github
       url: "https://api.github.com/repos/Serendisand/Lengbanlist/releases/latest"
 
+# ---------- 冻结（freeze） ----------
+# 被冻结的玩家无法移动/破坏/放置/交互/丢弃物品/使用命令/传送，只能由管理员手动解冻。
+# 冻结状态存于 plugins/Lengbanlist/frozen.yml，服务器重启后依然有效。
+freeze:
+  block-commands: true     # 冻结期间禁止被冻结玩家执行命令（防止 /spawn /home 一类传送逃脱）
+  allowed-commands: []     # block-commands 为 true 时仍然放行的命令（不带斜杠）
+                           # 装了登录插件请填: [login, register, l, msg, r]
+
 # ---------- 预设封禁/警告原因（命令快捷选择） ----------
 preset-reasons:
   normal: "违规建筑/破坏服务器"
@@ -96,8 +106,9 @@ preset-reasons:
   spam: "广告/刷屏"
   grief: "恶意破坏"
 
-# ---------- 数据保留 ----------
-history-retention-days: 7   # 历史记录保留天数（封禁/警告等）
+# ---------- 数据保留 / 数据库 ----------
+# 数据库、保留天数、封禁缓存、服务器标识等存储相关配置已拆分到 storage.yml
+# （旧版本写在 config.yml 里的 database 段会在首次启动时自动迁移过去）
 
 # ---------- 举报 ----------
 report-cooldown-seconds: 86400  # 玩家举报冷却时间（秒）
@@ -109,61 +120,6 @@ webhook:
   username: "Lengbanlist"
   avatar-url: ""
   event-types: []
-
-# ---------- 数据库 ----------
-# 类型: sqlite / mysql / mariadb / postgresql
-# （旧版本 yml 数据会自动按 sqlite 处理并从旧文件迁移）
-# 除 sqlite 外都是共享数据库，可多服共用一份数据做跨服同步。
-database:
-  type: "sqlite"
-  sqlite:
-    file: "lengbanlist.db"
-    # WAL 模式下的落盘策略。NORMAL 是 SQLite 官方对 WAL 的推荐值：
-    # 不会损坏数据库，最坏情况下断电丢失最后几个已提交事务。
-    # 实测 100 次封禁写入 FULL≈3950ms、NORMAL≈38ms，改回 FULL 会明显拖慢每个封禁/进服操作。
-    # 可选 FULL（每次提交都 fsync，最严格）/ NORMAL（推荐）/ OFF（不落盘，仅调试用）。
-    synchronous: "NORMAL"
-    # 定期回收已删除数据占用的文件空间。SQLite 删行不会自动缩小文件，
-    # 长跑服务器的 .db 会一直停在历史峰值；开启后由维护任务增量回收。
-    # 老库首次回收需要重建一次文件（VACUUM），只在真正存在碎片时触发。
-    auto-vacuum: true
-  retention:
-    # IP 历史（player_ip_history）保留天数，0 = 永久保留（默认，与旧版本一致）。
-    # IP 关联/小号检测依赖这张表，调小会削弱关联检测范围；这张表也是唯一无上限增长的表，
-    # 玩家数多、换 IP 频繁的服务器可以设为 180 左右来控制体积。
-    ip-history-days: 0
-  # 封禁快照缓存。封禁查询分散在登录拦截、PlaceholderAPI 占位符、Web 面板等处，
-  # %lengbanlist_banned% 一类占位符会被计分板插件按 tick 轮询，没有缓存时等于每 tick 打一次数据库。
-  # 本服封禁/解封会立即刷新缓存；跨服（共享数据库）靠这里的 TTL 兜底。
-  # 单机服务器可适当调大，多服共享库建议不超过 sync.interval-seconds。
-  cache:
-    ban-ttl-seconds: 5
-  mysql:
-    host: "localhost"
-    port: 3306
-    database: "lengbanlist"
-    username: "root"
-    password: ""
-    # 连接池最大连接数（默认 10，上限 200）。
-    # 调大前先确认 MySQL 的 max_connections 余量：这里的连接是常驻的，
-    # 开太大可能把其它插件挤出连接数。封禁查询本身很稀疏，一般 10 足够。
-    pool-size: 10
-  # MariaDB 与 MySQL 协议兼容，整段可以省略：省略时直接沿用上面的 mysql 段配置。
-  mariadb:
-    host: "localhost"
-    port: 3306
-    database: "lengbanlist"
-    username: "root"
-    password: ""
-    pool-size: 10
-  postgresql:
-    host: "localhost"
-    port: 5432
-    database: "lengbanlist"
-    username: "postgres"
-    password: ""
-    # 连接池最大连接数
-    pool-size: 10
 
 # ---------- VPN/代理检测 ----------
 vpn-detection:

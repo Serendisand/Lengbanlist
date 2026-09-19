@@ -42,6 +42,7 @@ class DatabaseManagerSqliteTest {
         config.set("database.type", "sqlite");
         config.set("database.sqlite.file", "lengbanlist.db");
         lenient().when(plugin.getConfig()).thenReturn(config);
+        lenient().when(plugin.getStorageConfig()).thenReturn(config);
         lenient().when(plugin.getLogger()).thenReturn(Logger.getLogger("LengbanlistTest"));
         lenient().when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
 

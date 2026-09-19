@@ -57,6 +57,7 @@ public class AuditController extends WebController {
             o.addProperty("target", e.target());
             o.addProperty("reason", e.reason());
             o.addProperty("success", e.success());
+            o.addProperty("server", e.server());
             logs.add(o);
         }
         JsonObject result = new JsonObject();

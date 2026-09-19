@@ -11,15 +11,13 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.leng.Lengbanlist;
-import org.leng.manager.BanManager;
-import org.leng.manager.BanMutationFeedback;
 import org.leng.manager.GuiSessionManager;
 import org.leng.manager.ModelManager;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
+import org.leng.object.FreezeEntry;
 import org.leng.object.MuteEntry;
 import org.leng.object.ReportEntry;
-import org.leng.utils.IpMatcher;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
 
@@ -28,6 +26,7 @@ import java.util.List;
 
 public class GuiCommand implements Listener {
 
+    private static final String TITLE = "§bLengbanlist";
     private static final int GUI_PAGE_SIZE = 28;
     private static final int[] GUI_CONTENT_SLOTS = {
             10, 11, 12, 13, 14, 15, 16,
@@ -36,6 +35,15 @@ public class GuiCommand implements Listener {
             37, 38, 39, 40, 41, 42, 43
     };
 
+    private static final int SLOT_PREV = 45;
+    private static final int SLOT_BACK = 48;
+    private static final int SLOT_INFO = 49;
+    private static final int SLOT_NEXT = 53;
+
+    private static final String PREFIX_COMMAND = "/";
+    private static final String ACTION_SPONSOR = "ACTION_SPONSOR";
+    private static final String REPORT_PREFIX = "REPORT:";
+
     private final Lengbanlist plugin;
 
     public GuiCommand(Lengbanlist plugin) {
@@ -43,7 +51,7 @@ public class GuiCommand implements Listener {
     }
 
     public void openChestUI(Player player) {
-        Inventory chest = Bukkit.createInventory(null, 54, "§bLengbanlist");
+        Inventory chest = Bukkit.createInventory(null, 54, TITLE);
         player.openInventory(chest);
         GuiSessionManager gui = plugin.getGuiSessionManager();
         gui.setView(player.getUniqueId(), "menu");
@@ -52,171 +60,71 @@ public class GuiCommand implements Listener {
     }
 
     private void renderGuiMenu(Player player, Inventory chest) {
-        ItemStack glass = new ItemStack(Material.BLUE_STAINED_GLASS_PANE);
-        ItemMeta glassMeta = glass.getItemMeta();
-        glassMeta.setDisplayName("§7我只是个装饰物");
-        glass.setItemMeta(glassMeta);
+        ItemStack glass = createGuiItem(Material.BLUE_STAINED_GLASS_PANE, "§7我只是个装饰物");
         for (int i = 0; i < 54; i++) {
-            if (i < 9 || i >= 45 || i % 9 == 0 || i % 9 == 8) {
-                chest.setItem(i, glass);
-            }
+            chest.setItem(i, glass);
         }
 
-        ItemStack toggleBroadcast = createItem(
-                Material.LEVER,
-                "§a切换自动广播 (" + (plugin.isBroadcastEnabled() ? "开启" : "关闭") + ")",
-                "§7/lban toggle",
-                "§7开启或关闭自动广播",
-                Sound.BLOCK_LEVER_CLICK,
-                player
-        );
-        ItemStack broadcast = createItem(
-                Material.NOTE_BLOCK,
-                "§a广播封禁人数",
-                "§7/lban a",
-                "§7广播当前封禁人数",
-                Sound.BLOCK_NOTE_BLOCK_PLING,
-                player
-        );
-        ItemStack list = createItem(
-                Material.WRITABLE_BOOK,
-                "§a查看封禁名单",
-                "§7/lban list",
-                "§7查看被封禁的玩家列表",
-                Sound.BLOCK_NOTE_BLOCK_HARP,
-                player
-        );
-        ItemStack reload = createItem(
-                Material.COMPARATOR,
-                "§a重新加载配置",
-                "§7/lban reload",
-                "§7重新加载插件配置",
-                Sound.BLOCK_NOTE_BLOCK_BELL,
-                player
-        );
-        ItemStack addBan = createItem(
-                Material.REDSTONE_BLOCK,
-                "§a添加封禁",
-                "§7/lban add",
-                "§7添加一个玩家到封禁名单",
-                Sound.BLOCK_NOTE_BLOCK_BASS,
-                player
-        );
-        ItemStack removeBan = createItem(
-                Material.EMERALD_BLOCK,
-                "§a解除封禁",
-                "§7/lban remove",
-                "§7从封禁名单中移除一个玩家",
-                Sound.BLOCK_NOTE_BLOCK_SNARE,
-                player
-        );
-        ItemStack ipBan = createItem(
-                Material.LAVA_BUCKET,
-                "§c封禁IP",
-                "§7/lban ipban",
-                "§7封禁一个IP地址",
-                Sound.BLOCK_NOTE_BLOCK_PLING,
-                player
-        );
-        ItemStack help = createItem(
-                Material.BOOK,
-                "§a帮助信息",
-                "§7/lban help",
-                "§7显示帮助信息",
-                Sound.BLOCK_NOTE_BLOCK_FLUTE,
-                player
-        );
-        ItemStack model = createItem(
-                Material.NAME_TAG,
-                "§a切换模型 (" + ModelManager.getInstance().getCurrentModelName() + ")",
-                "§7/lban model",
-                "§7当前模型: " + ModelManager.getInstance().getCurrentModelName(),
-                Sound.BLOCK_NOTE_BLOCK_CHIME,
-                player
-        );
-        ItemStack sponsor = createItem(
-                Material.GOLD_INGOT,
-                "§6赞助作者",
-                "§7ACTION_SPONSOR",
-                "§7点击获取赞助链接：https://afdian.com/a/lengmc",
-                Sound.BLOCK_NOTE_BLOCK_PLING,
-                player
-        );
-        ItemStack mute = createItem(
-                Material.BARRIER,
-                "§a禁言玩家",
-                "§7/lban mute",
-                "§7禁言一个玩家",
-                Sound.BLOCK_NOTE_BLOCK_BASS,
-                player
-        );
-        ItemStack unmute = createItem(
-                Material.MILK_BUCKET,
-                "§a解除禁言",
-                "§7/lban unmute",
-                "§7解除一个玩家的禁言",
-                Sound.BLOCK_NOTE_BLOCK_SNARE,
-                player
-        );
-        ItemStack listMute = createItem(
-                Material.BOOKSHELF,
-                "§a查看禁言列表",
-                "§7/lban list-mute",
-                "§7查看被禁言的玩家列表",
-                Sound.BLOCK_NOTE_BLOCK_HARP,
-                player
-        );
-        ItemStack bansList = createItem(
-                Material.RED_WOOL,
-                "§c封禁列表",
-                "VIEW_BANS",
-                "§7查看封禁玩家/IP列表",
-                Sound.BLOCK_NOTE_BLOCK_HARP,
-                player
-        );
-        ItemStack mutesList = createItem(
-                Material.GRAY_WOOL,
-                "§c禁言列表",
-                "VIEW_MUTES",
-                "§7查看禁言玩家列表",
-                Sound.BLOCK_NOTE_BLOCK_HARP,
-                player
-        );
-        ItemStack reportsList = createItem(
-                Material.PAPER,
-                "§e举报列表",
-                "VIEW_REPORTS",
-                "§7查看待处理举报列表",
-                Sound.BLOCK_NOTE_BLOCK_PLING,
-                player
-        );
+        put(chest, player, 10, "lengbanlist.ban", "ban",
+                createGuiItem(Material.REDSTONE_BLOCK, "§a添加封禁", "§7/lban add", "§7聊天栏向导：玩家/IP → 时间 → 原因"));
+        put(chest, player, 12, "lengbanlist.banip", "ban-ip",
+                createGuiItem(Material.LAVA_BUCKET, "§c封禁IP", "§7/lban add <IP>", "§7聊天栏向导：IP → 时间 → 原因"));
+        put(chest, player, 14, "lengbanlist.mute", "mute",
+                createGuiItem(Material.BARRIER, "§a禁言玩家", "§7/lban mute", "§7聊天栏向导：玩家 → 时间 → 原因"));
+        put(chest, player, 16, "lengbanlist.warn", "warn",
+                createGuiItem(Material.PAPER, "§a警告玩家", "§7/lban warn", "§7聊天栏向导：玩家 → 原因"));
 
-        chest.setItem(10, toggleBroadcast);
-        chest.setItem(12, broadcast);
-        chest.setItem(14, list);
-        chest.setItem(16, reload);
-        chest.setItem(11, bansList);
-        chest.setItem(13, mutesList);
-        chest.setItem(15, reportsList);
-        chest.setItem(20, addBan);
-        chest.setItem(22, removeBan);
-        chest.setItem(19, ipBan);
-        chest.setItem(24, help);
-        chest.setItem(28, model);
-        chest.setItem(30, mute);
-        chest.setItem(32, unmute);
-        chest.setItem(34, listMute);
-        chest.setItem(40, sponsor);
+        put(chest, player, 19, "lengbanlist.unban", "unban",
+                createGuiItem(Material.EMERALD_BLOCK, "§a解除封禁", "§7/lban remove", "§7聊天栏向导：输入玩家名或 IP"));
+        put(chest, player, 21, "lengbanlist.mute", "mute",
+                createGuiItem(Material.MILK_BUCKET, "§a解除禁言", "§7/lban unmute", "§7聊天栏向导：输入玩家名"));
+        put(chest, player, 23, "lengbanlist.list", "ban",
+                createGuiItem(Material.RED_WOOL, "§c封禁列表", "VIEW_BANS", "§7查看封禁玩家/IP列表"));
+        put(chest, player, 25, "lengbanlist.listmute", "mute",
+                createGuiItem(Material.GRAY_WOOL, "§c禁言列表", "VIEW_MUTES", "§7查看禁言玩家列表"));
+
+        put(chest, player, 28, "lengbanlist.admin", "report",
+                createGuiItem(Material.PAPER, "§e举报列表", "VIEW_REPORTS", "§7查看待处理举报列表"));
+        put(chest, player, 30, "lengbanlist.freeze", "freeze",
+                createGuiItem(Material.PACKED_ICE, "§b冻结列表", "VIEW_FREEZES", "§7查看当前被冻结的玩家"));
+        put(chest, player, 32, "lengbanlist.freeze", "freeze",
+                createGuiItem(Material.BLUE_ICE, "§b冻结玩家", "§7/lban freeze", "§7聊天栏向导：玩家 → 理由"));
+        put(chest, player, 34, "lengbanlist.freeze", "freeze",
+                createGuiItem(Material.ICE, "§b解除冻结", "§7/lban unfreeze", "§7聊天栏向导：输入玩家名或 all"));
+
+        put(chest, player, 37, "lengbanlist.vanish", "vanish",
+                createGuiItem(Material.FEATHER, "§d隐身/现身 (" + (plugin.getVanishManager().isVanished(player) ? "隐身中" : "可见") + ")",
+                        "§7/lban vanish", "§7其他玩家完全看不见你（含手持物品与盔甲）"));
+        put(chest, player, 39, "lengbanlist.model", "model",
+                createGuiItem(Material.NAME_TAG, "§a切换模型 (" + ModelManager.getInstance().getCurrentModelName() + ")",
+                        "§7/lban model", "§7当前模型: " + ModelManager.getInstance().getCurrentModelName()));
+        put(chest, player, 41, "lengbanlist.list", "ban",
+                createGuiItem(Material.WRITABLE_BOOK, "§a查看封禁名单", "§7/lban list", "§7在聊天栏输出封禁名单"));
+        chest.setItem(43, createGuiItem(Material.BOOK, "§a帮助信息", "§7/lban help", "§7显示帮助信息"));
+
+        put(chest, player, 46, "lengbanlist.toggle", "broadcast",
+                createGuiItem(Material.LEVER, "§a切换自动广播 (" + (plugin.isBroadcastEnabled() ? "开启" : "关闭") + ")",
+                        "§7/lban toggle", "§7开启或关闭自动广播"));
+        put(chest, player, 48, "lengbanlist.broadcast", "broadcast",
+                createGuiItem(Material.NOTE_BLOCK, "§a广播封禁人数", "§7/lban a", "§7广播当前封禁人数"));
+        put(chest, player, 50, "lengbanlist.reload", "reload",
+                createGuiItem(Material.COMPARATOR, "§a重新加载配置", "§7/lban reload", "§7重新加载插件配置"));
+        chest.setItem(52, createGuiItem(Material.GOLD_INGOT, "§6赞助作者", ACTION_SPONSOR,
+                "§7点击获取赞助链接：https://afdian.com/a/lengmc"));
+    }
+
+    private void put(Inventory chest, Player player, int slot, String permission, String feature, ItemStack item) {
+        if (!Utils.canUse(plugin, player, permission, feature)) {
+            return;
+        }
+        chest.setItem(slot, item);
     }
 
     private void renderGuiList(Player player, Inventory inventory, String view) {
         GuiSessionManager gui = plugin.getGuiSessionManager();
         int page = gui.getPage(player.getUniqueId(), view);
 
-        ItemStack glass = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
-        ItemMeta glassMeta = glass.getItemMeta();
-        glassMeta.setDisplayName("§7 ");
-        glass.setItemMeta(glassMeta);
+        ItemStack glass = createGuiItem(Material.GRAY_STAINED_GLASS_PANE, "§7 ");
         for (int i = 0; i < 54; i++) {
             inventory.setItem(i, glass);
         }
@@ -263,6 +171,20 @@ public class GuiCommand implements Listener {
                         "§7原因：" + mute.getReason(),
                         "§7解禁时间：" + TimeUtils.timestampToReadable(mute.getTime())));
             }
+        } else if ("freezes".equals(view)) {
+            List<FreezeEntry> list = new ArrayList<>(plugin.getFreezeManager().all());
+            for (int s = 0; s < GUI_CONTENT_SLOTS.length; s++) {
+                int index = start + s;
+                if (index >= list.size()) {
+                    break;
+                }
+                FreezeEntry freeze = list.get(index);
+                inventory.setItem(GUI_CONTENT_SLOTS[s], createGuiItem(Material.PACKED_ICE,
+                        "§c" + freeze.player(),
+                        "§7处理人：" + freeze.staff(),
+                        "§7理由：" + freeze.reason(),
+                        "§7冻结时间：" + TimeUtils.timestampToReadable(freeze.time())));
+            }
         } else if ("reports".equals(view)) {
             List<ReportEntry> list = plugin.getReportManager().getPendingReports();
             for (int s = 0; s < GUI_CONTENT_SLOTS.length; s++) {
@@ -273,7 +195,7 @@ public class GuiCommand implements Listener {
                 ReportEntry report = list.get(index);
                 inventory.setItem(GUI_CONTENT_SLOTS[s], createGuiItem(Material.PAPER,
                         "§e举报编号：" + report.getId(),
-                        "§7REPORT:" + report.getId(),
+                        "§7" + REPORT_PREFIX + report.getId(),
                         "§7被举报人：" + report.getTarget(),
                         "§7举报人：" + report.getReporter(),
                         "§7原因：" + report.getReason()));
@@ -281,10 +203,10 @@ public class GuiCommand implements Listener {
         }
 
         int totalPages = guiTotalPages(view);
-        inventory.setItem(45, createGuiItem(Material.ARROW, "§e上一页", "PAGE_PREV", "§7第 " + (page + 1) + " / " + totalPages + " 页"));
-        inventory.setItem(48, createGuiItem(Material.BARRIER, "§c返回主菜单", "VIEW_MENU", "§7点击返回主菜单"));
-        inventory.setItem(49, createGuiItem(Material.PAPER, "§b" + (page + 1) + " / " + totalPages, "§7页码", "§7使用上一页/下一页按钮翻页"));
-        inventory.setItem(53, createGuiItem(Material.ARROW, "§e下一页", "PAGE_NEXT", "§7第 " + (page + 1) + " / " + totalPages + " 页"));
+        inventory.setItem(SLOT_PREV, createGuiItem(Material.ARROW, "§e上一页", "PAGE_PREV", "§7第 " + (page + 1) + " / " + totalPages + " 页"));
+        inventory.setItem(SLOT_BACK, createGuiItem(Material.BARRIER, "§c返回主菜单", "VIEW_MENU", "§7点击返回主菜单"));
+        inventory.setItem(SLOT_INFO, createGuiItem(Material.PAPER, "§b" + (page + 1) + " / " + totalPages, "§7页码", "§7使用上一页/下一页按钮翻页"));
+        inventory.setItem(SLOT_NEXT, createGuiItem(Material.ARROW, "§e下一页", "PAGE_NEXT", "§7第 " + (page + 1) + " / " + totalPages + " 页"));
     }
 
     private int guiTotalPages(String view) {
@@ -293,6 +215,8 @@ public class GuiCommand implements Listener {
             size = plugin.getBanManager().getBanList().size() + plugin.getBanManager().getBanIpList().size();
         } else if ("mutes".equals(view)) {
             size = plugin.getMuteManager().getMuteList().size();
+        } else if ("freezes".equals(view)) {
+            size = plugin.getFreezeManager().count();
         } else if ("reports".equals(view)) {
             size = plugin.getReportManager().getPendingReports().size();
         } else {
@@ -304,39 +228,33 @@ public class GuiCommand implements Listener {
     private ItemStack createGuiItem(Material material, String displayName, String... lore) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(displayName);
-        List<String> loreList = new ArrayList<>();
-        for (String line : lore) {
-            loreList.add(line);
+        if (meta != null) {
+            meta.setDisplayName(displayName);
+            List<String> loreList = new ArrayList<>();
+            for (String line : lore) {
+                loreList.add(line);
+            }
+            meta.setLore(loreList);
+            item.setItemMeta(meta);
         }
-        meta.setLore(loreList);
-        item.setItemMeta(meta);
-        return item;
-    }
-
-    private ItemStack createItem(Material material, String displayName, String command, String description, Sound sound, Player player) {
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(displayName);
-        List<String> lore = new ArrayList<>();
-        lore.add(command);
-        lore.add(description);
-        meta.setLore(lore);
-        item.setItemMeta(meta);
         return item;
     }
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (!event.getView().getTitle().equals("§bLengbanlist")) {
+        if (!event.getView().getTitle().equals(TITLE)) {
             return;
         }
         event.setCancelled(true);
 
+        if (!(event.getWhoClicked() instanceof Player)) {
+            return;
+        }
         Player player = (Player) event.getWhoClicked();
+
         GuiSessionManager gui = plugin.getGuiSessionManager();
         String view = gui.getView(player.getUniqueId());
-        if (gui != null && view != null && view.startsWith("alts:")) {
+        if (view != null && view.startsWith("alts:")) {
             return;
         }
 
@@ -347,28 +265,33 @@ public class GuiCommand implements Listener {
         }
 
         ItemStack clickedItem = event.getCurrentItem();
-
         if (clickedItem == null || !clickedItem.hasItemMeta()) {
             return;
         }
-
         ItemMeta clickMeta = clickedItem.getItemMeta();
         if (clickMeta.getLore() == null || clickMeta.getLore().isEmpty()) {
             return;
         }
 
         String command = clickMeta.getLore().get(0).replace("§7", "");
+        if (command.isEmpty()) {
+            return;
+        }
 
-        if (command.startsWith("REPORT:")) {
+        if (command.startsWith(REPORT_PREFIX)) {
+            if (!Utils.canUse(plugin, player, "lengbanlist.admin", "report")) {
+                Utils.sendMessage(player, plugin.prefix() + "§c不是你的工作喵！");
+                return;
+            }
             player.closeInventory();
-            player.performCommand("lban handle " + command.substring("REPORT:".length()) + " auto");
+            player.performCommand("lban handle " + command.substring(REPORT_PREFIX.length()) + " auto");
             return;
         }
 
         switch (command) {
             case "VIEW_BANS":
-                if (!plugin.isFeatureEnabled("ban")) {
-                    plugin.sendFeatureDisabled(player);
+                if (!Utils.canUse(plugin, player, "lengbanlist.list", "ban")) {
+                    Utils.sendMessage(player, plugin.prefix() + "§c不是你的工作喵！");
                     return;
                 }
                 gui.setView(player.getUniqueId(), "bans");
@@ -376,17 +299,26 @@ public class GuiCommand implements Listener {
                 renderGuiList(player, event.getView().getTopInventory(), "bans");
                 return;
             case "VIEW_MUTES":
-                if (!plugin.isFeatureEnabled("mute")) {
-                    plugin.sendFeatureDisabled(player);
+                if (!Utils.canUse(plugin, player, "lengbanlist.listmute", "mute")) {
+                    Utils.sendMessage(player, plugin.prefix() + "§c不是你的工作喵！");
                     return;
                 }
                 gui.setView(player.getUniqueId(), "mutes");
                 gui.setPage(player.getUniqueId(), "mutes", 0);
                 renderGuiList(player, event.getView().getTopInventory(), "mutes");
                 return;
+            case "VIEW_FREEZES":
+                if (!Utils.canUse(plugin, player, "lengbanlist.freeze", "freeze")) {
+                    Utils.sendMessage(player, plugin.prefix() + "§c不是你的工作喵！");
+                    return;
+                }
+                gui.setView(player.getUniqueId(), "freezes");
+                gui.setPage(player.getUniqueId(), "freezes", 0);
+                renderGuiList(player, event.getView().getTopInventory(), "freezes");
+                return;
             case "VIEW_REPORTS":
-                if (!plugin.isFeatureEnabled("report")) {
-                    plugin.sendFeatureDisabled(player);
+                if (!Utils.canUse(plugin, player, "lengbanlist.admin", "report")) {
+                    Utils.sendMessage(player, plugin.prefix() + "§c不是你的工作喵！");
                     return;
                 }
                 gui.setView(player.getUniqueId(), "reports");
@@ -406,6 +338,7 @@ public class GuiCommand implements Listener {
                 if (prevPage < 0) {
                     return;
                 }
+                playClick(player);
                 gui.setPage(player.getUniqueId(), view, prevPage);
                 renderGuiList(player, event.getView().getTopInventory(), view);
                 return;
@@ -417,326 +350,73 @@ public class GuiCommand implements Listener {
                 if (nextPage >= guiTotalPages(view)) {
                     return;
                 }
+                playClick(player);
                 gui.setPage(player.getUniqueId(), view, nextPage);
                 renderGuiList(player, event.getView().getTopInventory(), view);
                 return;
             default:
-                if (command.startsWith("/")) {
-                    player.closeInventory();
-                    switch (command) {
-                        case "/lban add":
-                            startChatWizard(player, "ban");
-                            break;
-                        case "/lban remove":
-                            startChatWizard(player, "unban");
-                            break;
-                        case "/lban ipban":
-                            startChatWizard(player, "ipban");
-                            break;
-                        case "/lban model":
-                            ModelManager.getInstance().openModelSelectionUI(player);
-                            break;
-                        case "/lban mute":
-                            startChatWizard(player, "mute");
-                            break;
-                        case "/lban unmute":
-                            startChatWizard(player, "unmute");
-                            break;
-                        default:
-                            player.performCommand(command.substring(1));
-                            break;
-                    }
-                } else if (command.equals("ACTION_SPONSOR")) {
-                    player.closeInventory();
-                    player.spigot().sendMessage(
-                            new net.md_5.bungee.api.chat.TextComponent(plugin.prefix() + "§6赞助作者："),
-                            Utils.clickableUrl("§e【点击打开爱发电】", "https://afdian.com/a/lengmc")
-                    );
+                handleMenuAction(player, command);
+                return;
+        }
+    }
+
+    private void handleMenuAction(Player player, String command) {
+        if (!command.startsWith(PREFIX_COMMAND)) {
+            if (ACTION_SPONSOR.equals(command)) {
+                player.closeInventory();
+                player.spigot().sendMessage(
+                        new net.md_5.bungee.api.chat.TextComponent(plugin.prefix() + "§6赞助作者："),
+                        Utils.clickableUrl("§e【点击打开爱发电】", "https://afdian.com/a/lengmc")
+                );
+            }
+            return;
+        }
+
+        playClick(player);
+        player.closeInventory();
+        switch (command) {
+            case "/lban add":
+                startWizard(player, "ban");
+                break;
+            case "/lban add <IP>":
+                startWizard(player, "ipban");
+                break;
+            case "/lban remove":
+                startWizard(player, "unban");
+                break;
+            case "/lban mute":
+                startWizard(player, "mute");
+                break;
+            case "/lban unmute":
+                startWizard(player, "unmute");
+                break;
+            case "/lban warn":
+                startWizard(player, "warn");
+                break;
+            case "/lban freeze":
+                startWizard(player, "freeze");
+                break;
+            case "/lban unfreeze":
+                startWizard(player, "unfreeze");
+                break;
+            case "/lban model":
+                if (!Utils.canUse(plugin, player, "lengbanlist.model", "model")) {
+                    Utils.sendMessage(player, plugin.prefix() + "§c不是你的工作喵！");
+                    return;
                 }
+                ModelManager.getInstance().openModelSelectionUI(player);
+                break;
+            default:
+                player.performCommand(command.substring(1));
                 break;
         }
     }
 
-    public void startChatWizard(Player player, String action) {
-        switch (action) {
-            case "ban":
-                if (!plugin.isFeatureEnabled("ban")) {
-                    plugin.sendFeatureDisabled(player);
-                    return;
-                }
-                break;
-            case "unban":
-                if (!plugin.isFeatureEnabled("unban")) {
-                    plugin.sendFeatureDisabled(player);
-                    return;
-                }
-                break;
-            case "mute":
-            case "unmute":
-                if (!plugin.isFeatureEnabled("mute")) {
-                    plugin.sendFeatureDisabled(player);
-                    return;
-                }
-                break;
-            case "ipban":
-                if (!plugin.isFeatureEnabled("ban-ip")) {
-                    plugin.sendFeatureDisabled(player);
-                    return;
-                }
-                break;
-        }
-        player.setMetadata("lengbanlist-action", new org.bukkit.metadata.FixedMetadataValue(plugin, action));
-        switch (action) {
-            case "ban":
-                player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "playerID"));
-                Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f玩家名或IP§e：");
-                break;
-            case "ipban":
-                player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "ip"));
-                Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入要§f封禁的IP地址§e：");
-                break;
-            case "unban":
-                Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入要§f解封的玩家名或IP§e：");
-                break;
-            case "mute":
-                player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "playerID"));
-                Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入要§f禁言的玩家名§e：");
-                break;
-            case "unmute":
-                Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入要§f解除禁言的玩家名§e：");
-                break;
-        }
+    private void playClick(Player player) {
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
     }
 
-    public void handleChatWizard(Player player, String input) {
-        if (!player.hasMetadata("lengbanlist-action")) return;
-
-        String action = player.getMetadata("lengbanlist-action").get(0).asString();
-
-        switch (action) {
-            case "ban":
-                if (!plugin.isFeatureEnabled("ban")) {
-                    plugin.sendFeatureDisabled(player);
-                    clearWizard(player);
-                    return;
-                }
-                handleBanWizard(player, input);
-                break;
-            case "unban":
-                if (!plugin.isFeatureEnabled("unban")) {
-                    plugin.sendFeatureDisabled(player);
-                    clearWizard(player);
-                    return;
-                }
-                BanManager.BanMutationResult unbanResult;
-                if (input.contains(".")) {
-                    unbanResult = plugin.getBanManager().tryUnbanIp(input, player.getName(), false);
-                } else {
-                    unbanResult = plugin.getBanManager().tryUnbanPlayer(input, player.getName(), false);
-                }
-                if (!unbanResult.isApplied()) {
-                    BanMutationFeedback.sendFailure(player, unbanResult, input, input.contains("."));
-                    if (unbanResult == BanManager.BanMutationResult.DATABASE_ERROR) {
-                        return;
-                    }
-                }
-                clearWizard(player);
-                break;
-            case "mute":
-                if (!plugin.isFeatureEnabled("mute")) {
-                    plugin.sendFeatureDisabled(player);
-                    clearWizard(player);
-                    return;
-                }
-                handleMuteWizard(player, input);
-                break;
-            case "unmute":
-                if (!plugin.isFeatureEnabled("mute")) {
-                    plugin.sendFeatureDisabled(player);
-                    clearWizard(player);
-                    return;
-                }
-                plugin.getMuteManager().unmutePlayer(input, player.getName());
-                Utils.broadcast(ModelManager.getInstance().getCurrentModel().removeMute(input));
-                clearWizard(player);
-                break;
-            case "ipban":
-                if (!plugin.isFeatureEnabled("ban-ip")) {
-                    plugin.sendFeatureDisabled(player);
-                    clearWizard(player);
-                    return;
-                }
-                handleIPBanWizard(player, input);
-                break;
-        }
-    }
-
-    private void handleBanWizard(Player player, String input) {
-        String step = player.getMetadata("lengbanlist-step").get(0).asString();
-        if (step.equals("playerID")) {
-            player.setMetadata("lengbanlist-playerID", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
-            player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "time"));
-            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f封禁时间§e（如：1d, 7d, forever）：");
-        } else if (step.equals("time")) {
-            if (!TimeUtils.isValidTime(input)) {
-                Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效喵，请使用：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever, auto");
-                return;
-            }
-            player.setMetadata("lengbanlist-time", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
-            player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "reason"));
-            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f封禁原因§e：");
-        } else if (step.equals("reason")) {
-            String playerID = player.getMetadata("lengbanlist-playerID").get(0).asString();
-            String time = player.getMetadata("lengbanlist-time").get(0).asString();
-            if (!playerID.contains(".") && !plugin.getImmunityManager().canPunish(player, playerID)) {
-                Utils.sendMessage(player, plugin.getModelManager().getCurrentModel().getImmunityDenied(playerID));
-                clearWizard(player);
-                return;
-            }
-            long duration;
-            boolean isAuto = false;
-            if (time.equalsIgnoreCase("auto")) {
-                isAuto = true;
-                duration = playerID.contains(".")
-                        ? plugin.getEscalationManager().resolveIpBan(playerID).durationMillis
-                        : plugin.getEscalationManager().resolveBan(playerID).durationMillis;
-            } else {
-                duration = TimeUtils.parseTime(time);
-            }
-            if (duration <= 0) {
-                Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效喵。");
-                return;
-            }
-            long endTime = TimeUtils.calculateEndTime(duration);
-            BanManager.BanMutationResult banResult;
-            if (playerID.contains(".")) {
-                if (!plugin.isFeatureEnabled("ban-ip")) {
-                    plugin.sendFeatureDisabled(player);
-                    clearWizard(player);
-                    return;
-                }
-                banResult = plugin.getBanManager().tryBanIp(new BanIpEntry(playerID, player.getName(), endTime, input, isAuto));
-            } else {
-                banResult = plugin.getBanManager().tryBanPlayer(new BanEntry(playerID, player.getName(), endTime, input, isAuto));
-            }
-            if (!banResult.isApplied()) {
-                BanMutationFeedback.sendFailure(player, banResult, playerID, playerID.contains("."));
-                if (banResult == BanManager.BanMutationResult.DATABASE_ERROR) {
-                    return;
-                }
-            }
-            clearWizard(player);
-        }
-    }
-
-    private void handleIPBanWizard(Player player, String input) {
-        String step = player.getMetadata("lengbanlist-step").get(0).asString();
-        if (step.equals("ip")) {
-            if (input.equalsIgnoreCase("-s")) {
-                player.setMetadata("lengbanlist-silent", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                Utils.sendMessage(player, plugin.prefix() + "§e已开启静默模式，请输入要§f封禁的IP地址§e：");
-                return;
-            }
-            if (!IpMatcher.isIpv4(input)) {
-                Utils.sendMessage(player, plugin.prefix() + "§cIP格式无效喵，请输入合法的 IPv4 地址。");
-                return;
-            }
-            player.setMetadata("lengbanlist-playerID", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
-            player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "time"));
-            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f封禁时间§e（如：1d, 7d, forever, auto）：");
-        } else if (step.equals("time")) {
-            if (!TimeUtils.isValidTime(input)) {
-                Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效喵，请使用：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever, auto");
-                return;
-            }
-            player.setMetadata("lengbanlist-time", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
-            player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "reason"));
-            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f封禁原因§e：");
-        } else if (step.equals("reason")) {
-            String ip = player.getMetadata("lengbanlist-playerID").get(0).asString();
-            String time = player.getMetadata("lengbanlist-time").get(0).asString();
-            long duration;
-            boolean isAuto = false;
-            if (time.equalsIgnoreCase("auto")) {
-                isAuto = true;
-                duration = TimeUtils.daysToMillis(7);
-            } else {
-                duration = TimeUtils.parseTime(time);
-            }
-            if (duration <= 0) {
-                Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效喵。");
-                return;
-            }
-            long endTime = TimeUtils.calculateEndTime(duration);
-            boolean silent = player.hasMetadata("lengbanlist-silent");
-            BanManager.BanMutationResult banResult = plugin.getBanManager().tryBanIp(new BanIpEntry(ip, player.getName(), endTime, input, isAuto), silent);
-            if (banResult.isApplied()) {
-                Utils.sendMessage(player, plugin.prefix() + "§a封禁IP成功：" + ip);
-                clearWizard(player);
-            } else {
-                BanMutationFeedback.sendFailure(player, banResult, ip, true);
-                if (banResult == BanManager.BanMutationResult.DATABASE_ERROR) {
-                    return;
-                }
-                clearWizard(player);
-            }
-        }
-    }
-
-    private void handleMuteWizard(Player player, String input) {
-        String step = player.getMetadata("lengbanlist-step").get(0).asString();
-        if (step.equals("playerID")) {
-            if (input.equalsIgnoreCase("-s")) {
-                player.setMetadata("lengbanlist-silent", new org.bukkit.metadata.FixedMetadataValue(plugin, true));
-                Utils.sendMessage(player, plugin.prefix() + "§e已开启静默模式，请输入要§f禁言的玩家名§e：");
-                return;
-            }
-            player.setMetadata("lengbanlist-playerID", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
-            player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "time"));
-            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f禁言时间§e（如：10m, 1d, forever, auto）：");
-        } else if (step.equals("time")) {
-            if (!TimeUtils.isValidTime(input)) {
-                Utils.sendMessage(player, plugin.prefix() + "§c时间格式无效喵，请使用：10s, 5m, 2h, 7d, 1w, 1M, 1y, forever, auto");
-                return;
-            }
-            player.setMetadata("lengbanlist-time", new org.bukkit.metadata.FixedMetadataValue(plugin, input));
-            player.setMetadata("lengbanlist-step", new org.bukkit.metadata.FixedMetadataValue(plugin, "reason"));
-            Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入§f禁言原因§e：");
-        } else if (step.equals("reason")) {
-            String playerID = player.getMetadata("lengbanlist-playerID").get(0).asString();
-            String time = player.getMetadata("lengbanlist-time").get(0).asString();
-            if (!plugin.getImmunityManager().canPunish(player, playerID)) {
-                Utils.sendMessage(player, plugin.getModelManager().getCurrentModel().getImmunityDenied(playerID));
-                clearWizard(player);
-                return;
-            }
-            long duration;
-            if (time.equalsIgnoreCase("auto")) {
-                duration = plugin.getEscalationManager().resolveMute(playerID);
-            } else {
-                duration = TimeUtils.parseTime(time);
-            }
-            MuteEntry entry = new MuteEntry(playerID, player.getName(), TimeUtils.calculateEndTime(duration), input);
-            Long newMuteEnd = plugin.getMuteManager().mutePlayer(entry);
-            if (newMuteEnd == null) {
-                Utils.sendMessage(player, plugin.prefix() + "§e该目标已有相同时长的禁言记录，未重复禁言。");
-                clearWizard(player);
-                return;
-            }
-            if (player.hasMetadata("lengbanlist-silent")) {
-                Utils.sendMessage(player, ModelManager.getInstance().getCurrentModel().addMute(playerID, input));
-            } else {
-                Utils.broadcast(ModelManager.getInstance().getCurrentModel().addMute(playerID, input));
-            }
-            clearWizard(player);
-        }
-    }
-
-    private void clearWizard(Player player) {
-        player.removeMetadata("lengbanlist-action", plugin);
-        player.removeMetadata("lengbanlist-step", plugin);
-        player.removeMetadata("lengbanlist-playerID", plugin);
-        player.removeMetadata("lengbanlist-time", plugin);
-        player.removeMetadata("lengbanlist-silent", plugin);
+    private void startWizard(Player player, String action) {
+        plugin.getWizardManager().start(player, action);
     }
 }

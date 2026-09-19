@@ -82,7 +82,7 @@ public class AuditManager {
                                 writer.write(',');
                             }
                             first = false;
-                            writer.write("{\"id\":" + row.getId() + ",\"timestamp\":" + row.getTimestamp() + ",\"actor\":" + JSONObject.quote(row.getActor()) + ",\"action\":" + JSONObject.quote(row.getAction()) + ",\"target\":" + JSONObject.quote(row.getTarget()) + ",\"reason\":" + JSONObject.quote(row.getReason()) + ",\"success\":" + row.isSuccess() + ",\"prev_hash\":" + JSONObject.quote(row.getPrevHash()) + ",\"hash\":" + JSONObject.quote(hash) + "}");
+                            writer.write("{\"id\":" + row.getId() + ",\"timestamp\":" + row.getTimestamp() + ",\"actor\":" + JSONObject.quote(row.getActor()) + ",\"action\":" + JSONObject.quote(row.getAction()) + ",\"target\":" + JSONObject.quote(row.getTarget()) + ",\"reason\":" + JSONObject.quote(row.getReason()) + ",\"success\":" + row.isSuccess() + ",\"server\":" + JSONObject.quote(row.getServer()) + ",\"prev_hash\":" + JSONObject.quote(row.getPrevHash()) + ",\"hash\":" + JSONObject.quote(hash) + "}");
                             total++;
                         }
                         cursor = rows.get(rows.size() - 1).getId();

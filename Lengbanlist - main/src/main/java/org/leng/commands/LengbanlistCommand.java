@@ -64,21 +64,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
                 }
-                String defaultMessage = plugin.getBroadcastFC().getString("default-message");
-                if (defaultMessage == null || defaultMessage.isEmpty()) {
-                    Utils.sendMessage(sender, plugin.prefix() + "§c广播消息未配置，请在 broadcast.yml 中设置 default-message。");
-                    break;
-                }
-                int banCount = plugin.getBanManager().countActiveBans();
-                int banIpCount = plugin.getBanManager().countActiveIpBans();
-                int totalBans = banCount + banIpCount;
-
-                String replacedMessage = defaultMessage
-                        .replace("%s", String.valueOf(banCount))
-                        .replace("%i", String.valueOf(banIpCount))
-                        .replace("%t", String.valueOf(totalBans));
-
-                plugin.getServer().broadcastMessage(plugin.prefix() + " " + replacedMessage);
+                plugin.getBroadCastManager().broadcastNow(sender);
                 break;
             case "list":
                 if (!plugin.isFeatureEnabled("ban")) {
@@ -136,6 +122,9 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 }
                 if (plugin.getModelCloudManager() != null) {
                     plugin.getModelCloudManager().cachedIndexOnly();
+                }
+                if (!plugin.isFeatureEnabled("vanish") && plugin.getVanishManager() != null) {
+                    plugin.getVanishManager().restoreAll();
                 }
                 plugin.restartScheduledTasks();
                 if (plugin.getWebServer() != null) {
@@ -340,6 +329,12 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     Utils.sendMessage(sender, plugin.prefix() + "§c玩家不在线");
                 }
                 break;
+            case "vanish":
+                return new VanishCommand(plugin).onCommand(sender, this, label, Arrays.copyOfRange(args, 1, args.length));
+            case "freeze":
+                return new FreezeCommand(plugin).onCommand(sender, this, label, Arrays.copyOfRange(args, 1, args.length));
+            case "unfreeze":
+                return new UnfreezeCommand(plugin).onCommand(sender, this, label, Arrays.copyOfRange(args, 1, args.length));
             case "admin":
                 if (!plugin.isFeatureEnabled("admin")) {
                     plugin.sendFeatureDisabled(sender);
@@ -447,7 +442,8 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 Utils.sendMessage(sender, "§7--§bLengbanlist 审计日志" + (auditFilter.isEmpty() ? "" : " (操作人: §f" + auditFilter + "§b)") + "§7--");
                 for (AuditEntry auditEntry : auditLogs) {
                     String mark = auditEntry.isSuccess() ? "§a[成功]" : "§c[失败]";
-                    Utils.sendMessage(sender, mark + " §7[" + TimeUtils.timestampToReadable(auditEntry.getTimestamp()) + "] §e" + auditEntry.getAction() + " §f" + auditEntry.getActor() + " → " + auditEntry.getTarget() + " §7" + auditEntry.getReason());
+                    String serverTag = auditEntry.getServer().isEmpty() ? "" : "§8@" + auditEntry.getServer();
+                    Utils.sendMessage(sender, mark + " §7[" + TimeUtils.timestampToReadable(auditEntry.getTimestamp()) + "] §e" + auditEntry.getAction() + " §f" + auditEntry.getActor() + serverTag + " §7→ §f" + auditEntry.getTarget() + " §7" + auditEntry.getReason());
                 }
                 break;
             case "handle":
@@ -566,7 +562,8 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 StringBuilder available = new StringBuilder("§6§l可用子命令： §b");
                 for (String s : new String[]{"toggle", "a", "list", "reload", "add", "remove", "help", "open",
                         "getip", "model", "models", "mute", "unmute", "list-mute", "warn", "unwarn",
-                        "report", "admin", "check", "info", "tp", "history", "audit", "handle", "alts", "sync", "rollback"}) {
+                        "report", "admin", "check", "info", "tp", "history", "audit", "handle", "alts", "sync", "rollback",
+                        "vanish", "freeze", "unfreeze"}) {
                     available.append(s).append(" ");
                 }
                 Utils.sendMessage(sender, available.toString());
@@ -587,13 +584,20 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
             String prefix = args[0].toLowerCase();
             String[] subs = {"toggle", "a", "list", "reload", "add", "remove", "help", "open",
                     "getip", "model", "models", "mute", "unmute", "list-mute", "warn", "unwarn",
-                    "report", "admin", "check", "info", "tp", "history", "audit", "handle", "alts", "sync", "rollback"};
+                    "report", "admin", "check", "info", "tp", "history", "audit", "handle", "alts", "sync", "rollback",
+                    "vanish", "freeze", "unfreeze"};
             for (String s : subs) {
                 if (s.startsWith(prefix)) completions.add(s);
             }
         } else if (args.length >= 2 && args[0].equalsIgnoreCase("models")) {
 
             return new ModelsCommand(plugin).onTabComplete(sender, null, "", Arrays.copyOfRange(args, 1, args.length));
+        } else if (args.length >= 2 && args[0].equalsIgnoreCase("freeze")) {
+
+            return new FreezeCommand(plugin).onTabComplete(sender, null, "", Arrays.copyOfRange(args, 1, args.length));
+        } else if (args.length >= 2 && args[0].equalsIgnoreCase("unfreeze")) {
+
+            return new UnfreezeCommand(plugin).onTabComplete(sender, null, "", Arrays.copyOfRange(args, 1, args.length));
         } else if (args.length == 2) {
             String sub = args[0].toLowerCase();
             String prefix = args[1].toLowerCase();
@@ -657,13 +661,32 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
         return completions;
     }
 
+    private static final int LIST_DISPLAY_LIMIT = 50;
+
     private void showBanList(CommandSender sender) {
-        Utils.sendMessage(sender, "§7--§bLengbanlist 封禁名单§7--");
-        for (BanEntry entry : plugin.getBanManager().getBanList()) {
+        List<BanEntry> bans = plugin.getBanManager().getBanList();
+        List<BanIpEntry> ipBans = plugin.getBanManager().getBanIpList();
+        Utils.sendMessage(sender, "§7--§bLengbanlist 封禁名单 §7(玩家 " + bans.size() + " / IP " + ipBans.size() + ")§7--");
+        if (bans.isEmpty() && ipBans.isEmpty()) {
+            Utils.sendMessage(sender, "§7当前没有封禁记录。");
+            return;
+        }
+        int shown = 0;
+        for (BanEntry entry : bans) {
+            if (shown++ >= LIST_DISPLAY_LIMIT) {
+                break;
+            }
             Utils.sendMessage(sender, "§c被封禁者：§f" + entry.getTarget() + " §e处理人：§f" + entry.getStaff() + " §e封禁原因：§f" + entry.getReason() + " §f解封时间：" + TimeUtils.timestampToReadable(entry.getTime()));
         }
-        for (BanIpEntry entry : plugin.getBanManager().getBanIpList()) {
+        for (BanIpEntry entry : ipBans) {
+            if (shown++ >= LIST_DISPLAY_LIMIT) {
+                break;
+            }
             Utils.sendMessage(sender, "§c被封禁IP：§f" + entry.getIp() + " §e处理人：§f" + entry.getStaff() + " §e封禁原因：§f" + entry.getReason() + " §f解封时间：" + TimeUtils.timestampToReadable(entry.getTime()));
+        }
+        int total = bans.size() + ipBans.size();
+        if (total > LIST_DISPLAY_LIMIT) {
+            Utils.sendMessage(sender, "§7仅显示前 " + LIST_DISPLAY_LIMIT + " 条，共 " + total + " 条。完整列表：§f/lban open §7或 Web 面板。");
         }
     }
 

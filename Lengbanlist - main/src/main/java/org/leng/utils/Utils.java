@@ -67,6 +67,16 @@ public class Utils {
         return "CONSOLE";
     }
 
+    public static boolean canUse(org.leng.Lengbanlist plugin, Player player, String permission, String feature) {
+        if (plugin == null || player == null) {
+            return false;
+        }
+        if (feature != null && !plugin.isFeatureEnabled(feature)) {
+            return false;
+        }
+        return permission == null || player.hasPermission(permission);
+    }
+
     public static TextComponent clickableUrl(String text, String url) {
         TextComponent component = new TextComponent(ChatColor.translateAlternateColorCodes('&', text));
         component.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, url));

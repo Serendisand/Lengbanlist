@@ -60,7 +60,7 @@ public class AutoUpdateManager {
                 logger.info("你正在使用最新版本：" + currentVersion);
             }
         } catch (Exception e) {
-            logger.log(java.util.logging.Level.WARNING, "检查更新时出错", e);
+            org.leng.utils.ErrorLog.record(org.leng.Lengbanlist.getInstance(), "检查更新时出错", e);
         }
     }
 

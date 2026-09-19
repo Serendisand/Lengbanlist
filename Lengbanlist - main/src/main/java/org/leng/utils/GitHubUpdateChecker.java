@@ -118,7 +118,7 @@ public class GitHubUpdateChecker {
             try {
                 return getLatestReleaseVersion();
             } catch (Exception e) {
-                plugin.getLogger().warning("异步获取最新版本失败: " + e.getMessage());
+                plugin.getLogger().fine("异步获取最新版本失败: " + e.getMessage());
                 return null;
             }
         });
@@ -135,10 +135,12 @@ public class GitHubUpdateChecker {
                 clickableComponent.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new ComponentBuilder("§a点击打开更新页面喵~").create()));
                 Lengbanlist.getInstance().getLogger().info(mainMessage.toLegacyText() + " " + clickableComponent.toLegacyText());
             } else {
-                Lengbanlist.getInstance().getLogger().info("哇塞，喵呜现在是最新版本！QwQ");
+                Lengbanlist.getInstance().getLogger().fine("更新检查完成：已是最新版本");
             }
         } catch (Exception e) {
-            Lengbanlist.getInstance().getLogger().log(java.util.logging.Level.WARNING, "检测更新时出错", e);
+            if (isPluginRunning()) {
+                ErrorLog.record(Lengbanlist.getInstance(), "检测更新时出错", e);
+            }
         }
     }
 
@@ -218,6 +220,11 @@ public class GitHubUpdateChecker {
         return o == null ? def : String.valueOf(o);
     }
 
+    private static boolean isPluginRunning() {
+        Lengbanlist plugin = Lengbanlist.getInstance();
+        return plugin != null && plugin.isEnabled();
+    }
+
     private static UpdateInfo fetchUpdateInfo() throws Exception {
         if (cachedInfo != null && System.currentTimeMillis() - cachedAt < CACHE_TTL_MS) {
             return cachedInfo;
@@ -230,6 +237,9 @@ public class GitHubUpdateChecker {
             Exception lastException = null;
             for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
                 for (Mirror mirror : mirrors) {
+                    if (!isPluginRunning()) {
+                        throw new Exception("插件已停用，取消更新检查");
+                    }
                     try {
                         UpdateInfo info = fetchFromMirror(mirror);
                         cachedInfo = info;
@@ -238,7 +248,8 @@ public class GitHubUpdateChecker {
                         return info;
                     } catch (Exception e) {
                         lastException = e;
-                        Lengbanlist.getInstance().getLogger().warning("更新检查失败：" + mirror.name + " → " + mirror.url + "（第" + attempt + "轮），原因：" + e.getMessage());
+                        Lengbanlist.getInstance().getLogger().fine("更新检查失败：" + mirror.name
+                                + "（第" + attempt + "轮）— " + e.getMessage());
                     }
                 }
                 if (attempt < MAX_RETRIES) {

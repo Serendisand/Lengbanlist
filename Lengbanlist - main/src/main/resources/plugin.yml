@@ -10,18 +10,6 @@ authors:
   - Serendisand
 description: >
   This plugin provides a lightweight ban and query system for high-version Minecraft servers.
-
-
-  Permission semantics (重要): `/lban <sub>` 入口与独立命令入口 (`/ban`, `/mute` 等) 共享权限节点,
-  但路由器层会在 `/lban <sub>` 入口接受宽松检查,具体节点校验由独立命令类负责。
-  关键映射:
-    /lban add <玩家>   → lengbanlist.ban
-    /lban add <IP>     → lengbanlist.banip
-    /lban remove       → lengbanlist.unban
-    /lban mute/unmute  → lengbanlist.mute
-    /lban warn/unwarn  → lengbanlist.warn / lengbanlist.unwarn
-    /lban getip        → lengbanlist.getip
-  注意: `/lban add <IP>` 必须授予 `lengbanlist.banip`（与独立 `/ban-ip` 一致）。
 commands:
   lban:
     description: 主命令
@@ -196,4 +184,13 @@ permissions:
     default: op
   lengbanlist.rollback:
     description: 允许回滚指定管理员的操作
+    default: op
+  lengbanlist.vanish:
+    description: 允许切换自身隐身状态
+    default: op
+  lengbanlist.vanish.see:
+    description: 允许看见处于隐身状态的管理员
+    default: op
+  lengbanlist.freeze:
+    description: 允许冻结/解冻玩家
     default: op

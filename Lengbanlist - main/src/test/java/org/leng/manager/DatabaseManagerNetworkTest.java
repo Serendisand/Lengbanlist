@@ -61,6 +61,7 @@ class DatabaseManagerNetworkTest {
         config.set(prefix + "username", System.getenv("LENGBANLIST_TEST_" + dialect.name() + "_USER"));
         config.set(prefix + "password", System.getenv("LENGBANLIST_TEST_" + dialect.name() + "_PASSWORD"));
         lenient().when(plugin.getConfig()).thenReturn(config);
+        lenient().when(plugin.getStorageConfig()).thenReturn(config);
         lenient().when(plugin.getLogger()).thenReturn(Logger.getLogger("LengbanlistNetworkTest"));
         lenient().when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
 

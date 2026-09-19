@@ -5,7 +5,6 @@ import com.google.gson.JsonParser;
 import org.leng.Lengbanlist;
 
 import java.io.IOException;
-import java.util.logging.Level;
 
 public final class IpGeoLookup {
 
@@ -36,7 +35,7 @@ public final class IpGeoLookup {
             String city = safeGetString(obj, "city");
             return country + ", " + region + ", " + city;
         } catch (IOException | InterruptedException e) {
-            plugin.getLogger().log(Level.WARNING, "[IpGeoLookup] 查询失败: " + ip, e);
+            org.leng.utils.ErrorLog.record(plugin, "[IpGeoLookup] 查询失败: " + ip, e);
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }

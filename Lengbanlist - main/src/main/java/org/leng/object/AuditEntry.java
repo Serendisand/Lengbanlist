@@ -8,7 +8,8 @@ public record AuditEntry(
         String target,
         String reason,
         boolean success,
-        String prevHash
+        String prevHash,
+        String server
 ) {
 
     public AuditEntry {
@@ -17,10 +18,15 @@ public record AuditEntry(
         target = target == null ? "" : target;
         reason = reason == null ? "" : reason;
         prevHash = prevHash == null ? "" : prevHash;
+        server = server == null ? "" : server;
+    }
+
+    public AuditEntry(long id, long timestamp, String actor, String action, String target, String reason, boolean success, String prevHash) {
+        this(id, timestamp, actor, action, target, reason, success, prevHash, "");
     }
 
     public AuditEntry(long timestamp, String actor, String action, String target, String reason, boolean success) {
-        this(0, timestamp, actor, action, target, reason, success, "");
+        this(0, timestamp, actor, action, target, reason, success, "", "");
     }
 
     public String getActor() { return actor; }
@@ -38,4 +44,6 @@ public record AuditEntry(
     public boolean isSuccess() { return success; }
 
     public String getPrevHash() { return prevHash; }
+
+    public String getServer() { return server; }
 }

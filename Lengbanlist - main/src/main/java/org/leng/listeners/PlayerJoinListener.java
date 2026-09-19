@@ -7,12 +7,12 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.leng.Lengbanlist;
 import org.leng.manager.BanManager;
-import org.leng.manager.IpAssociationManager;
 import org.leng.object.BanIpEntry;
 import org.leng.object.ReportEntry;
 import org.leng.utils.SchedulerUtils;
 import org.leng.utils.SaveIP;
 import org.leng.utils.TimeUtils;
+import org.leng.utils.Utils;
 
 import java.util.List;
 
@@ -27,29 +27,16 @@ public class PlayerJoinListener implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        SaveIP.saveIP(player);
 
         if (plugin.isFeatureEnabled("ban") || plugin.isFeatureEnabled("ban-ip")) {
             plugin.getBanManager().checkBanOnJoin(player);
         }
 
-        if (plugin.isFeatureEnabled("ip-association")) {
-
-            List<String> associatedPlayers = plugin.getIpAssociationManager().getOtherPlayersOnIp(player);
-            if (!associatedPlayers.isEmpty()) {
-                String msg = plugin.prefix() + "§e玩家 §f" + player.getName() + " §e的 IP 曾由以下玩家使用: §f" + String.join("§7, §f", associatedPlayers);
-                for (Player online : Bukkit.getOnlinePlayers()) {
-                    if (online.hasPermission("lengbanlist.check") || online.isOp()) {
-                        online.sendMessage("§7[§cIP关联§7] §f" + player.getName() + " §e的 IP 存在关联账号");
-                    }
-                }
-                Bukkit.getConsoleSender().sendMessage("§7[§cIP关联§7] " + msg);
-            }
-        }
+        SchedulerUtils.runAsync(plugin, () -> prepareJoin(player));
 
         if (plugin.isFeatureEnabled("vpn-detection") && player.getAddress() != null && player.getAddress().getAddress() != null) {
             String ip = player.getAddress().getAddress().getHostAddress();
-            if (ip != null && IpAssociationManager.isRealIp(ip)) {
+            if (ip != null && org.leng.manager.IpAssociationManager.isRealIp(ip)) {
                 SchedulerUtils.runAsync(plugin, () -> {
                     boolean isVpn = plugin.getIpAssociationManager().isVpnIp(ip);
                     if (isVpn) {
@@ -59,33 +46,54 @@ public class PlayerJoinListener implements Listener {
                 });
             }
         }
+    }
+
+    private void prepareJoin(Player player) {
+        SaveIP.saveIP(player);
+
+        if (plugin.isFeatureEnabled("ip-association")) {
+            List<String> associatedPlayers = plugin.getIpAssociationManager().getOtherPlayersOnIp(player);
+            if (!associatedPlayers.isEmpty()) {
+                SchedulerUtils.runTask(plugin, player, () -> notifyIpAssociation(player, associatedPlayers));
+            }
+        }
 
         if (plugin.isFeatureEnabled("report")) {
-
             List<ReportEntry> reports = plugin.getReportManager()
                     .getReportsByReporterWithStatus(player.getName(), "受理中");
-
             if (!reports.isEmpty()) {
-                player.sendMessage(plugin.prefix() + "§7——————————");
-                player.sendMessage(plugin.prefix() + "§a你的举报已被处理。");
-                player.spigot().sendMessage(
-                        new net.md_5.bungee.api.chat.TextComponent(plugin.prefix() + " "),
-                        org.leng.utils.Utils.clickableText("§a【我已阅读】", "/report ack " + reports.get(0).getId())
-                );
-                player.sendMessage(plugin.prefix() + "§7——————————");
+                SchedulerUtils.runTask(plugin, player, () -> notifyHandledReports(player, reports));
             }
         }
 
         if (plugin.isFeatureEnabled("offline-warn") && plugin.getConfig().getBoolean("offline-warn.notify-on-join", true)) {
-            String target = event.getPlayer().getName();
-            SchedulerUtils.runAsync(plugin, () -> {
-                int count = plugin.getWarnManager().countActiveWarnings(target);
-                if (count > 0) {
-                    String msg = plugin.getModelManager().getCurrentModel().getPendingWarningsNotice(count);
-                    SchedulerUtils.runTask(plugin, event.getPlayer(), () -> event.getPlayer().sendMessage(msg));
-                }
-            });
+            int count = plugin.getWarnManager().countActiveWarnings(player.getName());
+            if (count > 0 && player.isOnline()) {
+                String msg = plugin.getModelManager().getCurrentModel().getPendingWarningsNotice(count);
+                SchedulerUtils.runTask(plugin, player, () -> Utils.sendMessage(player, msg));
+            }
         }
+    }
+
+    private void notifyIpAssociation(Player joined, List<String> associatedPlayers) {
+        String message = plugin.prefix() + "§e玩家 §f" + joined.getName() + " §e的 IP 曾由以下玩家使用: §f"
+                + String.join("§7, §f", associatedPlayers);
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            if (online.hasPermission("lengbanlist.check") || online.isOp()) {
+                Utils.sendMessage(online, "§7[§cIP关联§7] §f" + joined.getName() + " §e的 IP 存在关联账号");
+            }
+        }
+        Bukkit.getConsoleSender().sendMessage("§7[§cIP关联§7] " + message);
+    }
+
+    private void notifyHandledReports(Player reporter, List<ReportEntry> reports) {
+        Utils.sendMessage(reporter, plugin.prefix() + "§7——————————");
+        Utils.sendMessage(reporter, plugin.prefix() + "§a你的举报已被处理。");
+        reporter.spigot().sendMessage(
+                new net.md_5.bungee.api.chat.TextComponent(plugin.prefix() + " "),
+                Utils.clickableText("§a【我已阅读】", "/report ack " + reports.get(0).getId())
+        );
+        Utils.sendMessage(reporter, plugin.prefix() + "§7——————————");
     }
 
     private void handleVpnDetection(Player player, String ip, String action) {
@@ -117,7 +125,7 @@ public class PlayerJoinListener implements Listener {
                 player.kickPlayer("§c检测到代理/VPN 连接\n\n§f" + kickMsg);
                 for (Player online : Bukkit.getOnlinePlayers()) {
                     if (online.hasPermission("lengbanlist.check") || online.isOp()) {
-                        online.sendMessage("§7[§cVPN检测§7] " + prefix + "§e" + player.getName() + " §e因使用代理/VPN 已被踢出");
+                        online.sendMessage("§7[§cVPN检测§7] " + prefix + "§e" + player.getName() + " §e因使用代理/VPN 被踢出");
                     }
                 }
                 Bukkit.getConsoleSender().sendMessage("§7[§cVPN检测§7] " + player.getName() + " 因使用代理/VPN 被踢出 (IP: " + ip + ")");
@@ -132,5 +140,4 @@ public class PlayerJoinListener implements Listener {
                 break;
         }
     }
-
 }

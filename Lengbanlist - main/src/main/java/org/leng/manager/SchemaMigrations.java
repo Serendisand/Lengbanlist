@@ -6,7 +6,7 @@ import java.util.TreeMap;
 
 public final class SchemaMigrations {
 
-    public static final int CURRENT_VERSION = 4;
+    public static final int CURRENT_VERSION = 5;
 
     private static final TreeMap<Integer, Migration> MIGRATIONS = new TreeMap<>();
 
@@ -24,6 +24,9 @@ public final class SchemaMigrations {
                             new String[]{"meta_key", "meta_value"}, "audit.tail", "");
                     db.backfillAuditChain();
                 });
+        register(5, "audit_log 加 server 列(多子服共用数据库时标记来源服务器)",
+                db -> db.addColumnIfMissing("audit_log", "server",
+                        db.textType() + " NOT NULL DEFAULT ''"));
     }
 
     private SchemaMigrations() {}

@@ -15,7 +15,6 @@ import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
 
 public class StorageMigrationManager {
     private final Lengbanlist plugin;
@@ -231,7 +230,7 @@ public class StorageMigrationManager {
         if (e == null) {
             plugin.getLogger().warning(message);
         } else {
-            plugin.getLogger().log(Level.WARNING, message, e);
+            org.leng.utils.ErrorLog.record(plugin, message, e);
         }
     }
 

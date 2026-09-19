@@ -10,7 +10,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Level;
 
 public class MuteManager {
     private static final int MAX_RELOAD_ATTEMPTS = 3;
@@ -147,7 +146,7 @@ public class MuteManager {
             }
             return reloaded;
         } catch (SQLException e) {
-            plugin.getLogger().log(Level.WARNING, "刷新禁言缓存失败，将保留现有缓存", e);
+            org.leng.utils.ErrorLog.record(plugin, "刷新禁言缓存失败，将保留现有缓存", e);
             return false;
         }
     }

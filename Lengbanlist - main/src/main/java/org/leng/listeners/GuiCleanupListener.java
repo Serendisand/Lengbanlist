@@ -20,7 +20,8 @@ public class GuiCleanupListener implements Listener {
 
     @EventHandler
     public void onClose(InventoryCloseEvent event) {
-        if (event.getView().getTitle().startsWith("§bLengbanlist")) {
+        String title = event.getView().getTitle();
+        if (title.startsWith("§bLengbanlist") || title.equals(org.leng.manager.ModelManager.MODEL_UI_TITLE)) {
             plugin.getGuiSessionManager().clear(event.getPlayer().getUniqueId());
         }
     }
