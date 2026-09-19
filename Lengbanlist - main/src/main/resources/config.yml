@@ -10,6 +10,8 @@ Model: "Default"     # 当前模型（说话语气/风格），开启 model-auto
 model-auto-detect: true  # 首次加载时根据系统语言自动选择模型（zh→Default 中文，其他→English）
 
 # ---------- 功能开关（每个功能可独立开启/关闭，按功能分类） ----------
+# 关闭后：独立命令（/ban、/report 等）直接不注册，名字可以留给其他插件；
+#         /lban 的子命令（/lban freeze、/lban vanish 等）无法单独注销，执行时会提示"已被管理员禁用"。
 features:
   # --- 封禁与处罚 ---
   ban: true            # 封禁玩家（/lban ban）

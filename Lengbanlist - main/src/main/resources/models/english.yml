@@ -31,7 +31,7 @@ help:
   - "§2✦ §b/lban vanish §7- §3Toggle your own vanish (invisible to everyone, gear included)"
   - "§2✦ §b/lban freeze <required>player <required>reason §7- §3Freeze a player (no movement/interaction/commands)"
   - "§2✦ §b/lban unfreeze <required>player|all §7- §3Unfreeze a player"
-  - "§2✦ §b/lban freeze §7- §3List currently frozen players"
+  - "§2✦ §b/lban freeze list §7- §3List currently frozen players"
   - "§2✦ §b/lban check <required>player/IP §7- §3Check ban status"
   - "§2✦ §b/lban history <required>player §7- §3Query punishment history"
   - "§7  = §b/history"

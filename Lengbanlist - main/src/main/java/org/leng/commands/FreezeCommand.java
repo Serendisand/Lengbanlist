@@ -37,7 +37,11 @@ public class FreezeCommand implements CommandExecutor, TabCompleter {
             Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
             return true;
         }
-        if (args.length == 0 || (args.length == 1 && args[0].equalsIgnoreCase("list"))) {
+        if (args.length == 0) {
+            Utils.sendMessage(sender, plugin.prefix() + "§c用法错误喵: /lban freeze <玩家名> <理由> 或 /lban freeze list");
+            return true;
+        }
+        if (args[0].equalsIgnoreCase("list")) {
             showFrozenList(sender);
             return true;
         }
@@ -46,7 +50,7 @@ public class FreezeCommand implements CommandExecutor, TabCompleter {
         String targetName = args[0];
         String reason = args.length > 1 ? String.join(" ", Arrays.copyOfRange(args, 1, args.length)).trim() : "";
         if (reason.isEmpty()) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c§l命令格式不对喵，正确格式：/lban freeze <玩家名> <理由>");
+            Utils.sendMessage(sender, plugin.prefix() + "§c用法错误喵: /lban freeze <玩家名> <理由>");
             return true;
         }
 
@@ -85,7 +89,6 @@ public class FreezeCommand implements CommandExecutor, TabCompleter {
             Utils.sendMessage(sender, "§c被冻结者：§f" + entry.player() + " §e处理人：§f" + entry.staff()
                     + " §e理由：§f" + entry.reason() + " §f冻结时间：" + TimeUtils.timestampToReadable(entry.time()));
         }
-        Utils.sendMessage(sender, "§7用法: §f/lban freeze <玩家名> <理由> §7| §f/lban unfreeze <玩家名|all>");
     }
 
     @Override

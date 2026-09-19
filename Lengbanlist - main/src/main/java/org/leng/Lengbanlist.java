@@ -1,14 +1,11 @@
 package org.leng;
 
 import org.bukkit.Bukkit;
-import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.plugin.SimplePluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.leng.commands.*;
 import org.leng.listeners.*;
@@ -21,7 +18,6 @@ import org.leng.utils.Utils;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Field;
 
 import org.leng.web.WebServer;
 import org.leng.commands.GuiCommand;
@@ -45,6 +41,7 @@ public class Lengbanlist extends JavaPlugin {
     private GuiCommand guiCommand;
     private ModelCloudManager modelCloudManager;
     private AltsCommand altsCommand;
+    private CommandRegistry commandRegistry;
     private boolean isBroadcast;
     private FileConfiguration broadcastFC;
     private FileConfiguration chatConfig;
@@ -290,7 +287,9 @@ public void onEnable() {
         lban.setExecutor(lbanCmd);
         lban.setTabCompleter(lbanCmd);
     }
-    registerFeatureCommands();
+    altsCommand = new AltsCommand(this);
+    commandRegistry = new CommandRegistry(this);
+    refreshFeatureCommands();
 
     getServer().getConsoleSender().sendMessage("§bLengbanlist §6干杯[]~(￣▽￣)~* §7v" + getPluginVersion()
             + " §7| §3模型 " + ModelManager.getInstance().getCurrentModelName()
@@ -330,58 +329,8 @@ public void onEnable() {
     }
 }
 
-public void registerFeatureCommands() {
-    BanCommand banCmd = new BanCommand(Lengbanlist.this);
-    setFeatureExecutor("ban", "ban", banCmd);
-    PluginCommand ban = getCommand("ban");
-    if (isFeatureEnabled("ban") && ban != null) {
-        ban.setTabCompleter(banCmd);
-    }
-    BanIpCommand banIpCmd = new BanIpCommand(Lengbanlist.this);
-    setFeatureExecutor("ban-ip", "ban-ip", banIpCmd);
-    PluginCommand banIp = getCommand("ban-ip");
-    if (isFeatureEnabled("ban-ip") && banIp != null) {
-        banIp.setTabCompleter(banIpCmd);
-    }
-    setFeatureExecutor("unban", "unban", new UnbanCommand(Lengbanlist.this));
-    WarnCommand warnCmd = new WarnCommand(Lengbanlist.this);
-    setFeatureExecutor("warn", "warn", warnCmd);
-    PluginCommand warn = getCommand("warn");
-    if (isFeatureEnabled("warn") && warn != null) {
-        warn.setTabCompleter(warnCmd);
-    }
-    setFeatureExecutor("unwarn", "unwarn", new UnwarnCommand(Lengbanlist.this));
-    setFeatureExecutor("check", "check", new CheckCommand(Lengbanlist.this));
-    setFeatureExecutor("report", "report", new ReportCommand(Lengbanlist.this));
-    setFeatureExecutor("admin", "admin", new AdminReportCommand(Lengbanlist.this));
-    KickCommand kickCmd = new KickCommand(Lengbanlist.this);
-    setFeatureExecutor("kick", "kick", kickCmd);
-    PluginCommand kick = getCommand("kick");
-    if (isFeatureEnabled("kick") && kick != null) {
-        kick.setTabCompleter(kickCmd);
-    }
-    setFeatureExecutor("info", "info", new InfoCommand(Lengbanlist.this));
-    setFeatureExecutor("chat-filter", "allowmsg", new AllowMsgCommand(Lengbanlist.this));
-    setFeatureExecutor("warn", "warnmsg", new WarnMsgCommand(Lengbanlist.this));
-    SetBanCommand setbanCmd = new SetBanCommand(Lengbanlist.this);
-    setFeatureExecutor("setban", "setban", setbanCmd);
-    PluginCommand setban = getCommand("setban");
-    if (isFeatureEnabled("setban") && setban != null) {
-        setban.setTabCompleter(setbanCmd);
-    }
-    HistoryCommand historyCmd = new HistoryCommand(Lengbanlist.this);
-    setFeatureExecutor("history", "history", historyCmd);
-    PluginCommand history = getCommand("history");
-    if (isFeatureEnabled("history") && history != null) {
-        history.setTabCompleter(historyCmd);
-    }
-    setFeatureExecutor("mute", "mute", new MuteCommand(Lengbanlist.this));
-    setFeatureExecutor("mute", "unmute", new UnmuteCommand(Lengbanlist.this));
-    setFeatureExecutor("mute", "listmute", new ListMuteCommand(Lengbanlist.this));
-    setFeatureExecutor("getip", "getip", new GetIPCommand(Lengbanlist.this));
-    setFeatureExecutor("staffchat", "sc", new StaffChatCommand(Lengbanlist.this));
-    altsCommand = new AltsCommand(this);
-    setFeatureExecutor("alts", "alts", altsCommand);
+public void refreshFeatureCommands() {
+    commandRegistry.refresh();
     getLogger().fine("功能命令刷新完成(features.* 变更已生效)。");
 }
 
@@ -425,6 +374,9 @@ public void onDisable() {
     if (broadcastTask != null) broadcastTask.cancel();
     if (historyCleanupTask != null) historyCleanupTask.cancel();
     if (expiryReminderTask != null) expiryReminderTask.cancel();
+    if (commandRegistry != null) {
+        commandRegistry.unregisterAll();
+    }
     if (syncManager != null) {
         syncManager.stopAutoSync();
     }
@@ -502,45 +454,6 @@ void shutdownStorage() {
 
     public boolean isUpdateCheckEnabled() {
         return getConfig().getBoolean("update-check.enabled", true);
-    }
-
-    private void setFeatureExecutor(String feature, String commandName, CommandExecutor executor) {
-        PluginCommand command = getCommand(commandName);
-        if (command == null) {
-            return;
-        }
-        if (!isFeatureEnabled(feature)) {
-
-            getLogger().fine("功能 " + feature + " 已禁用,/" + commandName + " 命令已注销。");
-            unregisterCommand(command);
-            return;
-        }
-        command.setExecutor(executor);
-    }
-
-    private void unregisterCommand(PluginCommand command) {
-        try {
-            CommandMap commandMap = getCommandMap();
-            if (commandMap != null) {
-                command.unregister(commandMap);
-            }
-        } catch (Exception e) {
-            getLogger().warning("注销命令 " + command.getName() + " 时出现错误: " + e.getMessage());
-        }
-    }
-
-    private CommandMap getCommandMap() {
-        try {
-            org.bukkit.plugin.PluginManager pm = Bukkit.getPluginManager();
-            if (pm instanceof SimplePluginManager) {
-                Field field = SimplePluginManager.class.getDeclaredField("commandMap");
-                field.setAccessible(true);
-                return (CommandMap) field.get(pm);
-            }
-        } catch (Exception e) {
-            getLogger().warning("无法获取 CommandMap: " + e.getMessage());
-        }
-        return null;
     }
 
     public void sendFeatureDisabled(CommandSender sender) {

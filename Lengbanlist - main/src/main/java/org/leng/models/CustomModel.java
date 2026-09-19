@@ -4,6 +4,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.leng.Lengbanlist;
+import org.leng.commands.CommandRegistry;
 import org.leng.utils.Utils;
 
 import java.util.ArrayList;
@@ -111,26 +112,40 @@ public class CustomModel implements Model {
         } else if (base != null) {
             lines.addAll(base.getStringList("help"));
         }
-        if (lines.isEmpty()) {
+        if (!lines.isEmpty()) {
+            ConfigurationSection overrides = config.getConfigurationSection("help-overrides");
+            if (overrides != null) {
+                for (String key : overrides.getKeys(false)) {
+                    String replacement = overrides.getString(key);
+                    if (replacement == null || replacement.isEmpty()) {
+                        continue;
+                    }
+                    int index = indexOfHelpLine(lines, key);
+                    if (index < 0) {
+                        continue;
+                    }
+                    boolean bannerLine = key != null && key.trim().startsWith("#");
+                    lines.set(index, bannerLine ? replacement : mergeHelpLine(lines.get(index), replacement));
+                }
+            }
+        }
+        return filterDisabledFeatures(lines);
+    }
+
+    private List<String> filterDisabledFeatures(List<String> lines) {
+        Lengbanlist plugin = Lengbanlist.getInstance();
+        if (plugin == null) {
             return lines;
         }
-        ConfigurationSection overrides = config.getConfigurationSection("help-overrides");
-        if (overrides == null) {
-            return lines;
-        }
-        for (String key : overrides.getKeys(false)) {
-            String replacement = overrides.getString(key);
-            if (replacement == null || replacement.isEmpty()) {
+        List<String> filtered = new ArrayList<>(lines.size());
+        for (String line : lines) {
+            String feature = CommandRegistry.featureForUsage(commandUsageOf(line));
+            if (feature != null && !plugin.isFeatureEnabled(feature)) {
                 continue;
             }
-            int index = indexOfHelpLine(lines, key);
-            if (index < 0) {
-                continue;
-            }
-            boolean bannerLine = key != null && key.trim().startsWith("#");
-            lines.set(index, bannerLine ? replacement : mergeHelpLine(lines.get(index), replacement));
+            filtered.add(line);
         }
-        return lines;
+        return filtered;
     }
 
     private static final String HELP_DESCRIPTION_SEPARATOR = " §7- §3";

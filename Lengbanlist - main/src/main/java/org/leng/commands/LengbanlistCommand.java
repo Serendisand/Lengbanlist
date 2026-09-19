@@ -101,7 +101,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                         plugin.getLogger().warning("重载chatconfig.yml失败: " + e.getMessage());
                     }
                 }
-                plugin.registerFeatureCommands();
+                plugin.refreshFeatureCommands();
                 Utils.sendMessage(sender, currentModel.reloadConfig());
                 plugin.reloadWebServer();
 

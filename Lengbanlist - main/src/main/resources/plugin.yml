@@ -11,89 +11,11 @@ authors:
 description: >
   This plugin provides a lightweight ban and query system for high-version Minecraft servers.
 commands:
+  # 其余命令（ban/unban/warn/mute/freeze 等）由 CommandRegistry 按 config.yml 的 features.* 运行时注册，
+  # 这里不声明：声明了服务端会在插件加载阶段就把名字占掉，功能关掉也腾不出来给别的插件用。
   lban:
     description: 主命令
     usage: /<command> <必填>子命令
-  ban:
-    description: 封禁玩家
-    usage: /<command> <可选>-s <必填>玩家名 <必填>时间/auto <必填>理由
-    permission: lengbanlist.ban
-  ban-ip:
-    description: 封禁 IP
-    usage: /<command> <可选>-s <必填>IP <必填>时间/auto <必填>理由
-    permission: lengbanlist.banip
-  unban:
-    description: 解封玩家
-    usage: /<command> <必填>玩家名/IP
-    permission: lengbanlist.unban
-  warn:
-    description: 警告玩家
-    usage: /<command> <必填>玩家名 <必填>理由
-    permission: lengbanlist.warn
-  unwarn:
-    description: 移除警告
-    usage: /<command> <必填>玩家名 <可选>警告ID
-    permission: lengbanlist.unwarn
-  check:
-    description: 检查玩家或 IP 的封禁状态
-    usage: /<command> <必填>玩家名/IP
-    permission: lengbanlist.check
-  report:
-    description: 举报玩家
-    usage: /<command> <必填>玩家名 <必填>理由
-    permission: lengbanlist.report
-  admin:
-    description: 管理举报
-    usage: /<command> <必填>子命令
-    permission: lengbanlist.admin
-  info:
-    description: 显示插件信息
-    usage: /<command>
-    permission: lengbanlist.info
-  kick:
-    description: 踢出玩家
-    usage: /<command> <必填>玩家名 <可选>理由
-    permission: lengbanlist.kick
-  allowmsg:
-    description: 允许玩家发送消息
-    usage: /<command> <必填>玩家名
-    permission: lengbanlist.allowmsg
-  warnmsg:
-    description: 警告玩家发送违规消息
-    usage: /<command> <必填>玩家名
-    permission: lengbanlist.warnmsg
-  setban:
-    description: 设置玩家的封禁时间
-    usage: /<command> <必填>玩家名/IP <必填>时间/forever/auto <必填>理由
-    permission: lengbanlist.setban
-  history:
-    description: 查询玩家的处罚历史
-    usage: /<command> <必填>玩家名
-    permission: lengbanlist.history
-  mute:
-    description: 禁言玩家
-    usage: /<command> <可选>-s <必填>玩家名 <必填>时间/auto <必填>原因
-    permission: lengbanlist.mute
-  unmute:
-    description: 解除禁言
-    usage: /<command> <可选>-s <必填>玩家名
-    permission: lengbanlist.mute
-  listmute:
-    description: 查看禁言列表
-    usage: /<command>
-    permission: lengbanlist.listmute
-  getip:
-    description: 查询玩家 IP 地理位置
-    usage: /<command> <可选>玩家名
-    permission: lengbanlist.getip
-  sc:
-    description: 工作频道聊天
-    usage: /<command> <必填>内容
-    permission: lengbanlist.staffchat
-  alts:
-    description: 查询玩家同IP小号
-    usage: /<command> <必填>玩家名
-    permission: lengbanlist.alts
 permissions:
   lengbanlist.ban:
     description: 允许使用封禁玩家命令
