@@ -32,29 +32,33 @@ public class CommandRegistry {
         }
         boolean changed = false;
         for (Spec spec : specs()) {
-            FeatureCommand existing = registered.get(spec.name());
-            if (!plugin.isFeatureEnabled(spec.feature())) {
-                if (existing != null) {
-                    unregister(commandMap, existing);
-                    registered.remove(spec.name());
-                    changed = true;
-                    plugin.getLogger().fine("功能 " + spec.feature() + " 已禁用，/" + spec.name() + " 命令未注册。");
+            try {
+                FeatureCommand existing = registered.get(spec.name());
+                if (!plugin.isFeatureEnabled(spec.feature())) {
+                    if (existing != null) {
+                        unregister(commandMap, existing);
+                        registered.remove(spec.name());
+                        changed = true;
+                        plugin.getLogger().fine("功能 " + spec.feature() + " 已禁用，/" + spec.name() + " 命令未注册。");
+                    }
+                    continue;
                 }
-                continue;
-            }
-            if (existing != null) {
-                continue;
-            }
-            FeatureCommand command = new FeatureCommand(plugin, spec.name(), spec.feature(), spec.permission(),
-                    spec.description(), spec.usage(), new ArrayList<>(), spec.executor(), spec.tabCompleter());
-            boolean bareName = commandMap.register(plugin.getName().toLowerCase(Locale.ROOT), command);
-            registered.put(spec.name(), command);
-            changed = true;
-            if (bareName) {
-                plugin.getLogger().fine("已注册命令 /" + spec.name() + "(功能 " + spec.feature() + ")");
-            } else {
-                plugin.getLogger().warning("命令名 /" + spec.name() + " 已被其他插件占用，本插件只能通过 /"
-                        + plugin.getName().toLowerCase(Locale.ROOT) + ":" + spec.name() + " 调用。");
+                if (existing != null) {
+                    continue;
+                }
+                FeatureCommand command = new FeatureCommand(plugin, spec.name(), spec.feature(), spec.permission(),
+                        spec.description(), spec.usage(), new ArrayList<>(), spec.executor(), spec.tabCompleter());
+                boolean bareName = commandMap.register(plugin.getName().toLowerCase(Locale.ROOT), command);
+                registered.put(spec.name(), command);
+                changed = true;
+                if (bareName) {
+                    plugin.getLogger().fine("已注册命令 /" + spec.name() + "(功能 " + spec.feature() + ")");
+                } else {
+                    plugin.getLogger().warning("命令名 /" + spec.name() + " 已被其他插件占用，本插件只能通过 /"
+                            + plugin.getName().toLowerCase(Locale.ROOT) + ":" + spec.name() + " 调用。");
+                }
+            } catch (Throwable t) {
+                plugin.getLogger().warning("刷新命令 " + spec.name() + " 时出错: " + t);
             }
         }
         if (changed) {
@@ -75,14 +79,30 @@ public class CommandRegistry {
     }
 
     private void unregister(CommandMap commandMap, Command command) {
-        Map<?, ?> known = knownCommands(commandMap);
+        Map<String, Command> known = knownCommands(commandMap);
         if (known == null) {
             return;
         }
-        known.entrySet().removeIf(entry -> entry.getValue() == command);
+        List<String> keys = new ArrayList<>();
+        for (Map.Entry<String, Command> entry : known.entrySet()) {
+            if (entry.getValue() == command) {
+                keys.add(entry.getKey());
+            }
+        }
+        for (String key : keys) {
+            try {
+                known.remove(key);
+                if (known.get(key) == command) {
+                    plugin.getLogger().warning("命令 /" + key + " 注销后仍留在注册表中，该命令名可能无法让给其他插件。");
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("注销命令 " + command.getName() + " 失败: " + e.getMessage());
+            }
+        }
     }
 
-    private Map<?, ?> knownCommands(CommandMap commandMap) {
+    @SuppressWarnings("unchecked")
+    private Map<String, Command> knownCommands(CommandMap commandMap) {
         Field field = findField(commandMap.getClass(), "knownCommands");
         if (field == null) {
             plugin.getLogger().warning("无法读取 CommandMap 注册表，功能命令注销失败。");
@@ -90,7 +110,7 @@ public class CommandRegistry {
         }
         try {
             Object value = field.get(commandMap);
-            return value instanceof Map ? (Map<?, ?>) value : null;
+            return value instanceof Map ? (Map<String, Command>) value : null;
         } catch (Exception e) {
             plugin.getLogger().warning("读取 CommandMap 注册表时出错: " + e.getMessage());
             return null;
