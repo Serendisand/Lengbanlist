@@ -92,7 +92,7 @@ update-check:
 
 # ---------- 冻结（freeze） ----------
 # 被冻结的玩家无法移动/破坏/放置/交互/丢弃物品/使用命令/传送，只能由管理员手动解冻。
-# 冻结状态存于 plugins/Lengbanlist/frozen.yml，服务器重启后依然有效。
+# 冻结状态存于数据库（与封禁/禁言同一份），重启不丢，共享数据库时跨子服生效。
 freeze:
   block-commands: true     # 冻结期间禁止被冻结玩家执行命令（防止 /spawn /home 一类传送逃脱）
   allowed-commands: []     # block-commands 为 true 时仍然放行的命令（不带斜杠）

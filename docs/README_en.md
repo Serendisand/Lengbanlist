@@ -62,7 +62,7 @@ Check a player's or IP's current punishment status, full history, associated pla
 
 **Admin Vanish & Freeze — `/lban vanish` `/lban freeze`**
 `/lban vanish` makes you completely invisible to other players — equipment included, and you disappear from the player list too. Staff with `lengbanlist.vanish.see` can still see you.
-`/lban freeze <player> <reason>` pins a player in place: no movement, block breaking, interaction, item dropping, commands or teleports. They get a red title and the reason, and only `/lban unfreeze <player|all>` releases them. Freeze state is persisted to `frozen.yml`.
+`/lban freeze <player> <reason>` pins a player in place: no movement, block breaking, interaction, item dropping, commands or teleports. They get a red title and the reason, and only `/lban unfreeze <player|all>` releases them. Freeze state lives in the database, so it survives restarts and applies across sub-servers sharing one database.
 
 **Shared Database Across Sub-servers**
 Database settings moved to `storage.yml`. Give each sub-server a `server-name` and, when they share one MySQL / MariaDB / PostgreSQL instance, every audit entry records which server and which operator performed the action (visible in `/lban audit` and the web panel).

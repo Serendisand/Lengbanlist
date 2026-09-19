@@ -57,15 +57,17 @@ public class SyncManager {
             result.ipBans = plugin.getDatabaseManager().getIpBans().size();
             result.mutes = plugin.getDatabaseManager().getMutes().size();
             result.warnings = plugin.getDatabaseManager().getWarnedPlayers().size();
+            result.freezes = plugin.getDatabaseManager().loadFreezes().size();
 
             plugin.getDatabaseManager().reloadBanCache();
             plugin.getDatabaseManager().reloadWarnCache();
+            boolean freezeCacheReloaded = plugin.getFreezeManager().reload();
             boolean muteCacheReloaded = plugin.getMuteManager().reloadMuteCache();
             if (sender == null) {
                 if (!muteCacheReloaded) {
                     plugin.getLogger().warning("定时跨服同步未完成：禁言缓存刷新失败");
                 } else {
-                    plugin.getLogger().info("定时跨服同步完成：封禁 " + result.bans + " 条 / IP封禁 " + result.ipBans + " 条 / 禁言 " + result.mutes + " 条 / 警告 " + result.warnings + " 条");
+                    plugin.getLogger().info("定时跨服同步完成：封禁 " + result.bans + " 条 / IP封禁 " + result.ipBans + " 条 / 禁言 " + result.mutes + " 条 / 警告 " + result.warnings + " 条 / 冻结 " + result.freezes + " 条");
                 }
                 return;
             }
@@ -74,7 +76,7 @@ public class SyncManager {
                     Utils.sendMessage(sender, plugin.prefix() + "§c跨服同步未完成：禁言缓存刷新失败，请稍后重试。");
                     return;
                 }
-                Utils.sendMessage(sender, plugin.prefix() + "§a跨服同步完成：封禁 " + result.bans + " 条 / IP封禁 " + result.ipBans + " 条 / 禁言 " + result.mutes + " 条 / 警告 " + result.warnings + " 条，缓存已刷新");
+                Utils.sendMessage(sender, plugin.prefix() + "§a跨服同步完成：封禁 " + result.bans + " 条 / IP封禁 " + result.ipBans + " 条 / 禁言 " + result.mutes + " 条 / 警告 " + result.warnings + " 条 / 冻结 " + result.freezes + " 条，缓存已刷新");
             });
         });
     }
@@ -84,5 +86,6 @@ public class SyncManager {
         public int ipBans;
         public int mutes;
         public int warnings;
+        public int freezes;
     }
 }

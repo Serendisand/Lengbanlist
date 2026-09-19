@@ -12,6 +12,7 @@ import org.leng.Lengbanlist;
 import org.leng.object.AuditEntry;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
+import org.leng.object.FreezeEntry;
 import org.leng.object.MuteEntry;
 import org.leng.object.ReportEntry;
 import org.leng.object.WarnEntry;
@@ -70,6 +71,24 @@ class DatabaseManagerSqliteTest {
         assertFalse(db.isPlayerBanned("Alice"), "解封后缓存必须同步失效");
         assertNull(db.getBan("Alice"));
         assertEquals(0, db.countActiveBans());
+    }
+
+    @Test
+    void freezeRoundTrip_survivesReopen() {
+        assertTrue(db.saveFreeze(new FreezeEntry("Bob", "staff", System.currentTimeMillis(), "刷屏")));
+        assertTrue(db.saveFreeze(new FreezeEntry("Carol", "staff2", System.currentTimeMillis(), "捣乱")));
+        assertEquals(2, db.loadFreezes().size(), "冻结记录应写入数据库");
+
+        assertTrue(db.deleteAllFreezes() > 0, "清空应返回删除条数");
+        assertEquals(0, db.loadFreezes().size(), "清空后不应残留冻结记录");
+    }
+
+    @Test
+    void freezeDelete_isCaseInsensitive() {
+        db.saveFreeze(new FreezeEntry("Dave", "staff", System.currentTimeMillis(), "原因"));
+        assertEquals(1, db.loadFreezes().size());
+        assertTrue(db.deleteFreeze("dAvE"), "按玩家名删除应忽略大小写");
+        assertEquals(0, db.loadFreezes().size());
     }
 
     @Test

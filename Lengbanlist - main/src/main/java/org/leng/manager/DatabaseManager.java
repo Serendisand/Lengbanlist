@@ -4,6 +4,7 @@ import org.leng.Lengbanlist;
 import org.leng.object.AuditEntry;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
+import org.leng.object.FreezeEntry;
 import org.leng.object.MuteEntry;
 import org.leng.object.ReportEntry;
 import org.leng.object.WarnEntry;
@@ -299,6 +300,7 @@ public class DatabaseManager {
         execute("CREATE TABLE IF NOT EXISTS bans (id " + integerPrimaryKey() + ", target " + textType() + " NOT NULL, staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, is_auto " + booleanType() + " NOT NULL DEFAULT 0, active " + booleanType() + " NOT NULL DEFAULT 1)");
         execute("CREATE TABLE IF NOT EXISTS ip_bans (id " + integerPrimaryKey() + ", ip " + textType() + " NOT NULL, staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, is_auto " + booleanType() + " NOT NULL DEFAULT 0, active " + booleanType() + " NOT NULL DEFAULT 1)");
         execute("CREATE TABLE IF NOT EXISTS mutes (target " + textPrimaryKey() + ", staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL)");
+        execute("CREATE TABLE IF NOT EXISTS freezes (target " + textPrimaryKey() + ", staff " + textType() + " NOT NULL, freeze_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL)");
         execute("CREATE TABLE IF NOT EXISTS warnings (id " + textPrimaryKey() + ", player " + textType() + " NOT NULL, staff " + textType() + " NOT NULL, warn_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, revoked " + booleanType() + " NOT NULL DEFAULT 0)");
         execute("CREATE TABLE IF NOT EXISTS reports (id " + textPrimaryKey() + ", target " + textType() + " NOT NULL, reporter " + textType() + " NOT NULL, reason " + textType() + " NOT NULL, status " + varcharType(32) + " NOT NULL DEFAULT '" + STATUS_PENDING + "', timestamp " + longType() + " NOT NULL)");
         execute("CREATE TABLE IF NOT EXISTS audit_log (id " + integerPrimaryKey() + ", timestamp " + longType() + " NOT NULL, actor " + textType() + " NOT NULL, action " + textType() + " NOT NULL, target " + textType() + " NOT NULL, reason " + textType() + " NOT NULL, success " + booleanType() + " NOT NULL DEFAULT 1, server " + textType() + " NOT NULL DEFAULT '')");
@@ -632,6 +634,30 @@ public class DatabaseManager {
 
     public void deleteMuteIfExpiresAt(String target, long endTime) {
         executeUpdate("DELETE FROM mutes WHERE LOWER(target) = LOWER(?) AND end_time = ?", target, endTime);
+    }
+
+    public boolean saveFreeze(FreezeEntry entry) {
+        return executeUpdateAffected(upsertSql("freezes", "target",
+                new String[]{"target", "staff", "freeze_time", "reason"},
+                new String[]{"staff", "freeze_time", "reason"}),
+                entry.player(), entry.staff(), entry.time(), entry.reason()) > 0;
+    }
+
+    public boolean deleteFreeze(String target) {
+        return executeUpdateAffected("DELETE FROM freezes WHERE LOWER(target) = LOWER(?)", target) > 0;
+    }
+
+    public int deleteAllFreezes() {
+        return executeUpdateAffected("DELETE FROM freezes");
+    }
+
+    public List<FreezeEntry> loadFreezes() {
+        return query("SELECT target, staff, freeze_time, reason FROM freezes ORDER BY target", this::readFreeze);
+    }
+
+    private FreezeEntry readFreeze(ResultSet rs) throws SQLException {
+        return new FreezeEntry(value(rs, "target"), value(rs, "staff"),
+                rs.getLong("freeze_time"), value(rs, "reason"));
     }
 
     public MuteEntry getMute(String target) {

@@ -67,7 +67,7 @@
 | `/lban unfreeze <玩家>` | 解除冻结（只能手动解冻） | `lengbanlist.freeze` |
 | `/lban unfreeze all` | 一次性解除全部冻结 | `lengbanlist.freeze` |
 | `/lban freeze list` | 查看当前冻结名单 | `lengbanlist.freeze` |
-| **说明** | 冻结记录写入 `plugins/Lengbanlist/frozen.yml`，重启后依然有效；`freeze.allowed-commands` 可放行登录类命令 | - |
+| **说明** | 冻结记录存在数据库里（重启不丢，共享数据库时跨子服生效）；`freeze.allowed-commands` 可放行登录类命令 | - |
 
 ## 🎭 模型管理
 | 命令 | 功能 |
