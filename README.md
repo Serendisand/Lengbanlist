@@ -1,104 +1,85 @@
-[![Minecraft Version](https://img.shields.io/badge/Minecraft-1.21.x-brightgreen)](https://www.minecraft.net)
-[![License](https://img.shields.io/badge/License-MPL2.0-blue)](LICENSE)
+[![Minecraft](https://img.shields.io/badge/Minecraft-1.17.1%20~%2026.3+-brightgreen)](https://www.minecraft.net)
+[![License](https://img.shields.io/badge/License-MPL%202.0-blue)](LICENSE)
+![Java](https://img.shields.io/badge/Java-17+-orange)
 
 <div align="center">
 <p>
-    <img width="200" src="/Photos/Lengbanlist-icon.png">
+    <img width="200" src="/Photos/Lengbanlist-icon.png" alt="Lengbanlist">
 </p>
 
- *简体中文 | [English](docs/README_en.md)* 
+**冷禁列表 · 轻量、模块化的服务端处罚与管理插件**
 
- **[多平台链接](docs/readme-website.md)** |
- **[开发须知](docs/PullRequest_zh.md)** |
- *[许可证提示](docs/Mustn't_zh.md)* |
- **[Discord](https://discord.gg/aeWjf7vD)**
+*简体中文 | [English](docs/README_en.md)*
+
+**[多平台](docs/readme-website.md)** ·
+**[命令帮助](docs/LengbanlistCommandHelp.md)** ·
+**[配置速览](docs/LengbanlistConfig.md)** ·
+**[开发须知](docs/PullRequest_zh.md)** ·
+*[许可证提示](docs/Mustn't_zh.md)* ·
+**[Discord](https://discord.gg/aeWjf7vD)**
 </div>
 
 ![Lengbanlist](https://github.com/Serendisand/Lengbanlist/blob/main/Photos/Lengbanlist.png)
 ![Lengbanlist](https://bstats.org/signatures/bukkit/Lengbanlist.svg)
 
-## 这个插件是干什么的
+## 简介
 
-Lengbanlist 最早只是个封禁广播插件，现在已经长成一套完整的服务器管理工具了：封禁、警告、禁言、举报、聊天过滤、IP 关联检测、VPN 检测、Web 管理面板…… 日常服务器管理用得上的东西基本都在里面。
+Lengbanlist 从一个封禁广播插件发展为一套完整的服务器管理工具：封禁、警告、禁言、举报、聊天过滤、IP 关联、VPN 检测、Web 管理面板一应俱全。
 
-所有功能都可以在配置文件里单独开关，不需要的关掉就行，不会拖累服务器。
+所有功能在 `config.yml` 的 `features` 段中独立开关，用不到的模块关掉即可，被关闭的功能连命令都不会注册。
 
-## 功能一览
+## 功能
 
-**封禁相关的 —— `/ban` `/ban-ip` `/unban` `/setban`**
-封禁玩家或者 IP，时长可以写秒/分/时/天/周/月/年，也可以直接 `forever` 永久封，或者 `auto` 让插件根据警告次数自动算。封完了想改时长和原因也行。同时支持 IP 段封禁（如 `172.198.2.x` 或 `172.198.2.0/24`），可一次性拦截整个网段。
+| 模块 | 命令 | 说明 |
+| --- | --- | --- |
+| 封禁 / IP 封禁 | `/ban` `/ban-ip` `/unban` `/setban` | 封禁玩家或 IP，时长支持 秒 / 分 / 时 / 天 / 周 / 月 / 年，也支持 `forever` 永久与 `auto`（按警告次数自动计算）；可随时修改已有封禁的时长与理由；支持 IP 段封禁（`172.198.2.x`、`172.198.2.0/24`），一次拦截整个网段 |
+| 警告系统 | `/warn` `/unwarn` | 记录与撤销警告。内置 LBAC 自动封禁：30 天内累计 3 次警告自动封禁，时长随触发次数递增；撤销警告至阈值以下时自动解封，无需手动处理 |
+| 禁言 | `/mute` `/unmute` `/listmute` | 定时或永久禁言，禁言期间无法发言；可随时解禁并查看当前禁言列表 |
+| 聊天过滤 | — | 违禁词列表在 `chatconfig.yml` 自定义，命中后自动替换；累计触发自动禁言；可疑消息带按钮通知管理员，一键放行或警告 |
+| IP 关联 / VPN 检测 | `/lban alts` | 记录每位玩家的历史登录 IP，发现多账号共用同一 IP 时提醒管理员；入服时检测 VPN / 代理，可配置为警告、踢出或封禁 |
+| 举报系统 | `/report` `/admin` | 玩家提交举报，管理员处理完毕后通知举报人 |
+| 封禁广播 | — | 定时在聊天栏广播当前封禁统计，文案与格式完全自定义；支持手动触发与随时开关 |
+| 角色模型 | `/lban model` `/lban models` | 文案不写死在插件内，从云端仓库 [Lengbanlist-Models](https://github.com/Serendisand/Lengbanlist-Models) 按需下载：`models list` 浏览、`models install <ID>` 安装、`model <名称>` 切换，所有提示消息的措辞与语气随之改变。现有 25 种角色风格，每月更新并投票选出月度精选。模型文本支持**继承**：全局默认位于 `models/_base.yml`，模型文件只写需要覆写的字段，插件升级新增文案不会让老模型掉队 |
+| 图形界面 | `/lban open` | 54 格箱子菜单，按钮按权限显示；封禁、解禁、改期、禁言、警告、冻结、隐身、切模型、重载均可直接操作。封禁、禁言、警告、冻结附带聊天向导，逐步引导填写，发送 `cancel` 随时退出 |
+| Web 管理面板 | — | 内置 HTTP 管理页面，浏览器直接打开；JWT 鉴权与限流保护。封禁、解禁、禁言、警告、记录查询、重载配置全部可在页面上完成 |
+| 查询工具 | `/check` `/history` `/getip` | 查询玩家或 IP 的当前处罚状态、历史记录、关联账号与 IP 归属地 |
+| 隐身 / 冻结 | `/lban vanish` `/lban freeze` | 隐身：对其它玩家完全不可见，手持物品与盔甲一并隐藏，玩家列表也不显示（`lengbanlist.vanish.see` 权限者仍可见）。冻结：禁止移动、破坏、交互、丢弃、使用命令与传送，屏幕弹出红色标题与理由，解冻需手动执行 `/lban unfreeze`；冻结记录存于数据库，重启不丢，多子服共用数据库时全服生效 |
+| 多子服共用数据 | — | 数据库配置独立至 `storage.yml`（`config.yml` 只保留功能开关）。为每台子服设置 `server-name`，共用同一份 MySQL / MariaDB / PostgreSQL 时，审计日志会记录每条操作来自哪台子服、哪位操作员，`/lban audit` 与 Web 面板均可查看 |
+| 管理员频道 | `/sc` | 仅管理员可见的独立聊天频道 |
+| 操作回滚 | `/lban rollback` | 基于审计日志，按操作人与时间范围一键回滚：封禁的解封、解封的重新封禁、警告的撤销。可限定只回滚某一类操作 |
+| 其他 | `/info` | 查看插件版本、内存、CPU 与在线人数；支持 SQLite / MySQL / MariaDB / PostgreSQL，旧版 YAML 存储自动迁移；内置 bStats 统计与自动更新 |
 
-**警告系统 —— `/warn` `/unwarn`**
-给玩家记警告。内置了个自动封禁逻辑（LBAC）：30 天内累计 3 次警告自动封禁，封禁时长会随着触发次数递增。如果你撤销警告减到阈值以下，封禁也会自动解除，不用管理员手动处理。
+## 环境要求
 
-**禁言 —— `/mute` `/unmute` `/listmute`**
-禁言玩家一段时间或永久，禁言期间发不出消息。可以随时解禁，也能查看当前禁言列表。
+| 项目 | 要求 |
+| --- | --- |
+| 服务端 | Spigot / Paper / Folia |
+| 游戏版本 | 1.17.1 ~ 26.3+，单个 jar 通用 |
+| Java | 17 及以上 |
+| 数据库 | SQLite（内置，开箱即用）/ MySQL / MariaDB / PostgreSQL |
 
-**聊天过滤**
-配置文件里自己定敏感词列表，触发了自动替换成"喵"。触发次数多了会自动禁言。可疑消息会带按钮通知管理员，点一下就能放行或警告。
+## 快速开始
 
-**IP 关联 & VPN 检测**
-自动记下每个玩家的登录 IP，发现不同玩家用了同一个 IP 时提醒管理员。玩家进服时还会检测是不是 VPN 或代理，可以设置只警告、踢出去、或者直接封掉。
+1. 将插件 jar 放入服务端 `plugins` 目录。
+2. 重启服务端，插件自动生成配置文件。
+3. 按需修改 `config.yml`（功能开关与玩法）与 `storage.yml`（数据库、保留策略、服务器标识）。旧版本写在 `config.yml` 里的 `database` 段会自动迁移。
+4. 执行 `/lban reload` 应用改动，或重启服务端。
 
-**举报系统 —— `/report` `/admin`**
-玩家可以直接举报违规行为，管理员处理后举报人会收到处理通知。
+## 文档
 
-**封禁广播**
-定时在聊天栏广播当前的封禁统计数字，消息内容和格式完全自己改。也可以手动触发广播，随时开关。
-
-**角色模型（云端下载）**
-模型不再写死在插件里，而是从云端仓库 [Lengbanlist-Models](https://github.com/Serendisand/Lengbanlist-Models) 按需下载：`/lban models list` 看有哪些风格，`/lban models install <ID>` 装一个，`/lban model <名称>` 切过去，之后所有提示消息的措辞和语气都跟着变。仓库现有 25 种角色风格（胡桃、芙宁娜、钟离、刻晴、可莉、八重神子、爱诺、哥伦比娅……），每月更新，还能投票选出月度精选。
-
-模型文本支持**继承**：全局默认写在 `models/_base.yml`，模型文件只写自己不一样的部分，没写的自动沿用全局默认。所以自己写模型时抄几个字段就行，插件升级新增文案也不会让老模型掉队。
-
-**图形界面 —— `/lban open`**
-一个 54 格的箱子界面：封禁、解禁、改期限、禁言、警告、冻结、隐身、切模型、重载……能点的按钮都按你的权限显示，点下去该干活的就干活。封禁、禁言、警告、冻结都是聊天向导，一步步问你要什么，不用记命令格式，中途发个 `cancel` 就能退出。
-
-**Web 管理面板**
-内置了一个 HTTP 管理页面，浏览器打开就能用。做了 JWT 鉴权和限流。封禁、解禁、禁言、警告、查记录、重载配置，页面上都能操作。
-
-**查询工具 —— `/check` `/history` `/getip`**
-查玩家或 IP 的当前处罚状态、历史记录、关联信息、IP 归属地。
-
-**管理员隐身 & 冻结 —— `/lban vanish` `/lban freeze`**
-`/lban vanish` 让自己被其他玩家彻底看不见——连同手持物品和盔甲一起隐藏，玩家列表里也不会出现（有 `lengbanlist.vanish.see` 权限的管理员照常看得见）。
-`/lban freeze <玩家> <理由>` 把玩家定在原地：不能移动、破坏、交互、丢东西、用命令或传送，屏幕上会弹红色标题「你已被冻结」和理由，聊天栏也会收到提示。解冻只能手动 `/lban unfreeze <玩家|all>`。冻结记录存在数据库里，重启不丢，多子服共用一份数据库时全服生效。
-
-**多子服共用一套数据**
-数据库配置拆到了 `storage.yml`（config.yml 只留功能开关）。给每台子服起个 `server-name`，共用同一份 MySQL / MariaDB / PostgreSQL 时，审计日志会记下每条操作来自哪台子服、哪个操作员，`/lban audit` 和 Web 面板都能看到。
-
-**管理员频道 —— `/sc`**
-管理员之间聊天的专用频道，普通玩家看不到。
-
-**操作回滚 —— `/lban rollback`**
-管理员误操作了怎么办？可以回滚。基于审计日志，指定操作人和时间范围，把封禁、解封、禁言、警告等操作一键回滚：封禁的解开、解封的重新封、警告的撤销。也支持只回滚某类操作（如只回滚封禁）。
-
-**其他**
-插件版本、内存、CPU、在线人数这些信息用 `/info` 就能看。支持 SQLite、MySQL、MariaDB、PostgreSQL，从旧版 YAML 存储也能自动迁移。有 bStats 统计和自动更新。
-
-## 使用说明
-
-1. 把插件 jar 扔进服务端的 `plugins` 目录。
-2. 重启服务器，插件会自动生成配置文件。
-3. 按需改 `config.yml`（功能开关和玩法）和 `storage.yml`（数据库、保留策略、服务器标识）。旧版本写在 config.yml 里的 `database` 段会自动迁移过去。
-4. `/lban reload` 重载配置，或者重启服务器。
-
-## 命令帮助
-
-完整命令列表和用法见： [Lengbanlist 命令帮助](docs/LengbanlistCommandHelp.md)
-
-## 插件展示
-
-[点这里看插件截图和实际效果](docs/Lengbanlist_Images.md)
+| 文档 | 内容 |
+| --- | --- |
+| [命令帮助](docs/LengbanlistCommandHelp.md) | 完整命令列表与用法 |
+| [配置速览](docs/LengbanlistConfig.md) | `config.yml` / `storage.yml` 字段说明 |
+| [插件展示](docs/Lengbanlist_Images.md) | 界面截图与实际效果 |
+| [多平台链接](docs/readme-website.md) | GitHub / SpigotMC / Modrinth |
 
 ---
 
-## 欢迎支持我的项目！❤️
+## 支持这个项目 ❤️
 
-如果你觉得这插件有用，或者喜欢我做的这些东西，欢迎赞助支持一下。你的支持能让我继续开发和维护，也让我有动力做更多好玩的东西。
+如果这个插件对你有帮助，欢迎赞助支持。你的支持是我持续开发和维护的动力。
 
-## 赞助方式
+[![爱发电](https://img.shields.io/badge/%E7%88%B1%E5%8F%91%E7%94%B5-%E6%94%AF%E6%8C%81%E6%88%91-orange)](https://afdian.com/a/lengmc)
 
-[![爱发电 Sponsor](https://img.shields.io/badge/%E7%88%B1%E5%8F%91%E7%94%B5-%E6%94%AF%E6%8C%81%E6%88%91-orange)](https://afdian.com/a/lengmc)
-
-感谢你的支持！❤️
+感谢支持 ❤️

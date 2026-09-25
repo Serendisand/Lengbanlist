@@ -1,104 +1,85 @@
-[![Minecraft Version](https://img.shields.io/badge/Minecraft-1.21.x-brightgreen)](https://www.minecraft.net)
-[![License](https://img.shields.io/badge/License-MPL2.0-blue)](LICENSE)
+[![Minecraft](https://img.shields.io/badge/Minecraft-1.17.1%20~%2026.3+-brightgreen)](https://www.minecraft.net)
+[![License](https://img.shields.io/badge/License-MPL%202.0-blue)](../LICENSE)
+![Java](https://img.shields.io/badge/Java-17+-orange)
 
 <div align="center">
 <p>
-<img width="200" src="/Photos/Lengbanlist-icon.png">
+    <img width="200" src="/Photos/Lengbanlist-icon.png" alt="Lengbanlist">
 </p>
+
+**Lengbanlist · A lightweight, modular punishment and management plugin**
 
 *[简体中文](/README.md) | English*
 
-**[Multi-platform Links](readme-website.md)** |
-**[Developer Notes](PullRequest_en.md)** |
-*[License Notice](Mustn't_en.md)* |
+**[Multi-platform](readme-website.md)** ·
+**[Command Help](LengbanlistCommandHelp.md)** ·
+**[Config Guide](LengbanlistConfig.md)** ·
+**[Developer Notes](PullRequest_en.md)** ·
+*[License Notice](Mustn't_en.md)* ·
 **[Discord](https://discord.gg/aeWjf7vD)**
 </div>
 
 ![Lengbanlist](https://github.com/Serendisand/Lengbanlist/blob/main/Photos/Lengbanlist.png)
 ![Lengbanlist](https://bstats.org/signatures/bukkit/Lengbanlist.svg)
 
-## What is this?
+## Overview
 
-Lengbanlist started as a simple ban broadcast plugin, but it's grown into a full server management toolkit: banning, warning, muting, reporting, chat filtering, IP association detection, VPN detection, a web management panel ... pretty much everything you need for day-to-day server administration.
+Lengbanlist began as a ban broadcast plugin and has grown into a complete server management toolkit: bans, warnings, mutes, reports, chat filtering, IP association, VPN detection and a web panel.
 
-Every feature has its own toggle in the config file — turn off what you don't need, no bloat.
+Every module has its own toggle under the `features` section of `config.yml`. Disable what you don't need — a disabled feature won't even register its commands.
 
 ## Features
 
-**Ban / IP Ban / Unban / Setban — `/ban` `/ban-ip` `/unban` `/setban`**
-Ban a player or IP with durations in seconds, minutes, hours, days, weeks, months, or years. Use `forever` for permanent or `auto` to let the plugin calculate it from warning count. You can also modify an existing ban's duration and reason. Also supports IP range banning (e.g., `172.198.2.x` or `172.198.2.0/24`) to block entire network segments.
+| Module | Commands | Description |
+| --- | --- | --- |
+| Bans / IP bans | `/ban` `/ban-ip` `/unban` `/setban` | Ban a player or an IP with durations in seconds, minutes, hours, days, weeks, months or years, plus `forever` for permanent and `auto` to derive the duration from warning count. Existing bans can be re-timed and re-reasoned at any time. IP range bans (`172.198.2.x`, `172.198.2.0/24`) block an entire network segment in one go |
+| Warning system | `/warn` `/unwarn` | Record and revoke warnings. Built-in LBAC auto-ban: 3 warnings within 30 days triggers a ban whose duration escalates with each trigger. Revoking warnings below the threshold lifts the ban automatically |
+| Mutes | `/mute` `/unmute` `/listmute` | Timed or permanent mutes; muted players can't chat. Unmute at any time and list all active mutes |
+| Chat filtering | — | Define blocked words in `chatconfig.yml`; hits get replaced automatically. Repeated hits trigger an auto-mute, and suspicious messages notify staff with one-click approve / warn buttons |
+| IP association / VPN detection | `/lban alts` | Records every IP a player has used and notifies staff when multiple accounts share one. On join, VPN and proxy connections are detected and can be warned, kicked or banned |
+| Reports | `/report` `/admin` | Players submit reports; the reporter is notified once staff handles it |
+| Ban broadcast | — | Periodically announces current ban statistics in chat, with fully customizable wording and format. Can be triggered manually or toggled at any time |
+| Character models | `/lban model` `/lban models` | Messages aren't hardcoded — they're downloaded on demand from the [Lengbanlist-Models](https://github.com/Serendisand/Lengbanlist-Models) cloud repo. Browse with `models list`, install with `models install <ID>`, switch with `model <name>` and every plugin message changes tone and wording. 25 character styles available, updated monthly with a featured pick. Text supports **inheritance**: the global baseline lives in `models/_base.yml` and a model file only declares what it overrides, so new keys added by plugin updates never leave old models behind |
+| GUI | `/lban open` | A 54-slot chest menu whose buttons follow your permissions: ban, unban, re-time, mute, warn, freeze, vanish, switch models, reload. Ban, mute, warn and freeze include a chat wizard that walks you through the steps — send `cancel` to abort |
+| Web panel | — | A built-in HTTP management page you open in a browser, protected by JWT authentication and rate limiting. Ban, unban, mute, warn, look up records and reload config from the page |
+| Lookup tools | `/check` `/history` `/getip` | Check a player's or IP's current punishment status, full history, associated accounts and geographical location |
+| Vanish / Freeze | `/lban vanish` `/lban freeze` | Vanish makes you fully invisible to other players — held items and armour included, and hidden from the player list (staff with `lengbanlist.vanish.see` still see you). Freeze blocks movement, block breaking, interaction, item dropping, commands and teleports while showing a red title with the reason; unfreezing is manual via `/lban unfreeze`. Freeze state is stored in the database, so it survives restarts and applies across sub-servers sharing one database |
+| Shared database across sub-servers | — | Database settings live in `storage.yml` (leaving only feature toggles in `config.yml`). Give each sub-server a `server-name`, and when they share one MySQL / MariaDB / PostgreSQL instance every audit entry records which server and which operator performed the action — visible in `/lban audit` and the web panel |
+| Staff chat | `/sc` | A private chat channel for staff |
+| Operation rollback | `/lban rollback` | Roll back by operator and time range using the audit log: bans are lifted, unbans re-applied, warnings revoked. Can be restricted to a single operation type |
+| Other | `/info` | Plugin version, memory, CPU and online count. Supports SQLite / MySQL / MariaDB / PostgreSQL with automatic migration from legacy YAML storage, plus bStats analytics and auto-update |
 
-**Warning System — `/warn` `/unwarn`**
-Warn players for rule violations. Has a built-in auto-ban system (LBAC): 3 warnings within 30 days triggers an automatic ban, and the ban duration scales up with each trigger. Remove warnings to drop below the threshold and the ban gets lifted automatically.
+## Requirements
 
-**Mute — `/mute` `/unmute` `/listmute`**
-Mute a player for a set duration or permanently. Muted players can't chat. Unmute anytime, or list all currently muted players.
-
-**Chat Filter**
-Define your own list of bad words in the config. Triggered words get replaced with "mew". Hit the threshold and the player gets auto-muted. Suspicious messages show clickable buttons for admins to approve or penalize.
-
-**IP Association & VPN Detection**
-Tracks every IP a player has used. If two players share the same IP, staff get notified. On join, the plugin checks if the player is behind a VPN or proxy — you can set it to warn, kick, or auto-ban.
-
-**Player Reports — `/report` `/admin`**
-Players can report rule-breaking. Reports are stored in the database, and the reporter gets notified when an admin processes it.
-
-**Ban Broadcast**
-Periodically announces the current ban count in chat. Fully customizable message format. Toggle it on/off anytime, or broadcast manually.
-
-**Character Models (cloud-downloaded)**
-Models are no longer hardcoded. They come from the [Lengbanlist-Models](https://github.com/Serendisand/Lengbanlist-Models) cloud repo: `/lban models list` to browse, `/lban models install <ID>` to install, `/lban model <name>` to switch — every plugin message then changes tone and wording. 25 character styles (HuTao, Furina, Zhongli, Keqing, Klee, YaeMiko, Aino, Columbina and more), updated monthly with a featured model.
-
-Model text supports **inheritance**: the global baseline lives in `models/_base.yml`, and a model file only declares what it overrides. Adding new keys to the plugin never leaves old models behind, and writing your own model means copying a few fields.
-
-**GUI — `/lban open`**
-A 54-slot chest interface. Ban, unban, mute, warn, freeze, vanish, switch models, reload — every button is shown according to your permissions and actually works. Ban, mute, warn and freeze come with a chat wizard that walks you through it step by step (send `cancel` to abort).
-
-**Web Management Panel**
-Built-in HTTP management page — open it in your browser. JWT authentication and rate limiting included. Ban, unban, mute, warn, check history, reload config, all from the web UI.
-
-**Lookup Tools — `/check` `/history` `/getip`**
-Check a player's or IP's current punishment status, full history, associated players, and geographical location.
-
-**Admin Vanish & Freeze — `/lban vanish` `/lban freeze`**
-`/lban vanish` makes you completely invisible to other players — equipment included, and you disappear from the player list too. Staff with `lengbanlist.vanish.see` can still see you.
-`/lban freeze <player> <reason>` pins a player in place: no movement, block breaking, interaction, item dropping, commands or teleports. They get a red title and the reason, and only `/lban unfreeze <player|all>` releases them. Freeze state lives in the database, so it survives restarts and applies across sub-servers sharing one database.
-
-**Shared Database Across Sub-servers**
-Database settings moved to `storage.yml`. Give each sub-server a `server-name` and, when they share one MySQL / MariaDB / PostgreSQL instance, every audit entry records which server and which operator performed the action (visible in `/lban audit` and the web panel).
-
-**Staff Chat — `/sc`**
-A private chat channel for staff only.
-
-**Operation Rollback — `/lban rollback`**
-Made a mistake? Roll it back. Based on the audit log, specify an operator and a time range, and roll back their bans, unbans, mutes, warnings etc. — unbanned targets get re-banned, bans get lifted, warnings get revoked. You can also restrict it to one operation type (e.g. bans only).
-
-**Other Bits**
-`/info` shows plugin version, memory, CPU, online players. Supports SQLite, MySQL, MariaDB and PostgreSQL with automatic migration from legacy YAML storage. Has bStats analytics and auto-update support.
+| Item | Requirement |
+| --- | --- |
+| Server | Spigot / Paper / Folia |
+| Minecraft | 1.17.1 ~ 26.3+, one jar for all |
+| Java | 17 or newer |
+| Database | SQLite (bundled, works out of the box) / MySQL / MariaDB / PostgreSQL |
 
 ## Quick Start
 
 1. Drop the jar into your server's `plugins` folder.
-2. Restart the server — the plugin generates config files automatically.
-3. Edit `config.yml` (features & behaviour) and `storage.yml` (database, retention, server tag). Legacy `database:` sections in config.yml are migrated automatically.
-4. `/lban reload` to apply changes, or restart the server.
+2. Restart the server — config files are generated automatically.
+3. Edit `config.yml` (feature toggles and behaviour) and `storage.yml` (database, retention, server tag). Legacy `database` sections in `config.yml` are migrated automatically.
+4. Run `/lban reload` to apply the changes, or restart the server.
 
-## Command Help
+## Documentation
 
-Full command reference: [Lengbanlist Command Help](LengbanlistCommandHelp.md)
-
-## Screenshots
-
-[See the plugin in action →](Lengbanlist_Images.md)
+| Document | Contents |
+| --- | --- |
+| [Command Help](LengbanlistCommandHelp.md) | Full command list and usage |
+| [Config Guide](LengbanlistConfig.md) | `config.yml` / `storage.yml` field reference |
+| [Screenshots](Lengbanlist_Images.md) | Interface screenshots and results in game |
+| [Multi-platform](readme-website.md) | GitHub / SpigotMC / Modrinth |
 
 ---
 
 ## Support the Project ❤️
 
-If you find this plugin useful, feel free to show your support. It helps me keep developing and maintaining these projects, and motivates me to create more cool stuff.
+If this plugin helps you, consider supporting its development. It's what keeps me maintaining and improving it.
 
-## Donate
+[![Afdian](https://img.shields.io/badge/%E7%88%B1%E5%8F%91%E7%94%B5-%E6%94%AF%E6%8C%81%E6%88%91-orange)](https://afdian.com/a/lengmc)
 
-[![Afdian Sponsor](https://img.shields.io/badge/%E7%88%B1%E5%8F%91%E7%94%B5-%E6%94%AF%E6%8C%81%E6%88%91-orange)](https://afdian.com/a/lengmc)
-
-Thanks for your support! ❤️
+Thanks for your support ❤️
