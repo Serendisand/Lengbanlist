@@ -271,13 +271,18 @@ code {
 
 .bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 
-/* 默认壁纸与面板设置里的「默认」来源保持一致 */
+/* 默认壁纸由服务端下载缓存后经 /api/theme 下发，这里只留兜底渐变（离线也不空白） */
 .bg-photo {
   position: absolute;
   inset: 0;
-  background-image: url('https://api.dujin.org/bing/1920.php');
+  background-image: linear-gradient(155deg, #0b1219 0%, #10202f 45%, #17364b 100%);
   background-size: cover;
   background-position: center;
+  background-repeat: no-repeat;
+}
+
+.light .bg-photo {
+  background-image: linear-gradient(155deg, #e8f2fa 0%, #d5e6f4 45%, #c2dcef 100%);
 }
 
 /* 只用半透明遮罩，不用 backdrop-filter：全屏模糊在低配机器上会拖慢合成 */

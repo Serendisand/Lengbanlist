@@ -39,6 +39,9 @@ public class ThemeController extends WebController {
         ThemeManager theme = plugin.getThemeManager();
         try {
             if ("GET".equals(exchange.getRequestMethod())) {
+                if (theme.isBingBackgroundStale()) {
+                    theme.refreshBingBackgroundAsync();
+                }
                 JsonObject result = new JsonObject();
                 result.addProperty("background_type", theme.getBackgroundType());
                 result.addProperty("background_url", theme.getBackgroundUrl());
@@ -178,7 +181,7 @@ public class ThemeController extends WebController {
             case "upload":
                 return "/api/theme/file/" + theme.getBackgroundFile();
             default:
-                return "";
+                return theme.getBingBackgroundUrl();
         }
     }
 }

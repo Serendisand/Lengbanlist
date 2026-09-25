@@ -1,7 +1,11 @@
 package org.leng.manager;
 
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.leng.Lengbanlist;
+import org.leng.utils.HttpHelper;
+import org.leng.utils.SchedulerUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -26,12 +30,24 @@ public class ThemeManager {
             "audit", "player", "ip", "history", "alts", "broadcast"
     )));
 
-    public static final long MAX_UPLOAD_BYTES = 5L * 1024 * 1024; 
+    public static final long MAX_UPLOAD_BYTES = 5L * 1024 * 1024;
     public static final List<String> ALLOWED_EXTENSIONS = Arrays.asList("png", "jpg", "jpeg", "webp", "gif");
+
+    private static final String BING_API = "https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=";
+    private static final String BING_FILE_PREFIX = "bing-";
+    private static final String WALLPAPER_USER_AGENT = "Lengbanlist-BingWallpaper/1.0";
+    private static final int BING_CONNECT_TIMEOUT_MS = 5000;
+    private static final int BING_READ_TIMEOUT_MS = 10000;
+    private static final long BING_REFRESH_INTERVAL_MS = 6L * 60 * 60 * 1000;
+    private static final long MAX_BING_BYTES = 12L * 1024 * 1024;
 
     private final Lengbanlist plugin;
     private final File webAssetsDir;
     private final Logger logger;
+
+    private volatile String bingFileName = "";
+    private volatile long bingFetchedAt;
+    private final java.util.concurrent.atomic.AtomicBoolean bingFetching = new java.util.concurrent.atomic.AtomicBoolean();
 
     private String backgroundType = "default";
     private String backgroundUrl = "";
@@ -76,6 +92,168 @@ public class ThemeManager {
         return webAssetsDir;
     }
 
+    public String getBingBackgroundUrl() {
+        String name = bingFileName;
+        return name.isEmpty() ? "" : "/api/theme/file/" + name;
+    }
+
+    public boolean isBingBackgroundEnabled() {
+        return plugin.getConfig().getBoolean("web.background.bing-enabled", true);
+    }
+
+    public boolean isBingBackgroundStale() {
+        String name = bingFileName;
+        return name.isEmpty() || System.currentTimeMillis() - bingFetchedAt > BING_REFRESH_INTERVAL_MS;
+    }
+
+    public void refreshBingBackgroundAsync() {
+        if (!bingFetching.compareAndSet(false, true)) {
+            return;
+        }
+        SchedulerUtils.runAsync(plugin, () -> {
+            try {
+                refreshBingBackground();
+            } catch (Throwable t) {
+                logger.warning("必应壁纸刷新失败: " + t.getMessage());
+            } finally {
+                bingFetching.set(false);
+            }
+        });
+    }
+
+    void refreshBingBackground() {
+        adoptCachedBingBackground();
+        if (!isBingBackgroundEnabled() || !isBingBackgroundStale()) {
+            return;
+        }
+        String path = fetchBingImagePath();
+        if (path.isEmpty()) {
+            logger.warning("必应壁纸接口未返回可用地址，沿用现有背景");
+            return;
+        }
+        String url = path.startsWith("http") ? path : "https://www.bing.com" + path;
+        byte[] data = downloadBingImage(url);
+        String extension = imageExtension(data);
+        if (extension.isEmpty()) {
+            logger.warning("必应壁纸下载内容不是有效图片，沿用现有背景");
+            return;
+        }
+        String name = BING_FILE_PREFIX + dayStamp() + extension;
+        try {
+            Files.write(Paths.get(webAssetsDir.getAbsolutePath(), name), data);
+        } catch (IOException e) {
+            logger.warning("必应壁纸写入失败: " + e.getMessage());
+            return;
+        }
+        bingFileName = name;
+        bingFetchedAt = System.currentTimeMillis();
+        cleanupBingFiles(name);
+        logger.info("必应壁纸已缓存到 web-assets/background/" + name);
+    }
+
+    private void adoptCachedBingBackground() {
+        File[] files = webAssetsDir.listFiles((dir, n) -> n.startsWith(BING_FILE_PREFIX));
+        if (files == null || files.length == 0) {
+            return;
+        }
+        File newest = null;
+        for (File file : files) {
+            if (!file.isFile() || imageExtension(readHead(file)).isEmpty()) {
+                continue;
+            }
+            if (newest == null || file.lastModified() > newest.lastModified()) {
+                newest = file;
+            }
+        }
+        if (newest == null) {
+            return;
+        }
+        bingFileName = newest.getName();
+        bingFetchedAt = newest.lastModified();
+    }
+
+    private byte[] readHead(File file) {
+        try (java.io.InputStream in = Files.newInputStream(file.toPath())) {
+            byte[] head = new byte[8];
+            int read = in.read(head);
+            if (read <= 0) {
+                return new byte[0];
+            }
+            byte[] trimmed = new byte[read];
+            System.arraycopy(head, 0, trimmed, 0, read);
+            return trimmed;
+        } catch (IOException e) {
+            return new byte[0];
+        }
+    }
+
+    private String fetchBingImagePath() {
+        String market = plugin.getConfig().getString("web.background.bing-market", "zh-CN");
+        try (HttpHelper http = new HttpHelper(BING_CONNECT_TIMEOUT_MS, BING_READ_TIMEOUT_MS)) {
+            String body = http.get(BING_API + market, WALLPAPER_USER_AGENT, "application/json");
+            if (body == null || body.trim().isEmpty()) {
+                return "";
+            }
+            JSONArray images = new JSONObject(body).optJSONArray("images");
+            if (images == null || images.isEmpty()) {
+                return "";
+            }
+            JSONObject first = images.optJSONObject(0);
+            if (first == null) {
+                return "";
+            }
+            String url = first.optString("url", "");
+            return url.startsWith("/") || url.startsWith("http") ? url : "";
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private byte[] downloadBingImage(String url) {
+        try (HttpHelper http = new HttpHelper(BING_CONNECT_TIMEOUT_MS, BING_READ_TIMEOUT_MS)) {
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            final long[] size = {0L};
+            http.download(url, WALLPAPER_USER_AGENT, chunk -> {
+                size[0] += chunk.length;
+                if (size[0] <= MAX_BING_BYTES) {
+                    out.write(chunk, 0, chunk.length);
+                }
+            }, total -> { });
+            return out.toByteArray();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static String imageExtension(byte[] data) {
+        if (data == null || data.length < 4) {
+            return "";
+        }
+        if ((data[0] & 0xFF) == 0xFF && (data[1] & 0xFF) == 0xD8) {
+            return ".jpg";
+        }
+        if ((data[0] & 0xFF) == 0x89 && data[1] == 'P' && data[2] == 'N' && data[3] == 'G') {
+            return ".png";
+        }
+        return "";
+    }
+
+    private static String dayStamp() {
+        return new java.text.SimpleDateFormat("yyyyMMdd").format(new java.util.Date());
+    }
+
+    private void cleanupBingFiles(String keep) {
+        File[] files = webAssetsDir.listFiles((dir, n) -> n.startsWith(BING_FILE_PREFIX) && !n.equals(keep));
+        if (files == null) {
+            return;
+        }
+        for (File file : files) {
+            if (file.isFile() && !file.delete()) {
+                file.deleteOnExit();
+            }
+        }
+    }
+
     public void load() {
         backgroundType = plugin.getConfig().getString(CFG_PREFIX + ".background-type", "default");
         backgroundUrl = plugin.getConfig().getString(CFG_PREFIX + ".background-url", "");
@@ -117,7 +295,7 @@ public class ThemeManager {
         File[] files = webAssetsDir.listFiles();
         if (files != null) {
             for (File f : files) {
-                if (f.isFile()) {
+                if (f.isFile() && !f.getName().startsWith(BING_FILE_PREFIX)) {
                     if (!f.delete()) {
                         f.deleteOnExit();
                     }

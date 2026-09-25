@@ -27,10 +27,13 @@ public class ModelCloudManager {
     private static final long INDEX_CACHE_TTL_MS = 24L * 60 * 60 * 1000;
     private static final int HTTP_TIMEOUT_MS = 5000;
     private static final DateTimeFormatter MONTH_FMT = DateTimeFormatter.ofPattern("yyyy-MM");
+    private static final java.util.regex.Pattern HTTP_STATUS_FAILURE = java.util.regex.Pattern.compile("^HTTP (\\d{3})");
 
     private final Lengbanlist plugin;
     private final AtomicReference<ModelIndex> cachedIndex = new AtomicReference<>();
     private volatile long cacheLoadedAt = 0;
+    private volatile boolean primaryUnreachable;
+    private volatile boolean primaryFailureLogged;
 
     public ModelCloudManager(Lengbanlist plugin) {
         this.plugin = plugin;
@@ -132,8 +135,85 @@ public class ModelCloudManager {
         return list;
     }
 
+    void resetSourceMemory() {
+        primaryUnreachable = false;
+        primaryFailureLogged = false;
+    }
+
+    private List<String> activeMirrors() {
+        return withoutPrimary(mirrors());
+    }
+
+    private List<String> withoutPrimary(List<String> urls) {
+        if (!primaryUnreachable) {
+            return urls;
+        }
+        List<String> filtered = urls.stream().filter(url -> !isPrimaryHost(url)).toList();
+        return filtered.isEmpty() ? urls : filtered;
+    }
+
+    private String primaryHost() {
+        List<String> all = mirrors();
+        if (all.isEmpty()) {
+            return "";
+        }
+        try {
+            String host = java.net.URI.create(all.get(0)).getHost();
+            return host == null ? "" : host;
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private boolean isPrimaryHost(String url) {
+        String host = primaryHost();
+        if (host.isEmpty() || url == null || url.isEmpty()) {
+            return false;
+        }
+        try {
+            return host.equalsIgnoreCase(java.net.URI.create(url).getHost());
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void noteSourceFailure(String url, Exception error) {
+        if (primaryUnreachable || !isPrimaryHost(url) || !isUnreachableFailure(error)) {
+            return;
+        }
+        primaryUnreachable = true;
+        if (!primaryFailureLogged) {
+            primaryFailureLogged = true;
+            plugin.getLogger().info("[ModelCloud] 主源 " + primaryHost() + " 本次任务不可达（" + error.getMessage()
+                    + "），后续下载直接走镜像；下次任务仍会先试主源。");
+        }
+    }
+
+    static boolean isUnreachableFailure(Exception error) {
+        if (error instanceof InterruptedException) {
+            return true;
+        }
+        if (!(error instanceof IOException)) {
+            return false;
+        }
+        String message = error.getMessage();
+        if (message == null) {
+            return true;
+        }
+        java.util.regex.Matcher matcher = HTTP_STATUS_FAILURE.matcher(message);
+        if (!matcher.find()) {
+            return true;
+        }
+        try {
+            return Integer.parseInt(matcher.group(1)) >= 500;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
     public Optional<ModelIndex> fetchIndex() {
-        for (String url : mirrors()) {
+        resetSourceMemory();
+        for (String url : activeMirrors()) {
             try (HttpHelper http = new HttpHelper(HTTP_TIMEOUT_MS, HTTP_TIMEOUT_MS)) {
                 String body = http.get(url, "Lengbanlist-ModelCloud/1.0", "application/json");
                 JsonObject obj = JsonParser.parseString(body).getAsJsonObject();
@@ -143,6 +223,7 @@ public class ModelCloudManager {
                 writeIndexCache(body);
                 return Optional.of(index);
             } catch (IOException | InterruptedException e) {
+                noteSourceFailure(url, e);
                 plugin.getLogger().log(Level.WARNING, "[ModelCloud] 镜像拉取失败: " + url + " — " + e.getMessage());
                 if (e instanceof InterruptedException) {
                     Thread.currentThread().interrupt();
@@ -406,6 +487,7 @@ public class ModelCloudManager {
         if (!isValidModelId(id)) {
             return InstallResult.NOT_FOUND;
         }
+        resetSourceMemory();
         String lower = id.toLowerCase();
         if (isPinned(lower)) {
             return InstallResult.PINNED_SKIPPED;
@@ -424,6 +506,7 @@ public class ModelCloudManager {
     }
 
     public int syncAll() {
+        resetSourceMemory();
         Optional<ModelIndex> idx = getIndex();
         if (idx.isEmpty()) {
             return 0;
@@ -455,7 +538,7 @@ public class ModelCloudManager {
         if (info.id() == null || info.id().isEmpty()) {
             return InstallResult.FAILED;
         }
-        for (String url : modelDownloadCandidates(info)) {
+        for (String url : withoutPrimary(modelDownloadCandidates(info))) {
 
             if (!isAllowedUrl(url)) {
                 continue;
@@ -477,6 +560,7 @@ public class ModelCloudManager {
                 recordInstall(info.id());
                 return InstallResult.INSTALLED;
             } catch (IOException | InterruptedException e) {
+                noteSourceFailure(url, e);
                 plugin.getLogger().log(Level.FINE, "[ModelCloud] 下载候选失败: " + url + " — " + e.getMessage());
                 if (e instanceof InterruptedException) {
                     Thread.currentThread().interrupt();
