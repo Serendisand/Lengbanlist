@@ -1,7 +1,6 @@
 package org.leng.manager;
 
 import org.bukkit.command.CommandSender;
-import org.json.JSONArray;
 import org.json.JSONObject;
 import org.leng.Lengbanlist;
 import org.leng.object.AuditEntry;
@@ -13,7 +12,6 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 
@@ -31,22 +29,23 @@ public class AuditManager {
     }
 
     public void log(String action, String actor, String target, String reason, boolean success) {
+        String safeActor = actor == null || actor.trim().isEmpty() ? "System" : actor;
+        WebhookNotifier notifier = plugin.getWebhookNotifier();
+        if (notifier != null) {
+            notifier.notifyEvent(action, safeActor, target, reason, success);
+        }
         if (!plugin.isFeatureEnabled("audit")) {
             return;
         }
-        if (actor == null || actor.trim().isEmpty()) {
-            actor = "System";
-        }
         boolean recorded;
         if (plugin.isFeatureEnabled("audit-chain")) {
-            recorded = db.addAuditLogChained(actor, action, target == null ? "" : target, reason == null ? "" : reason, success);
+            recorded = db.addAuditLogChained(safeActor, action, target == null ? "" : target, reason == null ? "" : reason, success);
         } else {
-            recorded = db.addAuditLog(actor, action, target == null ? "" : target, reason == null ? "" : reason, success);
+            recorded = db.addAuditLog(safeActor, action, target == null ? "" : target, reason == null ? "" : reason, success);
         }
         if (!recorded) {
-            plugin.getLogger().severe("审计日志写入失败（操作: " + action + "，操作人: " + actor + "，目标: " + (target == null ? "" : target) + "）：该操作已执行但未记录，请检查数据库状态。");
+            plugin.getLogger().severe("审计日志写入失败（操作: " + action + "，操作人: " + safeActor + "，目标: " + (target == null ? "" : target) + "）：该操作已执行但未记录，请检查数据库状态。");
         }
-        notifyWebhook(action, actor, target, reason);
     }
 
     public List<AuditEntry> getLogs(String actorOrTarget, int limit) {
@@ -187,64 +186,5 @@ public class AuditManager {
                 }
             });
         });
-    }
-
-    private void notifyWebhook(String action, String actor, String target, String reason) {
-        if (!plugin.isFeatureEnabled("webhook-events")) {
-            return;
-        }
-        boolean enabled = plugin.getConfig().getBoolean("webhook.enabled", true);
-        String webhookUrl = plugin.getConfig().getString("webhook.url", "");
-        if (!enabled || webhookUrl == null || webhookUrl.trim().isEmpty()) {
-            return;
-        }
-        List<String> eventTypes = plugin.getConfig().getStringList("webhook.event-types");
-        if (!eventTypes.isEmpty() && !eventTypes.contains(action)) {
-            return;
-        }
-        final String fUrl = webhookUrl.trim();
-        final String fAction = action;
-        final String fActor = actor;
-        final String fTarget = target == null ? "" : target;
-        final String fReason = reason == null ? "" : reason;
-        final String fUsername = plugin.getConfig().getString("webhook.username", "Lengbanlist");
-        final String fAvatarUrl = plugin.getConfig().getString("webhook.avatar-url", "");
-        SchedulerUtils.runAsync(plugin, () -> {
-            try {
-                JSONArray fields = new JSONArray();
-                fields.put(field("操作", fAction, true));
-                fields.put(field("操作人", fActor, true));
-                fields.put(field("目标", fTarget.isEmpty() ? "—" : fTarget, true));
-                fields.put(field("原因", fReason.isEmpty() ? "—" : fReason, false));
-
-                JSONObject embed = new JSONObject();
-                embed.put("title", "Lengbanlist 审计日志");
-                embed.put("color", 0xE74C3C);
-                embed.put("fields", fields);
-                embed.put("timestamp", Instant.now().toString());
-
-                JSONObject payload = new JSONObject();
-                payload.put("username", fUsername);
-                if (fAvatarUrl != null && !fAvatarUrl.trim().isEmpty()) {
-                    payload.put("avatar_url", fAvatarUrl.trim());
-                }
-                payload.put("embeds", new JSONArray().put(embed));
-
-                try (org.leng.utils.HttpHelper http = new org.leng.utils.HttpHelper(5000, 5000)) {
-                    int code = http.postJson(fUrl, payload.toString(), "Lengbanlist-Webhook/1.0");
-                    if (code < 200 || code >= 300) {
-                        plugin.getLogger().warning("Webhook 推送失败，HTTP " + code);
-                    }
-                } catch (Exception e) {
-                    plugin.getLogger().warning("Webhook 推送异常: " + e.getMessage());
-                }
-            } catch (Exception e) {
-                plugin.getLogger().warning("Webhook 构造失败: " + e.getMessage());
-            }
-        });
-    }
-
-    private JSONObject field(String name, String value, boolean inline) {
-        return new JSONObject().put("name", name).put("value", value).put("inline", inline);
     }
 }

@@ -55,6 +55,7 @@ public class Lengbanlist extends JavaPlugin {
     private FreezeManager freezeManager;
     private WizardManager wizardManager;
     private BroadCastManager broadCastManager;
+    private WebhookNotifier webhookNotifier;
     private FileConfiguration eulaFC;
     private FileConfiguration storageConfig;
 
@@ -125,6 +126,7 @@ public void onLoad() {
     guiSessionManager = new GuiSessionManager();
     guiCommand = new GuiCommand(this);
     modelCloudManager = new ModelCloudManager(this);
+    webhookNotifier = new WebhookNotifier(this);
     auditManager = new AuditManager(this);
     reportManager = new ReportManager(this);
     ipAssociationManager = new IpAssociationManager(this);
@@ -374,6 +376,7 @@ public void onDisable() {
     if (broadcastTask != null) broadcastTask.cancel();
     if (historyCleanupTask != null) historyCleanupTask.cancel();
     if (expiryReminderTask != null) expiryReminderTask.cancel();
+    if (webhookNotifier != null) webhookNotifier.stop();
     if (commandRegistry != null) {
         commandRegistry.unregisterAll();
     }
@@ -526,6 +529,10 @@ void shutdownStorage() {
 
     public AuditManager getAuditManager() {
         return auditManager;
+    }
+
+    public WebhookNotifier getWebhookNotifier() {
+        return webhookNotifier;
     }
 
     public ReportManager getReportManager() {

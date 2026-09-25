@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
@@ -69,6 +70,44 @@ public final class HttpHelper implements AutoCloseable {
                 .build();
         HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         return resp.statusCode();
+    }
+
+    public Response postJsonForResponse(String url, String jsonBody, String userAgent) throws IOException, InterruptedException {
+        HttpRequest req = HttpRequest.newBuilder(URI.create(url))
+                .timeout(readTimeout)
+                .header("User-Agent", userAgent)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
+                .build();
+        HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        return new Response(resp.statusCode(), resp.headers(), resp.body());
+    }
+
+    public static final class Response {
+        private final int statusCode;
+        private final HttpHeaders headers;
+        private final String body;
+
+        Response(int statusCode, HttpHeaders headers, String body) {
+            this.statusCode = statusCode;
+            this.headers = headers;
+            this.body = body == null ? "" : body;
+        }
+
+        public int statusCode() {
+            return statusCode;
+        }
+
+        public String header(String name) {
+            if (headers == null || name == null) {
+                return null;
+            }
+            return headers.firstValue(name).orElse(null);
+        }
+
+        public String body() {
+            return body;
+        }
     }
 
     public void download(String url, String userAgent,

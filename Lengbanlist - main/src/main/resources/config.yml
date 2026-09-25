@@ -115,13 +115,19 @@ preset-reasons:
 # ---------- 举报 ----------
 report-cooldown-seconds: 86400  # 玩家举报冷却时间（秒）
 
-# ---------- Webhook 通知（审计日志推送，Discord 兼容） ----------
+# ---------- Webhook 通知（单向转发，Discord 兼容） ----------
+# 说明：需要 features.webhook-events 与 webhook.enabled 同时为 true 才会投递；
+#       投递走独立队列 + 限速线程，不受 features.audit 影响（审计日志关掉也能收到通知）。
 webhook:
-  enabled: false
-  url: ""
-  username: "Lengbanlist"
-  avatar-url: ""
-  event-types: []
+  enabled: false                # Webhook 总开关（与 features.webhook-events 同时满足才投递）
+  url: ""                       # Discord Webhook 地址，留空则静默跳过（不发任何请求）
+  username: "Lengbanlist"       # 消息显示的用户名
+  avatar-url: ""                # 消息头像图片地址，留空用 Discord 默认头像
+  event-types: []               # 只推送这些动作，留空 = 全部。可用动作：封禁/封禁IP/设置封禁时间/解封/解封IP/禁言/修改禁言/解除禁言/警告/取消警告/踢出/冻结玩家/解除冻结/解冻全部玩家/提交举报/受理举报/已读举报/关闭举报/开启隐身/关闭隐身/开启广播/关闭广播
+  mention-role: ""              # 仅封禁类动作（封禁/封禁IP/设置封禁时间）@ 一次的身份组 ID，填纯数字或 <@&ID>，留空则不 @
+  queue-size: 500               # 待投递队列容量，超出时丢弃最旧的一条（避免回滚/批量封禁打爆内存）
+  min-interval-ms: 450          # 两次请求的最小间隔（毫秒），Discord 限制约 5 次/2 秒，不要低于 400
+  max-retries: 3                # 429/5xx 的最大重试次数，优先按 Retry-After 响应头退避，读不到则指数退避（1s/2s/4s…）
 
 # ---------- VPN/代理检测 ----------
 vpn-detection:

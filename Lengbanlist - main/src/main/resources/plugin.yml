@@ -68,6 +68,9 @@ permissions:
   lengbanlist.audit:
     description: 允许查看审计日志
     default: op
+  lengbanlist.webhook:
+    description: 允许发送 Webhook 测试消息与查看投递状态
+    default: op
   lengbanlist.alts:
     description: 允许查询同IP小号
     default: op

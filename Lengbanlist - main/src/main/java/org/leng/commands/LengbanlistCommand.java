@@ -16,6 +16,7 @@ import org.leng.manager.EscalationManager.EscalationResult;
 import org.leng.manager.BanManager;
 import org.leng.manager.BanMutationFeedback;
 import org.leng.manager.ModelManager;
+import org.leng.manager.WebhookNotifier;
 import org.leng.models.Model;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
@@ -446,6 +447,25 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     Utils.sendMessage(sender, mark + " §7[" + TimeUtils.timestampToReadable(auditEntry.getTimestamp()) + "] §e" + auditEntry.getAction() + " §f" + auditEntry.getActor() + serverTag + " §7→ §f" + auditEntry.getTarget() + " §7" + auditEntry.getReason());
                 }
                 break;
+            case "webhook":
+                if (!sender.hasPermission("lengbanlist.webhook")) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                    return true;
+                }
+                if (!plugin.isFeatureEnabled("webhook-events")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
+                if (args.length >= 2 && args[1].equalsIgnoreCase("test")) {
+                    if (plugin.getWebhookNotifier() == null) {
+                        Utils.sendMessage(sender, plugin.prefix() + "§cWebhook 模块尚未初始化。");
+                        break;
+                    }
+                    plugin.getWebhookNotifier().sendTest(sender);
+                    break;
+                }
+                showWebhookStatus(sender);
+                break;
             case "handle":
                 if (!plugin.isFeatureEnabled("report")) {
                     plugin.sendFeatureDisabled(sender);
@@ -562,7 +582,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 StringBuilder available = new StringBuilder("§6§l可用子命令： §b");
                 for (String s : new String[]{"toggle", "a", "list", "reload", "add", "remove", "help", "open",
                         "getip", "model", "models", "mute", "unmute", "list-mute", "warn", "unwarn",
-                        "report", "admin", "check", "info", "tp", "history", "audit", "handle", "alts", "sync", "rollback",
+                        "report", "admin", "check", "info", "tp", "history", "audit", "webhook", "handle", "alts", "sync", "rollback",
                         "vanish", "freeze", "unfreeze"}) {
                     available.append(s).append(" ");
                 }
@@ -584,7 +604,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
             String prefix = args[0].toLowerCase();
             String[] subs = {"toggle", "a", "list", "reload", "add", "remove", "help", "open",
                     "getip", "model", "models", "mute", "unmute", "list-mute", "warn", "unwarn",
-                    "report", "admin", "check", "info", "tp", "history", "audit", "handle", "alts", "sync", "rollback",
+                    "report", "admin", "check", "info", "tp", "history", "audit", "webhook", "handle", "alts", "sync", "rollback",
                     "vanish", "freeze", "unfreeze"};
             for (String s : subs) {
                 if (s.startsWith(prefix)) completions.add(s);
@@ -616,6 +636,11 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     break;
                 case "audit":
                     for (String s : new String[]{"export", "verify"}) {
+                        if (s.startsWith(prefix)) completions.add(s);
+                    }
+                    break;
+                case "webhook":
+                    for (String s : new String[]{"test", "status"}) {
                         if (s.startsWith(prefix)) completions.add(s);
                     }
                     break;
@@ -688,6 +713,25 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
         if (total > LIST_DISPLAY_LIMIT) {
             Utils.sendMessage(sender, "§7仅显示前 " + LIST_DISPLAY_LIMIT + " 条，共 " + total + " 条。完整列表：§f/lban open §7或 Web 面板。");
         }
+    }
+
+    private void showWebhookStatus(CommandSender sender) {
+        WebhookNotifier notifier = plugin.getWebhookNotifier();
+        if (notifier == null) {
+            Utils.sendMessage(sender, plugin.prefix() + "§cWebhook 模块尚未初始化。");
+            return;
+        }
+        WebhookNotifier.Status status = notifier.status();
+        Utils.sendMessage(sender, "§7--§bLengbanlist Webhook 状态§7--");
+        Utils.sendMessage(sender, plugin.prefix() + "§7配置：" + (status.isConfigured() ? "§a" : "§e") + status.configState());
+        Utils.sendMessage(sender, plugin.prefix() + "§7投递线程：§f" + (status.isRunning() ? "运行中" : "未启动（暂无可投递事件）"));
+        Utils.sendMessage(sender, plugin.prefix() + "§7队列深度：§f" + status.queueSize() + "§7/§f" + status.queueCapacity());
+        Utils.sendMessage(sender, plugin.prefix() + "§7上次成功：" + (status.lastSuccessAt() > 0L ? "§f" + TimeUtils.timestampToReadable(status.lastSuccessAt()) : "§7无记录"));
+        Utils.sendMessage(sender, plugin.prefix() + "§7上次失败：" + (status.lastError().isEmpty() ? "§7无记录"
+                : "§c" + status.lastError() + " §7(" + TimeUtils.timestampToReadable(status.lastErrorAt()) + ")"));
+        Utils.sendMessage(sender, plugin.prefix() + "§7统计：§a送达 " + status.delivered() + " §e重试 " + status.retried()
+                + " §c失败 " + status.failed() + " §c丢弃 " + status.dropped());
+        Utils.sendMessage(sender, plugin.prefix() + "§7发送测试消息：§f/lban webhook test");
     }
 
     private void showMuteList(CommandSender sender) {
