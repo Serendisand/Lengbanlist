@@ -56,6 +56,7 @@ public class Lengbanlist extends JavaPlugin {
     private WizardManager wizardManager;
     private BroadCastManager broadCastManager;
     private WebhookNotifier webhookNotifier;
+    private AppealManager appealManager;
     private FileConfiguration eulaFC;
     private FileConfiguration storageConfig;
 
@@ -129,6 +130,7 @@ public void onLoad() {
     webhookNotifier = new WebhookNotifier(this);
     auditManager = new AuditManager(this);
     reportManager = new ReportManager(this);
+    appealManager = new AppealManager(this);
     ipAssociationManager = new IpAssociationManager(this);
     themeManager = new ThemeManager(this);
     vanishManager = new VanishManager(this);
@@ -311,7 +313,9 @@ public void onEnable() {
     }
 
     if (getConfig().getBoolean("web.enabled", false)) {
-        webServer.start();
+        if (webServer.start()) {
+            themeManager.refreshBingBackgroundAsync();
+        }
     }
 
     if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
@@ -537,6 +541,10 @@ void shutdownStorage() {
 
     public ReportManager getReportManager() {
         return reportManager;
+    }
+
+    public AppealManager getAppealManager() {
+        return appealManager;
     }
 
     public IpAssociationManager getIpAssociationManager() {

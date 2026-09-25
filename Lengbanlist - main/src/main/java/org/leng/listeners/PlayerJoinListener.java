@@ -74,6 +74,16 @@ public class PlayerJoinListener implements Listener {
                 SchedulerUtils.runTask(plugin, player, () -> Utils.sendMessage(player, msg));
             }
         }
+
+        if (plugin.getAppealManager() != null && plugin.getAppealManager().isEnabled()) {
+            org.leng.object.AppealEntry appeal = plugin.getAppealManager().pendingResultFor(player.getName());
+            if (appeal != null) {
+                plugin.getAppealManager().markNotified(appeal.id());
+                SchedulerUtils.runTask(plugin, player, () -> Utils.sendMessage(player, plugin.prefix()
+                        + "§7你的申诉（" + appeal.status() + "）"
+                        + (appeal.response().isEmpty() ? "" : "：§f" + appeal.response())));
+            }
+        }
     }
 
     private void notifyIpAssociation(Player joined, List<String> associatedPlayers) {

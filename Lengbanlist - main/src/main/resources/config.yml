@@ -34,6 +34,7 @@ features:
   # --- 举报与管理员 ---
   report: true         # 玩家举报（/lban report）
   admin: true          # 举报管理界面（/lban admin）
+  appeal: true         # 封禁申诉（网页申诉 + 面板处理）
 
   # --- 玩家体验 ---
   model: true          # 角色模型切换（/lban model）
@@ -115,6 +116,20 @@ preset-reasons:
 # ---------- 举报 ----------
 report-cooldown-seconds: 86400  # 玩家举报冷却时间（秒）
 
+# ---------- 封禁申诉 ----------
+# 被封禁的玩家打不开游戏，所以申诉走网页：http://<面板地址>/appeal
+# 出于安全考虑，公开申诉页默认关闭（公开页面意味着面板端口要对玩家可见），
+# 建议仅在内网或反向代理 + HTTPS 后开启，并把 public-url 填成对玩家可见的地址。
+appeal:
+  enabled: true                 # 总开关（features.appeal 也要为 true）
+  public-enabled: false         # 是否开放网页申诉页与公开接口
+  public-url: ""                # 对玩家可见的申诉地址，填了会附在封禁踢出提示里，例如 https://mc.example.com/appeal
+  require-contact: false        # 是否必填联系方式
+  min-reason-length: 10         # 申诉理由最少字数
+  cooldown-seconds: 600         # 同一玩家两次申诉的最小间隔（秒）
+  max-pending: 3                # 同一玩家最多允许几条未处理申诉
+  ticket-ttl-minutes: 30        # 查询凭证有效期（分钟），过期需重新查询
+
 # ---------- Webhook 通知（单向转发，Discord 兼容） ----------
 # 说明：需要 features.webhook-events 与 webhook.enabled 同时为 true 才会投递；
 #       投递走独立队列 + 限速线程，不受 features.audit 影响（审计日志关掉也能收到通知）。
@@ -151,6 +166,9 @@ web:
     background-url: ""          # background-type=url 时的图片地址
     background-file: ""         # background-type=upload 时的已上传文件名
     hidden-buttons: []          # 从面板隐藏的功能页签: ban/mute/report/audit/player/history/ip/alts/broadcast/unban/unmute/warn
+  background:                   # 「默认」背景（必应每日壁纸）由服务端下载缓存到 web-assets/background/，浏览器不直连外网
+    bing-enabled: true          # 关闭后默认背景只显示渐变，插件不再访问任何外部接口
+    bing-market: "zh-CN"        # 必应地区，影响壁纸内容，例如 en-US / ja-JP
 
 # ---------- 封禁时长自动升级（escalation） ----------
 # 惯犯封禁时封禁时长逐级递增

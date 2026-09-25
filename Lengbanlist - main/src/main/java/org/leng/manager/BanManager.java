@@ -69,7 +69,7 @@ public class BanManager {
                     banEntry.getReason(),
                     TimeUtils.formatDuration(durationMillis),
                     TimeUtils.timestampToReadable(banEntry.getEndTime())
-            );
+            ) + appealHint();
             SchedulerUtils.runTask(plugin, targetPlayer, () -> targetPlayer.kickPlayer(kickMessage));
         }
 
@@ -210,7 +210,7 @@ public class BanManager {
                         plugin.getLogger().warning("清理玩家过期封禁失败，玩家将被拦截: " + player.getName());
                     }
                 } else {
-                    SchedulerUtils.runTask(plugin, player, () -> player.kickPlayer("您仍处于封禁状态，原因：" + ban.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(ban.getTime())));
+                    SchedulerUtils.runTask(plugin, player, () -> player.kickPlayer("您仍处于封禁状态，原因：" + ban.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(ban.getTime()) + appealHint()));
                     return;
                 }
             }
@@ -250,6 +250,15 @@ public class BanManager {
             return BanMutationResult.REJECTED_PRIVATE_OR_RESERVED_IP;
         }
         return mapWriteResult(db.replaceExistingActiveIpBan(entry));
+    }
+
+    private String appealHint() {
+        AppealManager appeals = plugin.getAppealManager();
+        if (appeals == null || !appeals.isPublicEnabled()) {
+            return "";
+        }
+        String url = appeals.publicUrl();
+        return url.isEmpty() ? "" : "\n§f申诉地址: §b" + url;
     }
 
     private boolean isPrivateOrReservedIp(BanIpEntry entry) {

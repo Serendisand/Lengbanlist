@@ -1,6 +1,7 @@
 package org.leng.manager;
 
 import org.leng.Lengbanlist;
+import org.leng.object.AppealEntry;
 import org.leng.object.AuditEntry;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
@@ -343,6 +344,7 @@ public class DatabaseManager {
         execute("CREATE TABLE IF NOT EXISTS sync_events (id " + integerPrimaryKey() + ", timestamp " + longType() + " NOT NULL, server " + textType() + " NOT NULL DEFAULT '', scope " + varcharType(32) + " NOT NULL, target " + textType() + " NOT NULL, uuid " + varcharType(36) + " NOT NULL DEFAULT '', action " + varcharType(32) + " NOT NULL DEFAULT '')");
         execute("CREATE TABLE IF NOT EXISTS player_identity (uuid " + varcharType(36) + " PRIMARY KEY, name " + varcharType(191) + " NOT NULL, first_seen " + longType() + " NOT NULL, last_seen " + longType() + " NOT NULL)");
         execute("CREATE TABLE IF NOT EXISTS name_history (uuid " + varcharType(36) + " NOT NULL, name " + varcharType(191) + " NOT NULL, changed_at " + longType() + " NOT NULL, PRIMARY KEY (uuid, name))");
+        execute("CREATE TABLE IF NOT EXISTS appeals (id " + varcharType(64) + " PRIMARY KEY, ban_id " + longType() + " NOT NULL DEFAULT 0, target " + varcharType(191) + " NOT NULL, uuid " + varcharType(36) + " NOT NULL DEFAULT '', contact " + varcharType(191) + " NOT NULL DEFAULT '', reason " + textType() + " NOT NULL, status " + varcharType(32) + " NOT NULL DEFAULT '" + AppealEntry.STATUS_PENDING + "', created_at " + longType() + " NOT NULL, handled_by " + textType() + " NOT NULL DEFAULT '', handled_at " + longType() + " NOT NULL DEFAULT 0, response " + textType() + " NOT NULL DEFAULT '', ticket " + varcharType(64) + " NOT NULL DEFAULT '', notified " + booleanType() + " NOT NULL DEFAULT 0)");
 
         addColumnIfMissing("bans", "uuid", varcharType(36) + " NOT NULL DEFAULT ''");
         addColumnIfMissing("mutes", "uuid", varcharType(36) + " NOT NULL DEFAULT ''");
@@ -991,6 +993,88 @@ public class DatabaseManager {
                 this::readReport, reporter, target);
     }
 
+    private static final String APPEAL_SELECT =
+            "SELECT id, ban_id, target, uuid, contact, reason, status, created_at, handled_by, handled_at, response, ticket, notified FROM appeals ";
+
+    public void upsertAppeal(AppealEntry entry) {
+        executeUpdate(upsertSql("appeals", "id",
+                new String[]{"id", "ban_id", "target", "uuid", "contact", "reason", "status", "created_at",
+                        "handled_by", "handled_at", "response", "ticket", "notified"},
+                new String[]{"ban_id", "target", "uuid", "contact", "reason", "status", "handled_by",
+                        "handled_at", "response", "ticket", "notified"}),
+                entry.id(), entry.banId(), entry.target(), entry.uuid(), entry.contact(), entry.reason(),
+                entry.status(), entry.createdAt(), entry.handledBy(), entry.handledAt(), entry.response(),
+                entry.ticket(), entry.notified());
+    }
+
+    public AppealEntry getAppeal(String id) {
+        return queryOne(APPEAL_SELECT + "WHERE id = ?", this::readAppeal, id);
+    }
+
+    public AppealEntry getAppealByTicket(String ticket) {
+        if (ticket == null || ticket.trim().isEmpty()) {
+            return null;
+        }
+        return queryOne(APPEAL_SELECT + "WHERE ticket = ?", this::readAppeal, ticket.trim());
+    }
+
+    public List<AppealEntry> getAppeals(String status, int limit) {
+        int size = Math.max(1, Math.min(limit, 500));
+        if (status == null || status.trim().isEmpty()) {
+            return query(APPEAL_SELECT + "ORDER BY created_at DESC LIMIT ?", this::readAppeal, size);
+        }
+        return query(APPEAL_SELECT + "WHERE status = ? ORDER BY created_at DESC LIMIT ?",
+                this::readAppeal, status, size);
+    }
+
+    public List<AppealEntry> getAppealsByTarget(String target, int limit) {
+        if (target == null || target.trim().isEmpty()) {
+            return new ArrayList<>();
+        }
+        return query(APPEAL_SELECT + "WHERE LOWER(target) = LOWER(?) ORDER BY created_at DESC LIMIT ?",
+                this::readAppeal, target.trim(), Math.max(1, Math.min(limit, 500)));
+    }
+
+    public int countAppealsByTargetAndStatus(String target, String status) {
+        if (target == null || target.trim().isEmpty()) {
+            return 0;
+        }
+        return count("SELECT COUNT(*) FROM appeals WHERE LOWER(target) = LOWER(?) AND status = ?",
+                target.trim(), status);
+    }
+
+    public int countAppealsByTargetSince(String target, long since) {
+        if (target == null || target.trim().isEmpty()) {
+            return 0;
+        }
+        return count("SELECT COUNT(*) FROM appeals WHERE LOWER(target) = LOWER(?) AND created_at >= ?",
+                target.trim(), since);
+    }
+
+    public int countPendingAppeals() {
+        return count("SELECT COUNT(*) FROM appeals WHERE status = ?", AppealEntry.STATUS_PENDING);
+    }
+
+    public void markAppealNotified(String id) {
+        executeUpdate("UPDATE appeals SET notified = ? WHERE id = ?", true, id);
+    }
+
+    public long getActiveBanId(String target) {
+        if (target == null || target.trim().isEmpty()) {
+            return 0L;
+        }
+        Long id = queryOne("SELECT id FROM bans WHERE LOWER(target) = LOWER(?) AND active = 1 ORDER BY end_time DESC LIMIT 1",
+                rs -> rs.getLong("id"), target.trim());
+        return id == null ? 0L : id;
+    }
+
+    private AppealEntry readAppeal(ResultSet rs) throws SQLException {
+        return new AppealEntry(value(rs, "id"), rs.getLong("ban_id"), value(rs, "target"), value(rs, "uuid"),
+                value(rs, "contact"), value(rs, "reason"), value(rs, "status"), rs.getLong("created_at"),
+                value(rs, "handled_by"), rs.getLong("handled_at"), value(rs, "response"), value(rs, "ticket"),
+                readBoolean(rs, "notified"));
+    }
+
     public boolean addAuditLog(String actor, String action, String target, String reason, boolean success) {
         try (Connection connection = getConnection();
              PreparedStatement ps = connection.prepareStatement("INSERT INTO audit_log (timestamp, actor, action, target, reason, success, server) VALUES (?, ?, ?, ?, ?, ?, ?)")) {
@@ -1191,6 +1275,7 @@ public class DatabaseManager {
         boolean warnsRemoved = executeUpdateAffected("DELETE FROM warnings WHERE revoked = 1 AND warn_time < ?", cutoff) > 0;
         removed |= warnsRemoved;
         removed |= executeUpdateAffected("DELETE FROM reports WHERE status != '" + STATUS_PENDING + "' AND timestamp < ?", cutoff) > 0;
+        removed |= executeUpdateAffected("DELETE FROM appeals WHERE status != '" + AppealEntry.STATUS_PENDING + "' AND created_at < ?", cutoff) > 0;
         removed |= executeUpdateAffected("DELETE FROM audit_log WHERE timestamp < ?", cutoff) > 0;
         int ipHistoryDays = plugin.getStorageConfig().getInt("database.retention.ip-history-days", 0);
         if (ipHistoryDays > 0) {

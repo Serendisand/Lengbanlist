@@ -45,6 +45,7 @@ public class WebServer {
 
             registerControllers(server);
 
+            server.createContext("/appeal", this::handleAppealPage);
             server.createContext("/", this::handleStatic);
 
             server.start();
@@ -124,6 +125,7 @@ public class WebServer {
         new AdminController(plugin, authManager).registerRoutes(server);
         new ExportController(plugin, authManager).registerRoutes(server);
         new StatsController(plugin, authManager).registerRoutes(server);
+        new AppealController(plugin, authManager).registerRoutes(server);
     }
 
     private void handleStatic(HttpExchange exchange) {
@@ -159,6 +161,33 @@ public class WebServer {
             sendJson(exchange, 200, info.toString());
         } catch (IOException e) {
             sendError(exchange, 500, "静态资源读取失败");
+        }
+    }
+
+    private void handleAppealPage(HttpExchange exchange) {
+        if ("OPTIONS".equals(exchange.getRequestMethod())) {
+            try {
+                exchange.sendResponseHeaders(204, -1);
+            } catch (IOException ignored) {
+            } finally {
+                exchange.close();
+            }
+            return;
+        }
+        try {
+            InputStream stream = plugin.getResource("web/appeal.html");
+            if (stream == null) {
+                sendError(exchange, 404, "申诉页不存在");
+                return;
+            }
+            byte[] bytes = readAllBytes(stream);
+            exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
+            exchange.sendResponseHeaders(200, bytes.length);
+            exchange.getResponseBody().write(bytes);
+        } catch (IOException e) {
+            sendError(exchange, 500, "申诉页读取失败");
+        } finally {
+            exchange.close();
         }
     }
 

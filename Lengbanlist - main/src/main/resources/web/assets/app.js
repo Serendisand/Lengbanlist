@@ -29,6 +29,7 @@
     banlist: { title: '封禁名单', desc: '当前生效的玩家与 IP 封禁记录' },
     mutelist: { title: '禁言管理', desc: '执行禁言、解除禁言，并查看禁言名单' },
     reports: { title: '举报管理', desc: '处理玩家提交的举报' },
+    appeals: { title: '申诉管理', desc: '处理玩家提交的封禁申诉' },
     history: { title: '处罚历史', desc: '按玩家查询封禁 / 禁言 / 警告记录' },
     audit: { title: '审计日志', desc: '管理操作的完整审计流水' },
     actions: { title: '快捷操作', desc: '常用维护动作' },
@@ -465,6 +466,7 @@
     else if (name === 'banlist') { loadBanLists(); startBanListRefresh(); }
     else if (name === 'mutelist') { loadMuteList(); }
     else if (name === 'reports') { loadReports(); }
+    else if (name === 'appeals') { loadAppeals(); }
     else if (name === 'audit') { loadAudit(); }
     else if (name === 'settings') { loadThemeSettings(); }
   }
@@ -867,6 +869,76 @@
     }
   }
 
+  /* ================= 封禁申诉 ================= */
+
+  var appealFilter = '待处理';
+
+  function fmtDateTime(ms) {
+    var value = Number(ms);
+    if (!value || value <= 0) return '—';
+    try { return new Date(value).toLocaleString(); } catch (e) { return '—'; }
+  }
+
+  function setAppealBadge(count) {
+    var badgeEl = $('appealsBadge');
+    if (!badgeEl) return;
+    if (count > 0) { badgeEl.textContent = String(count); badgeEl.classList.remove('hidden'); }
+    else { badgeEl.classList.add('hidden'); }
+  }
+
+  async function loadAppeals() {
+    panelLoading('appealsResult', 6, 4);
+    var res = await api('/api/appeals?status=' + encodeURIComponent(appealFilter));
+    if (!res.ok) { panelRender('appealsResult', errorState(errText(res, '加载失败'), 'refresh-appeals')); return; }
+    var d = res.data || {};
+    setAppealBadge(d.pending || 0);
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="appeal-filter"]'), function (b) {
+      b.classList.toggle('is-active', (b.getAttribute('data-status') || '') === appealFilter);
+    });
+    var list = d.appeals || [];
+    if (!list.length) {
+      panelRender('appealsResult', emptyState('暂无申诉记录', appealFilter ? '当前筛选下没有申诉' : '还没有玩家提交申诉'));
+      return;
+    }
+    var pageItems = paginate('appeals', list);
+    var rows = pageItems.map(function (a) {
+      var actions = a.status === '待处理'
+        ? '<button class="btn btn-warn btn-sm" type="button" data-action="appeal-approve" data-id="' + esc(a.id) + '">通过并解封</button>' +
+          '<button class="btn btn-ghost btn-sm" type="button" data-action="appeal-reject" data-id="' + esc(a.id) + '">驳回</button>'
+        : '<span class="hint">' + esc(a.handledBy || '—') + '</span>';
+      var tone = a.status === '待处理' ? 'warn' : (a.status === '已通过' ? 'ok' : 'danger');
+      return ctxRow('appeal', a.id,
+        cell(a.target, 'cell-strong') + cell(a.reason) + cell(a.contact || '—') + cell(fmtDateTime(a.createdAt), 'cell-mono') +
+        '<td>' + badge(a.status, tone) + '</td><td class="ta-right">' + actions + '</td>');
+    }).join('');
+    panelRender('appealsResult',
+      '<div class="toolbar"><span>共 <strong>' + esc(String(d.total)) + '</strong> 条</span>' +
+      '<span>待处理 <strong>' + esc(String(d.pending)) + '</strong> 条</span></div>' +
+      tableWrap(['玩家', '申诉理由', '联系方式', '提交时间', '状态', '操作'], rows) +
+      renderPagination('appeals', list.length));
+  }
+
+  async function appealAction(id, action) {
+    var approve = action === 'approve';
+    var reply = await openDialog({
+      title: approve ? '确认通过申诉' : '确认驳回申诉',
+      tone: approve ? 'warn' : 'danger',
+      sub: approve ? '通过后立即解除该玩家的封禁并通知本人' : '驳回后申诉关闭，回复内容会告知玩家',
+      detail: [['申诉编号', id]],
+      input: { label: '回复玩家（可留空）', value: '' },
+      confirmText: approve ? '通过并解封' : '驳回'
+    });
+    if (reply === null || reply === false || reply === undefined) return;
+    var res = await api('/api/appeals/handle', { method: 'POST', body: JSON.stringify({ id: id, action: action, response: reply }) });
+    if (res.ok) {
+      toastOk(approve ? '已通过申诉并解除封禁' : '已驳回申诉');
+      loadAppeals();
+      refreshKpis();
+    } else {
+      toastErr(errText(res, '操作失败'));
+    }
+  }
+
   /* ================= 处罚历史 ================= */
 
   async function loadHistory() {
@@ -1039,8 +1111,7 @@
   function applyBackground(servedUrl) {
     var layer = $('bgWallpaper');
     if (!layer) return;
-    var url = servedUrl || 'https://api.dujin.org/bing/1920.php';
-    layer.style.backgroundImage = "url('" + url + "')";
+    layer.style.backgroundImage = servedUrl ? "url('" + servedUrl + "')" : '';
   }
 
   function applyHiddenButtons(hidden) {
@@ -1228,6 +1299,10 @@
     'kick': function (el) { doKick(el.getAttribute('data-player')); },
     'report-accept': function (el) { reportAction(el.getAttribute('data-id'), 'accept'); },
     'report-close': function (el) { reportAction(el.getAttribute('data-id'), 'close'); },
+    'refresh-appeals': function () { loadAppeals(); },
+    'appeal-filter': function (el) { appealFilter = el.getAttribute('data-status') || ''; loadAppeals(); },
+    'appeal-approve': function (el) { appealAction(el.getAttribute('data-id'), 'approve'); },
+    'appeal-reject': function (el) { appealAction(el.getAttribute('data-id'), 'reject'); },
     'row-menu': function (el) {
       var row = el.closest('[data-ctx-kind]');
       if (!row) return;

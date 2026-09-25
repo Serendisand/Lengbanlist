@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>封禁申诉 · Lengbanlist</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a1119'/%3E%3Cpath d='M16 5.5l8 3v6.8c0 4.8-3.3 8.4-8 9.7-4.7-1.3-8-4.9-8-9.7V8.5z' fill='none' stroke='%234fc3f7' stroke-width='2'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#0a1119; --card:#16222e; --input:#0b1219; --line:#1e2e3e; --line-2:#253545;
+    --text:#d6dee6; --muted:#7a8a9a; --accent:#4fc3f7; --accent-2:#39b0e4;
+    --ok:#2ecc71; --warn:#e6a23c; --err:#e74c3c;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; font:15px/1.6 system-ui,-apple-system,"Segoe UI","Noto Sans SC","Microsoft YaHei",sans-serif;
+    color:var(--text); background:var(--bg);
+    background-image:linear-gradient(155deg,#0b1219 0%,#10202f 45%,#17364b 100%);
+    background-attachment:fixed;
+    display:flex; align-items:center; justify-content:center; padding:32px 16px;
+  }
+  .wrap{width:100%; max-width:620px}
+  .brand{display:flex; align-items:center; gap:10px; margin-bottom:18px; justify-content:center; color:var(--muted); font-size:13px; letter-spacing:.4px}
+  .brand svg{width:22px; height:22px}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    box-shadow:0 18px 60px rgba(0,0,0,.45); overflow:hidden;
+  }
+  .card-head{padding:22px 24px 0}
+  h1{margin:0 0 6px; font-size:20px; font-weight:650; letter-spacing:.2px}
+  .sub{margin:0; color:var(--muted); font-size:13.5px}
+  .steps{display:flex; gap:8px; padding:18px 24px 0}
+  .step{flex:1; height:3px; border-radius:2px; background:var(--line-2); transition:background .25s}
+  .step.on{background:var(--accent)}
+  .card-body{padding:20px 24px 24px}
+  .field{margin-bottom:14px}
+  label{display:block; font-size:13px; color:var(--muted); margin-bottom:6px}
+  input,textarea{
+    width:100%; padding:11px 13px; border-radius:10px; border:1px solid var(--line-2);
+    background:var(--input); color:var(--text); font:inherit; outline:none; transition:border-color .15s,box-shadow .15s;
+  }
+  input:focus,textarea:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(79,195,247,.14)}
+  textarea{min-height:108px; resize:vertical}
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    padding:11px 18px; border-radius:10px; border:1px solid transparent; cursor:pointer;
+    background:var(--accent); color:#04121c; font:inherit; font-weight:600; transition:background .15s,opacity .15s;
+  }
+  .btn:hover{background:var(--accent-2)}
+  .btn:disabled{opacity:.55; cursor:not-allowed}
+  .btn-ghost{background:transparent; color:var(--text); border-color:var(--line-2)}
+  .btn-ghost:hover{background:rgba(79,195,247,.08); border-color:var(--accent)}
+  .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+  .row .btn{flex:0 0 auto}
+  .note{border-radius:10px; padding:11px 13px; font-size:13.5px; margin-bottom:14px; border:1px solid}
+  .note-info{background:rgba(79,195,247,.08); border-color:rgba(79,195,247,.3); color:#bfe6fa}
+  .note-ok{background:rgba(46,204,113,.09); border-color:rgba(46,204,113,.3); color:#b6f0cf}
+  .note-err{background:rgba(231,76,60,.1); border-color:rgba(231,76,60,.32); color:#f7c6c1}
+  dl{margin:0 0 14px; display:grid; grid-template-columns:88px 1fr; gap:8px 12px; font-size:14px}
+  dt{color:var(--muted)}
+  dd{margin:0; word-break:break-word}
+  .ticket{
+    display:flex; gap:10px; align-items:center; background:var(--input); border:1px dashed var(--line-2);
+    border-radius:10px; padding:12px 14px; margin:4px 0 14px;
+  }
+  .ticket code{flex:1; font-family:ui-monospace,Consolas,monospace; font-size:13px; color:var(--accent); word-break:break-all}
+  .hidden{display:none !important}
+  .hint{color:var(--muted); font-size:12.5px; margin:10px 0 0}
+  .foot{margin-top:16px; text-align:center; color:var(--muted); font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 5.5l8 3v6.8c0 4.8-3.3 8.4-8 9.7-4.7-1.3-8-4.9-8-9.7V8.5z" fill="none" stroke="#4fc3f7" stroke-width="2"/><path d="M12 15.5l3 3 6-6" fill="none" stroke="#4fc3f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Lengbanlist · 封禁申诉</span>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h1>提交封禁申诉</h1>
+      <p class="sub">填写你的游戏 ID 查询封禁记录，再说明情况提交申诉。</p>
+    </div>
+    <div class="steps"><span class="step on" id="step1"></span><span class="step" id="step2"></span><span class="step" id="step3"></span></div>
+    <div class="card-body">
+      <div class="note note-info hidden" id="notice"></div>
+
+      <div id="stageQuery">
+        <div class="field">
+          <label for="playerInput">游戏 ID</label>
+          <input id="playerInput" type="text" autocomplete="off" spellcheck="false" maxlength="16" placeholder="例如 Notch">
+        </div>
+        <div class="row">
+          <button class="btn" type="button" id="btnPrecheck">查询封禁记录</button>
+          <button class="btn btn-ghost" type="button" id="btnToStatus">已有查询码</button>
+        </div>
+      </div>
+
+      <div id="stageAppeal" class="hidden">
+        <dl>
+          <dt>玩家</dt><dd id="infoPlayer">—</dd>
+          <dt>封禁原因</dt><dd id="infoReason">—</dd>
+          <dt>解封时间</dt><dd id="infoExpire">—</dd>
+        </dl>
+        <div class="field">
+          <label for="reasonInput">申诉理由</label>
+          <textarea id="reasonInput" maxlength="1000" placeholder="说明当时的情况、是否有误封等，管理员会看到这段内容"></textarea>
+        </div>
+        <div class="field">
+          <label for="contactInput">联系方式（可选）</label>
+          <input id="contactInput" type="text" autocomplete="off" maxlength="120" placeholder="QQ / 邮箱 / Discord，方便管理员回复你">
+        </div>
+        <div class="row">
+          <button class="btn" type="button" id="btnSubmit">提交申诉</button>
+          <button class="btn btn-ghost" type="button" id="btnBack">返回</button>
+        </div>
+      </div>
+
+      <div id="stageDone" class="hidden">
+        <div class="note note-ok">申诉已提交，请保存下面的查询码，用它随时查看处理进度。</div>
+        <div class="ticket"><code id="ticketText"></code><button class="btn btn-ghost" type="button" id="btnCopy">复制</button></div>
+        <div class="row"><button class="btn btn-ghost" type="button" id="btnCheckStatus">查询进度</button></div>
+      </div>
+
+      <div id="stageStatus" class="hidden">
+        <div class="field">
+          <label for="ticketInput">查询码</label>
+          <input id="ticketInput" type="text" autocomplete="off" spellcheck="false" placeholder="提交申诉后获得的查询码">
+        </div>
+        <div class="row">
+          <button class="btn" type="button" id="btnStatus">查询进度</button>
+          <button class="btn btn-ghost" type="button" id="btnBackToQuery">返回</button>
+        </div>
+        <dl id="statusBox" class="hidden" style="margin-top:16px">
+          <dt>状态</dt><dd id="statusValue">—</dd>
+          <dt>提交时间</dt><dd id="statusCreated">—</dd>
+          <dt>处理时间</dt><dd id="statusHandled">—</dd>
+          <dt>管理员回复</dt><dd id="statusResponse">—</dd>
+        </dl>
+      </div>
+
+      <p class="hint">提交申诉不代表一定会被解封；请如实说明情况，恶意刷申诉会被拒绝。</p>
+    </div>
+  </div>
+  <p class="foot">Lengbanlist · 本页面仅用于封禁申诉</p>
+</div>
+
+<script>
+(function () {
+  function $(id) { return document.getElementById(id); }
+  function show(id, on) { $(id).classList.toggle('hidden', !on); }
+  function stage(which) {
+    show('stageQuery', which === 'query');
+    show('stageAppeal', which === 'appeal');
+    show('stageDone', which === 'done');
+    show('stageStatus', which === 'status');
+    var order = { query: 1, appeal: 2, done: 3, status: 1 };
+    var at = order[which] || 1;
+    ['step1', 'step2', 'step3'].forEach(function (id, index) {
+      $(id).classList.toggle('on', index < at);
+    });
+  }
+  function notice(text, kind) {
+    var el = $('notice');
+    if (!text) { el.classList.add('hidden'); return; }
+    el.className = 'note note-' + (kind || 'info');
+    el.textContent = text;
+  }
+  function setBusy(btn, busy, label) {
+    btn.disabled = busy;
+    if (busy) { btn.dataset.label = btn.textContent; btn.textContent = '请稍候…'; }
+    else if (btn.dataset.label) { btn.textContent = label || btn.dataset.label; }
+  }
+  function fmt(ms) {
+    var value = Number(ms);
+    if (!value || value <= 0) return '—';
+    try { return new Date(value).toLocaleString(); } catch (e) { return '—'; }
+  }
+  async function post(path, body) {
+    var res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {})
+    });
+    var data = {};
+    try { data = await res.json(); } catch (e) { data = {}; }
+    return { ok: res.ok, status: res.status, data: data };
+  }
+
+  var ticket = '';
+
+  $('btnPrecheck').addEventListener('click', async function () {
+    var player = $('playerInput').value.trim();
+    if (!player) { notice('请输入游戏 ID', 'err'); return; }
+    setBusy(this, true);
+    notice('');
+    try {
+      var res = await post('/api/public/appeal/precheck', { player: player });
+      if (!res.data.ok) { notice(res.data.message || (res.ok ? '查询失败' : '请求被拒绝'), 'err'); return; }
+      $('infoPlayer').textContent = res.data.player || player;
+      $('infoReason').textContent = res.data.reason || '—';
+      $('infoExpire').textContent = fmt(res.data.ban_ends_at);
+      ticket = res.data.ticket || '';
+      stage('appeal');
+    } catch (e) {
+      notice('网络异常，请稍后重试', 'err');
+    } finally {
+      setBusy(this, false, '查询封禁记录');
+    }
+  });
+
+  $('btnSubmit').addEventListener('click', async function () {
+    var reason = $('reasonInput').value.trim();
+    if (!reason) { notice('请填写申诉理由', 'err'); return; }
+    setBusy(this, true);
+    notice('');
+    try {
+      var res = await post('/api/public/appeal/submit', {
+        ticket: ticket,
+        reason: reason,
+        contact: $('contactInput').value.trim()
+      });
+      if (!res.data.ok) { notice(res.data.message || '提交失败', 'err'); return; }
+      $('ticketText').textContent = res.data.ticket || '';
+      ticket = res.data.ticket || '';
+      $('ticketInput').value = ticket;
+      stage('done');
+    } catch (e) {
+      notice('网络异常，请稍后重试', 'err');
+    } finally {
+      setBusy(this, false, '提交申诉');
+    }
+  });
+
+  $('btnCopy').addEventListener('click', function () {
+    var text = $('ticketText').textContent;
+    if (!text) return;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(function () { notice('查询码已复制', 'ok'); },
+        function () { notice('复制失败，请手动选择复制', 'err'); });
+    } else {
+      notice('请手动选择查询码复制', 'info');
+    }
+  });
+
+  async function checkStatus() {
+    var value = $('ticketInput').value.trim() || ticket;
+    if (!value) { notice('请输入查询码', 'err'); return; }
+    notice('');
+    try {
+      var res = await fetch('/api/public/appeal/status?ticket=' + encodeURIComponent(value));
+      var data = await res.json();
+      if (!data.ok) { notice(data.message || '查询失败', 'err'); show('statusBox', false); return; }
+      $('statusValue').textContent = data.status || '—';
+      $('statusCreated').textContent = fmt(data.createdAt);
+      $('statusHandled').textContent = fmt(data.handledAt);
+      $('statusResponse').textContent = data.response || '—';
+      show('statusBox', true);
+    } catch (e) {
+      notice('网络异常，请稍后重试', 'err');
+    }
+  }
+
+  $('btnStatus').addEventListener('click', checkStatus);
+
+  function toStatus() {
+    $('ticketInput').value = ticket || $('ticketInput').value;
+    stage('status');
+    notice('');
+  }
+  $('btnToStatus').addEventListener('click', toStatus);
+  $('btnCheckStatus').addEventListener('click', toStatus);
+  $('btnBack').addEventListener('click', function () { stage('query'); notice(''); });
+  $('btnBackToQuery').addEventListener('click', function () { stage('query'); notice(''); show('statusBox', false); });
+})();
+</script>
+</body>
+</html>

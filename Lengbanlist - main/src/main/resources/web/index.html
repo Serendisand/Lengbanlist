@@ -84,7 +84,7 @@
     <div class="auth-brand">
       <span class="auth-mark"><svg class="icon" aria-hidden="true"><use href="#ic-shield"/></svg></span>
       <h1 class="auth-name">Lengbanlist</h1>
-      <p class="auth-sub">管理控制面板 · 请先登录</p>
+      <p class="auth-sub">管理面板 · 请先登录</p>
     </div>
     <div class="note note-danger hidden" id="loginError" role="alert"></div>
     <div class="field">
@@ -108,7 +108,7 @@
       <span class="rail-logo"><svg class="icon" aria-hidden="true"><use href="#ic-shield"/></svg></span>
       <span class="rail-brand-text">
         <strong class="rail-title">Lengbanlist</strong>
-        <span class="rail-sub">管理控制面板</span>
+        <span class="rail-sub">管理面板</span>
       </span>
     </div>
 
@@ -119,6 +119,7 @@
       <button class="tab" type="button" role="tab" id="tabbtn-banlist" data-action="tab" data-tab="banlist" aria-controls="tabBanlist" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#ic-banlist"/></svg><span class="tab-text">封禁名单</span></button>
       <button class="tab" type="button" role="tab" id="tabbtn-mutelist" data-action="tab" data-tab="mutelist" aria-controls="tabMutelist" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#ic-mute"/></svg><span class="tab-text">禁言管理</span></button>
       <button class="tab" type="button" role="tab" id="tabbtn-reports" data-action="tab" data-tab="reports" aria-controls="tabReports" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#ic-reports"/></svg><span class="tab-text">举报管理</span><span class="tab-badge hidden" id="reportsBadge">0</span></button>
+      <button class="tab" type="button" role="tab" id="tabbtn-appeals" data-action="tab" data-tab="appeals" aria-controls="tabAppeals" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#ic-reports"/></svg><span class="tab-text">申诉管理</span><span class="tab-badge hidden" id="appealsBadge">0</span></button>
       <button class="tab" type="button" role="tab" id="tabbtn-history" data-action="tab" data-tab="history" aria-controls="tabHistory" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#ic-history"/></svg><span class="tab-text">处罚历史</span></button>
       <button class="tab" type="button" role="tab" id="tabbtn-audit" data-action="tab" data-tab="audit" aria-controls="tabAudit" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#ic-audit"/></svg><span class="tab-text">审计日志</span></button>
       <button class="tab" type="button" role="tab" id="tabbtn-actions" data-action="tab" data-tab="actions" aria-controls="tabActions" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#ic-actions"/></svg><span class="tab-text">快捷操作</span></button>
@@ -318,6 +319,20 @@
             </div>
           </div>
           <div class="panel-body" id="reportsResult"></div>
+        </div>
+      </section>
+
+      <section class="tab-content" id="tabAppeals" role="tabpanel" aria-labelledby="tabbtn-appeals">
+        <div class="panel">
+          <div class="panel-head">
+            <h2 class="panel-title">封禁申诉</h2>
+            <div class="panel-tools">
+              <button class="btn btn-ghost btn-sm" type="button" data-action="appeal-filter" data-status="待处理">待处理</button>
+              <button class="btn btn-ghost btn-sm" type="button" data-action="appeal-filter" data-status="">全部</button>
+              <button class="btn btn-ghost btn-sm" type="button" data-action="refresh-appeals"><svg class="icon" aria-hidden="true"><use href="#ic-refresh"/></svg>刷新</button>
+            </div>
+          </div>
+          <div class="panel-body" id="appealsResult"></div>
         </div>
       </section>
 
