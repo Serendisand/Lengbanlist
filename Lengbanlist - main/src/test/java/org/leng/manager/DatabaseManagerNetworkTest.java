@@ -103,7 +103,7 @@ class DatabaseManagerNetworkTest {
             List<WarnEntry> active = db.getWarnings(target, true);
             assertEquals(1, active.size());
             assertFalse(active.get(0).isRevoked());
-            db.updateWarningRevoked(warnId, true);
+            db.updateWarningRevoked(warnId, true, target);
             assertTrue(db.getWarnings(target, true).isEmpty());
             assertTrue(db.getWarnings(target, false).get(0).isRevoked());
 

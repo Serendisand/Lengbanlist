@@ -7,6 +7,7 @@ import org.leng.object.BanIpEntry;
 import org.leng.object.FreezeEntry;
 import org.leng.object.MuteEntry;
 import org.leng.object.ReportEntry;
+import org.leng.object.SyncEvent;
 import org.leng.object.WarnEntry;
 
 import com.zaxxer.hikari.HikariConfig;
@@ -251,6 +252,10 @@ public class DatabaseManager {
         warnCache.invalidateAll();
     }
 
+    public void invalidateWarn(String player) {
+        warnCache.invalidate(player);
+    }
+
     public long getBanCacheTtlMillis() {
         return banCache.getTtlMillis();
     }
@@ -334,6 +339,7 @@ public class DatabaseManager {
         addColumnIfMissing("reports", "timestamp", longType() + " NOT NULL DEFAULT 0");
 
         execute("CREATE TABLE IF NOT EXISTS player_ip_history (id " + integerPrimaryKey() + ", player_name " + varcharType(191) + " NOT NULL, ip " + varcharType(191) + " NOT NULL, first_seen " + longType() + " NOT NULL, last_seen " + longType() + " NOT NULL, UNIQUE(player_name, ip))");
+        execute("CREATE TABLE IF NOT EXISTS sync_events (id " + integerPrimaryKey() + ", timestamp " + longType() + " NOT NULL, server " + textType() + " NOT NULL DEFAULT '', scope " + varcharType(32) + " NOT NULL, target " + textType() + " NOT NULL, uuid " + varcharType(36) + " NOT NULL DEFAULT '', action " + varcharType(32) + " NOT NULL DEFAULT '')");
 
         createIndexIfMissing("warnings", "idx_warnings_player", indexTextColumn("player"));
         createIndexIfMissing("reports", "idx_reports_target", indexTextColumn("target"));
@@ -346,6 +352,7 @@ public class DatabaseManager {
         createIndexIfMissing("mutes", "idx_mutes_end_time", "end_time");
         createIndexIfMissing("player_ips", "idx_player_ips_ip", indexTextColumn("ip"));
         createIndexIfMissing("player_ip_history", "idx_player_ip_history_ip", "ip");
+        createIndexIfMissing("sync_events", "idx_sync_events_timestamp", "timestamp");
 
         String currentVersion = getMeta("schema.version");
 
@@ -450,24 +457,28 @@ public class DatabaseManager {
     }
 
     public WriteResult replaceActiveBan(BanEntry entry) {
-        return invalidateBans(replaceActiveEntry(
+        WriteResult result = invalidateBans(replaceActiveEntry(
                 "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1",
                 new Object[]{entry.getTarget()},
                 "INSERT INTO bans (target, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
                 new Object[]{entry.getTarget(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()}));
+        publishIfApplied(result, SyncEvent.SCOPE_BAN, entry.getTarget(), SyncEvent.ACTION_ADD);
+        return result;
     }
 
     public WriteResult replaceExistingActiveBan(BanEntry entry) {
-        return invalidateBans(replaceExistingActiveEntry(
+        WriteResult result = invalidateBans(replaceExistingActiveEntry(
                 "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1",
                 new Object[]{entry.getTarget()},
                 "INSERT INTO bans (target, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
                 new Object[]{entry.getTarget(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()}));
+        publishIfApplied(result, SyncEvent.SCOPE_BAN, entry.getTarget(), SyncEvent.ACTION_UPDATE);
+        return result;
     }
 
     public WriteResult replaceActiveBanAndUpdateReport(BanEntry banEntry, ReportEntry reportEntry,
                                                        String reportStatus) {
-        return invalidateBans(replaceActiveEntry(
+        WriteResult result = invalidateBans(replaceActiveEntry(
                 "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1",
                 new Object[]{banEntry.getTarget()},
                 "INSERT INTO bans (target, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
@@ -475,18 +486,23 @@ public class DatabaseManager {
                         banEntry.isAuto(), banEntry.isActive()},
                 "UPDATE reports SET status = ? WHERE id = ? AND status = ?",
                 new Object[]{status(reportStatus), reportEntry.getId(), status(reportEntry.getStatus())}));
+        publishIfApplied(result, SyncEvent.SCOPE_BAN, banEntry.getTarget(), SyncEvent.ACTION_ADD);
+        return result;
     }
 
     public WriteResult deactivateBanForUnban(String target, long now) {
-        return invalidateBans(deactivateForUnban(
+        WriteResult result = invalidateBans(deactivateForUnban(
                 "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1 AND end_time > ?",
                 "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1 AND end_time <= ?",
                 target, now));
+        publishIfApplied(result, SyncEvent.SCOPE_BAN, target, SyncEvent.ACTION_REMOVE);
+        return result;
     }
 
     public void deleteBan(String target) {
         executeUpdate("DELETE FROM bans WHERE LOWER(target) = LOWER(?)", target);
         banCache.invalidate();
+        publishSyncEvent(SyncEvent.SCOPE_BAN, target, SyncEvent.ACTION_REMOVE);
     }
 
     private WriteResult invalidateBans(WriteResult result) {
@@ -575,31 +591,38 @@ public class DatabaseManager {
     }
 
     public WriteResult replaceActiveIpBan(BanIpEntry entry) {
-        return invalidateBans(replaceActiveEntry(
+        WriteResult result = invalidateBans(replaceActiveEntry(
                 "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1",
                 new Object[]{entry.getIp()},
                 "INSERT INTO ip_bans (ip, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
                 new Object[]{entry.getIp(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()}));
+        publishIfApplied(result, SyncEvent.SCOPE_IP_BAN, entry.getIp(), SyncEvent.ACTION_ADD);
+        return result;
     }
 
     public WriteResult replaceExistingActiveIpBan(BanIpEntry entry) {
-        return invalidateBans(replaceExistingActiveEntry(
+        WriteResult result = invalidateBans(replaceExistingActiveEntry(
                 "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1",
                 new Object[]{entry.getIp()},
                 "INSERT INTO ip_bans (ip, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
                 new Object[]{entry.getIp(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()}));
+        publishIfApplied(result, SyncEvent.SCOPE_IP_BAN, entry.getIp(), SyncEvent.ACTION_UPDATE);
+        return result;
     }
 
     public WriteResult deactivateIpBanForUnban(String ip, long now) {
-        return invalidateBans(deactivateForUnban(
+        WriteResult result = invalidateBans(deactivateForUnban(
                 "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1 AND end_time > ?",
                 "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1 AND end_time <= ?",
                 ip, now));
+        publishIfApplied(result, SyncEvent.SCOPE_IP_BAN, ip, SyncEvent.ACTION_REMOVE);
+        return result;
     }
 
     public void deleteIpBan(String ip) {
         executeUpdate("DELETE FROM ip_bans WHERE ip = ?", ip);
         banCache.invalidate();
+        publishSyncEvent(SyncEvent.SCOPE_IP_BAN, ip, SyncEvent.ACTION_REMOVE);
     }
 
     public boolean isIpBanned(String ip) {
@@ -626,10 +649,12 @@ public class DatabaseManager {
     public void upsertMute(MuteEntry entry) {
         MuteEntry normalized = new MuteEntry(entry.getTarget().toLowerCase(), entry.getStaff(), entry.getTime(), entry.getReason());
         executeUpdate(upsertSql("mutes", "target", new String[]{"target", "staff", "end_time", "reason"}, new String[]{"staff", "end_time", "reason"}), normalized.getTarget(), normalized.getStaff(), normalized.getTime(), normalized.getReason());
+        publishSyncEvent(SyncEvent.SCOPE_MUTE, normalized.getTarget(), SyncEvent.ACTION_ADD);
     }
 
     public void deleteMute(String target) {
         executeUpdate("DELETE FROM mutes WHERE LOWER(target) = LOWER(?)", target);
+        publishSyncEvent(SyncEvent.SCOPE_MUTE, target, SyncEvent.ACTION_REMOVE);
     }
 
     public void deleteMuteIfExpiresAt(String target, long endTime) {
@@ -637,18 +662,30 @@ public class DatabaseManager {
     }
 
     public boolean saveFreeze(FreezeEntry entry) {
-        return executeUpdateAffected(upsertSql("freezes", "target",
+        boolean saved = executeUpdateAffected(upsertSql("freezes", "target",
                 new String[]{"target", "staff", "freeze_time", "reason"},
                 new String[]{"staff", "freeze_time", "reason"}),
                 entry.player(), entry.staff(), entry.time(), entry.reason()) > 0;
+        if (saved) {
+            publishSyncEvent(SyncEvent.SCOPE_FREEZE, entry.player(), SyncEvent.ACTION_ADD);
+        }
+        return saved;
     }
 
     public boolean deleteFreeze(String target) {
-        return executeUpdateAffected("DELETE FROM freezes WHERE LOWER(target) = LOWER(?)", target) > 0;
+        boolean removed = executeUpdateAffected("DELETE FROM freezes WHERE LOWER(target) = LOWER(?)", target) > 0;
+        if (removed) {
+            publishSyncEvent(SyncEvent.SCOPE_FREEZE, target, SyncEvent.ACTION_REMOVE);
+        }
+        return removed;
     }
 
     public int deleteAllFreezes() {
-        return executeUpdateAffected("DELETE FROM freezes");
+        int removed = executeUpdateAffected("DELETE FROM freezes");
+        if (removed > 0) {
+            publishSyncEvent(SyncEvent.SCOPE_FREEZE, SyncEvent.TARGET_ALL, SyncEvent.ACTION_REMOVE);
+        }
+        return removed;
     }
 
     public List<FreezeEntry> loadFreezes() {
@@ -704,11 +741,15 @@ public class DatabaseManager {
     public void upsertWarning(WarnEntry entry) {
         executeUpdate(upsertSql("warnings", "id", new String[]{"id", "player", "staff", "warn_time", "reason", "revoked"}, new String[]{"player", "staff", "warn_time", "reason", "revoked"}), entry.getId(), entry.getPlayer(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isRevoked());
         warnCache.invalidate(entry.getPlayer());
+        publishSyncEvent(SyncEvent.SCOPE_WARN, entry.getPlayer(), SyncEvent.ACTION_ADD);
     }
 
-    public void updateWarningRevoked(String id, boolean revoked) {
-        executeUpdate("UPDATE warnings SET revoked = ? WHERE id = ?", revoked, id);
+    public void updateWarningRevoked(String id, boolean revoked, String player) {
+        int updated = executeUpdateAffected("UPDATE warnings SET revoked = ? WHERE id = ?", revoked, id);
         warnCache.invalidateAll();
+        if (updated > 0) {
+            publishSyncEvent(SyncEvent.SCOPE_WARN, player, revoked ? SyncEvent.ACTION_REMOVE : SyncEvent.ACTION_ADD);
+        }
     }
 
     public List<WarnEntry> getWarnings(String player, boolean activeOnly) {
@@ -900,6 +941,45 @@ public class DatabaseManager {
         return name == null ? "" : name;
     }
 
+    private void publishIfApplied(WriteResult result, String scope, String target, String action) {
+        if (result != WriteResult.APPLIED) {
+            return;
+        }
+        publishSyncEvent(scope, target, action);
+    }
+
+    private void publishSyncEvent(String scope, String target, String action) {
+        executeUpdate("INSERT INTO sync_events (timestamp, server, scope, target, uuid, action) VALUES (?, ?, ?, ?, ?, ?)",
+                System.currentTimeMillis(), serverTag(), scope, target == null ? "" : target, "", action);
+    }
+
+    public List<SyncEvent> getSyncEventsAfter(long afterId, int limit) {
+        return query("SELECT id, timestamp, server, scope, target, action FROM sync_events WHERE id > ? ORDER BY id ASC LIMIT ?",
+                this::readSyncEvent, afterId, limit);
+    }
+
+    public long getLatestSyncEventId() {
+        Long latest = queryOne("SELECT MAX(id) FROM sync_events", rs -> rs.getLong(1));
+        return latest == null ? 0L : latest;
+    }
+
+    public int countSyncEventsAfter(long afterId) {
+        return count("SELECT COUNT(*) FROM sync_events WHERE id > ?", afterId);
+    }
+
+    public int cleanupSyncEvents(int retentionMinutes) {
+        if (retentionMinutes <= 0) {
+            return 0;
+        }
+        long cutoff = System.currentTimeMillis() - (retentionMinutes * 60000L);
+        return Math.max(0, executeUpdateAffected("DELETE FROM sync_events WHERE timestamp < ?", cutoff));
+    }
+
+    private SyncEvent readSyncEvent(ResultSet rs) throws SQLException {
+        return new SyncEvent(rs.getLong("id"), rs.getLong("timestamp"), value(rs, "server"),
+                value(rs, "scope"), value(rs, "target"), value(rs, "action"));
+    }
+
     public String getMeta(String key) {
         return queryOne("SELECT meta_value FROM schema_meta WHERE meta_key = ?", rs -> rs.getString("meta_value"), key);
     }
@@ -941,6 +1021,8 @@ public class DatabaseManager {
             long ipCutoff = System.currentTimeMillis() - (ipHistoryDays * 86400000L);
             removed |= executeUpdateAffected("DELETE FROM player_ip_history WHERE last_seen < ?", ipCutoff) > 0;
         }
+        cleanupSyncEvents(plugin.getStorageConfig() == null ? 60
+                : plugin.getStorageConfig().getInt("sync.event-retention-minutes", 60));
         if (removed) {
             banCache.invalidate();
         }

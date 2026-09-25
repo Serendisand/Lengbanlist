@@ -66,7 +66,7 @@ public class WarnManager {
             WarnEntry entry = playerWarnings.get(warnId - 1);
             if (!entry.isRevoked()) {
                 entry = entry.revoke();
-                db.updateWarningRevoked(entry.getId(), true);
+                db.updateWarningRevoked(entry.getId(), true, target);
                 plugin.getAuditManager().log("取消警告", org.leng.utils.Utils.getSenderName(actor), target, "警告ID: " + entry.getId());
                 org.bukkit.Bukkit.getPluginManager().callEvent(new org.leng.api.events.LengbanlistUnwarnEvent(target, entry.getId(), org.leng.utils.Utils.getSenderName(actor)));
                 checkUnbanIfNecessary(target);

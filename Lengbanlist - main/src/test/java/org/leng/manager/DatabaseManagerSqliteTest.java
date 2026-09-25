@@ -320,7 +320,7 @@ class DatabaseManagerSqliteTest {
         db.upsertWarning(new WarnEntry("w2", "warned", "staff", now + 1L, "第二次"));
         assertEquals(2, db.getWarnings("WARNED", true).size(), "新增警告后必须立刻可见(写路径要失效缓存)");
 
-        db.updateWarningRevoked("w2", true);
+        db.updateWarningRevoked("w2", true, "Warned");
         assertEquals(1, db.getWarnings("Warned", true).size(), "撤销警告后必须立刻不可见");
         assertEquals(2, db.getWarnings("Warned", false).size(), "全部警告里仍保留被撤销的那行");
     }

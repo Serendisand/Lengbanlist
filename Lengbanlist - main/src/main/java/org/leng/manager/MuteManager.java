@@ -138,6 +138,17 @@ public class MuteManager {
         return entry != null && isActive(entry.getTime());
     }
 
+    public void invalidate(String target) {
+        if (target == null || target.isEmpty()) {
+            return;
+        }
+        String key = target.toLowerCase();
+        synchronized (muteLock) {
+            muteCache.remove(key);
+            ipMuteCache.remove(key);
+        }
+    }
+
     public boolean reloadMuteCache() {
         try {
             boolean reloaded = reloadMuteCacheOrThrow();

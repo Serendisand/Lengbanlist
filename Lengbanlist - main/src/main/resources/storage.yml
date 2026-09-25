@@ -7,6 +7,22 @@
 # 留空或注释掉则记为空标签。建议起短名，例如 survival / skyblock / lobby
 server-name: "default"
 
+# ---------- 跨服同步 ----------
+# 仅共享数据库（MySQL / MariaDB / PostgreSQL）生效，单机 SQLite 可整段忽略。
+# 机制：处罚变更时写一条事件，各子服按 poll-seconds 拉取增量，只失效受影响的那部分缓存，
+# 所以禁言/冻结/警告也能秒级跨服生效。interval-seconds 是兜底全量刷新，
+# 事件表被清理、子服长时间断连、拉取异常时靠它最终对齐，不建议关闭。
+sync:
+  # 是否启用事件轮询。关闭后退回旧行为：只靠下面的全量刷新。
+  event-poll: true
+  # 事件拉取间隔（秒，1~60）。调小=>跨服生效更快、数据库查询更频繁。
+  poll-seconds: 1
+  # 全量兜底刷新开关与间隔（秒，最小 10）。
+  auto-sync: true
+  interval-seconds: 60
+  # 事件表保留时长（分钟）。超时事件由维护任务清理；轮询游标落后于清理范围时由兜底刷新追上，可放心调小。
+  event-retention-minutes: 60
+
 # ---------- 数据库 ----------
 # 类型: sqlite / mysql / mariadb / postgresql
 # 除 sqlite 外都是共享数据库，可多服共用一份数据做跨服同步。
