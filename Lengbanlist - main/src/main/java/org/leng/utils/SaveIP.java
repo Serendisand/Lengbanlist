@@ -42,7 +42,7 @@ public class SaveIP {
         if (newIP == null || !isRealIP(newIP)) return;
         Lengbanlist plugin = Lengbanlist.getInstance();
         if (plugin == null) return;
-        plugin.getDatabaseManager().recordPlayerLoginIp(player.getName(), newIP, System.currentTimeMillis());
+        plugin.getDatabaseManager().recordPlayerLoginIp(player.getUniqueId().toString(), player.getName(), newIP, System.currentTimeMillis());
     }
 
     public static String getIP(String player) {

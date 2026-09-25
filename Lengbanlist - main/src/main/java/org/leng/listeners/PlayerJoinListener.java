@@ -50,6 +50,7 @@ public class PlayerJoinListener implements Listener {
 
     private void prepareJoin(Player player) {
         SaveIP.saveIP(player);
+        plugin.getDatabaseManager().recordIdentity(player.getUniqueId().toString(), player.getName(), System.currentTimeMillis());
 
         if (plugin.isFeatureEnabled("ip-association")) {
             List<String> associatedPlayers = plugin.getIpAssociationManager().getOtherPlayersOnIp(player);

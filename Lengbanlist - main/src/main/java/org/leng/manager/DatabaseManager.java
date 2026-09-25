@@ -6,6 +6,7 @@ import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.object.FreezeEntry;
 import org.leng.object.MuteEntry;
+import org.leng.object.PlayerIdentity;
 import org.leng.object.ReportEntry;
 import org.leng.object.SyncEvent;
 import org.leng.object.WarnEntry;
@@ -340,6 +341,17 @@ public class DatabaseManager {
 
         execute("CREATE TABLE IF NOT EXISTS player_ip_history (id " + integerPrimaryKey() + ", player_name " + varcharType(191) + " NOT NULL, ip " + varcharType(191) + " NOT NULL, first_seen " + longType() + " NOT NULL, last_seen " + longType() + " NOT NULL, UNIQUE(player_name, ip))");
         execute("CREATE TABLE IF NOT EXISTS sync_events (id " + integerPrimaryKey() + ", timestamp " + longType() + " NOT NULL, server " + textType() + " NOT NULL DEFAULT '', scope " + varcharType(32) + " NOT NULL, target " + textType() + " NOT NULL, uuid " + varcharType(36) + " NOT NULL DEFAULT '', action " + varcharType(32) + " NOT NULL DEFAULT '')");
+        execute("CREATE TABLE IF NOT EXISTS player_identity (uuid " + varcharType(36) + " PRIMARY KEY, name " + varcharType(191) + " NOT NULL, first_seen " + longType() + " NOT NULL, last_seen " + longType() + " NOT NULL)");
+        execute("CREATE TABLE IF NOT EXISTS name_history (uuid " + varcharType(36) + " NOT NULL, name " + varcharType(191) + " NOT NULL, changed_at " + longType() + " NOT NULL, PRIMARY KEY (uuid, name))");
+
+        addColumnIfMissing("bans", "uuid", varcharType(36) + " NOT NULL DEFAULT ''");
+        addColumnIfMissing("mutes", "uuid", varcharType(36) + " NOT NULL DEFAULT ''");
+        addColumnIfMissing("warnings", "uuid", varcharType(36) + " NOT NULL DEFAULT ''");
+        addColumnIfMissing("freezes", "uuid", varcharType(36) + " NOT NULL DEFAULT ''");
+        addColumnIfMissing("reports", "target_uuid", varcharType(36) + " NOT NULL DEFAULT ''");
+        addColumnIfMissing("reports", "reporter_uuid", varcharType(36) + " NOT NULL DEFAULT ''");
+        addColumnIfMissing("player_ips", "uuid", varcharType(36) + " NOT NULL DEFAULT ''");
+        addColumnIfMissing("player_ip_history", "uuid", varcharType(36) + " NOT NULL DEFAULT ''");
 
         createIndexIfMissing("warnings", "idx_warnings_player", indexTextColumn("player"));
         createIndexIfMissing("reports", "idx_reports_target", indexTextColumn("target"));
@@ -353,6 +365,13 @@ public class DatabaseManager {
         createIndexIfMissing("player_ips", "idx_player_ips_ip", indexTextColumn("ip"));
         createIndexIfMissing("player_ip_history", "idx_player_ip_history_ip", "ip");
         createIndexIfMissing("sync_events", "idx_sync_events_timestamp", "timestamp");
+        createIndexIfMissing("bans", "idx_bans_uuid", "uuid");
+        createIndexIfMissing("mutes", "idx_mutes_uuid", "uuid");
+        createIndexIfMissing("freezes", "idx_freezes_uuid", "uuid");
+        createIndexIfMissing("warnings", "idx_warnings_uuid", "uuid");
+        createIndexIfMissing("player_ips", "idx_player_ips_uuid", "uuid");
+        createIndexIfMissing("player_ip_history", "idx_player_ip_history_uuid", "uuid");
+        createIndexIfMissing("name_history", "idx_name_history_name", indexTextColumn("name"));
 
         String currentVersion = getMeta("schema.version");
 
@@ -408,19 +427,24 @@ public class DatabaseManager {
         executeUpdate(upsertSql("player_ips", "player_name", new String[]{"player_name", "ip", "updated_at"}, new String[]{"ip", "updated_at"}), playerName, ip, updatedAt);
     }
 
-    public void recordPlayerLoginIp(String playerName, String ip, long timestamp) {
+    public void recordPlayerLoginIp(String uuid, String playerName, String ip, long timestamp) {
+        String id = uuid == null ? "" : uuid.trim().toLowerCase(Locale.ROOT);
         String upsertPlayer = upsertSql("player_ips", "player_name",
-                new String[]{"player_name", "ip", "updated_at"}, new String[]{"ip", "updated_at"});
+                new String[]{"player_name", "uuid", "ip", "updated_at"}, new String[]{"uuid", "ip", "updated_at"});
         String history = historyInsertSql();
         inTransaction(null, connection -> {
-            update(connection, upsertPlayer, new Object[]{playerName, ip, timestamp});
-            update(connection, history, new Object[]{playerName, ip, timestamp, timestamp});
+            update(connection, upsertPlayer, new Object[]{playerName, id, ip, timestamp});
+            update(connection, history, new Object[]{playerName, id, ip, timestamp, timestamp});
+            if (!id.isEmpty()) {
+                update(connection, "UPDATE player_ip_history SET uuid = ? WHERE player_name = ? AND uuid = ''",
+                        new Object[]{id, playerName});
+            }
             return null;
         });
     }
 
     private String historyInsertSql() {
-        return "INSERT INTO player_ip_history (player_name, ip, first_seen, last_seen) VALUES (?, ?, ?, ?) "
+        return "INSERT INTO player_ip_history (player_name, uuid, ip, first_seen, last_seen) VALUES (?, ?, ?, ?, ?) "
                 + dialect.upsertTail("player_name, ip", new String[]{"last_seen"});
     }
 
@@ -434,7 +458,7 @@ public class DatabaseManager {
     }
 
     public void recordPlayerIp(String playerName, String ip, long timestamp) {
-        executeUpdate(historyInsertSql(), playerName, ip, timestamp, timestamp);
+        executeUpdate(historyInsertSql(), playerName, "", ip, timestamp, timestamp);
     }
 
     public List<String[]> getPlayerIpHistory(String playerName) {
@@ -446,6 +470,158 @@ public class DatabaseManager {
     public List<String> getPlayersByIpFromHistory(String ip) {
         return query("SELECT DISTINCT player_name FROM player_ip_history WHERE ip = ? ORDER BY player_name",
                 rs -> rs.getString("player_name"), ip);
+    }
+
+    public void recordIdentity(String uuid, String name, long time) {
+        if (uuid == null || uuid.trim().isEmpty() || name == null || name.trim().isEmpty()) {
+            return;
+        }
+        String id = uuid.trim().toLowerCase(Locale.ROOT);
+        String current = name.trim();
+        inTransaction(null, connection -> {
+            String previous = null;
+            try (PreparedStatement ps = connection.prepareStatement("SELECT name FROM player_identity WHERE uuid = ?")) {
+                ps.setString(1, id);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        previous = value(rs, "name");
+                    }
+                }
+            }
+            if (previous == null) {
+                update(connection, "INSERT INTO player_identity (uuid, name, first_seen, last_seen) VALUES (?, ?, ?, ?)",
+                        new Object[]{id, current, time, time});
+                update(connection, nameHistoryInsertSql(), new Object[]{id, current, time});
+                return null;
+            }
+            if (!previous.equalsIgnoreCase(current)) {
+                update(connection, nameHistoryInsertSql(), new Object[]{id, previous, time});
+            }
+            update(connection, "UPDATE player_identity SET name = ?, last_seen = ? WHERE uuid = ?",
+                    new Object[]{current, time, id});
+            return null;
+        });
+    }
+
+    private String nameHistoryInsertSql() {
+        return dialect.insertIgnorePrefix() + "name_history (uuid, name, changed_at) VALUES (?, ?, ?)"
+                + dialect.insertIgnoreTail("uuid, name");
+    }
+
+    public PlayerIdentity getIdentityByUuid(String uuid) {
+        if (uuid == null || uuid.trim().isEmpty()) {
+            return PlayerIdentity.EMPTY;
+        }
+        String id = uuid.trim().toLowerCase(Locale.ROOT);
+        String current = queryOne("SELECT name FROM player_identity WHERE uuid = ?", rs -> value(rs, "name"), id);
+        if (current == null || current.isEmpty()) {
+            return PlayerIdentity.EMPTY;
+        }
+        List<String> names = new ArrayList<>();
+        names.add(current);
+        for (String old : query("SELECT name FROM name_history WHERE uuid = ? ORDER BY changed_at ASC",
+                rs -> value(rs, "name"), id)) {
+            if (!old.isEmpty() && !names.contains(old)) {
+                names.add(old);
+            }
+        }
+        return new PlayerIdentity(id, current, names);
+    }
+
+    public PlayerIdentity resolveIdentity(String nameOrUuid) {
+        if (nameOrUuid == null || nameOrUuid.trim().isEmpty()) {
+            return PlayerIdentity.EMPTY;
+        }
+        String input = nameOrUuid.trim();
+        if (looksLikeUuid(input)) {
+            PlayerIdentity byUuid = getIdentityByUuid(input);
+            return byUuid.hasUuid() ? byUuid : PlayerIdentity.ofName(input);
+        }
+        String uuid = queryOne("SELECT uuid FROM player_identity WHERE LOWER(name) = LOWER(?)",
+                rs -> value(rs, "uuid"), input);
+        if (uuid == null || uuid.isEmpty()) {
+            uuid = queryOne("SELECT uuid FROM name_history WHERE LOWER(name) = LOWER(?)",
+                    rs -> value(rs, "uuid"), input);
+        }
+        if (uuid == null || uuid.isEmpty()) {
+            return PlayerIdentity.ofName(input);
+        }
+        PlayerIdentity identity = getIdentityByUuid(uuid);
+        return identity.hasUuid() ? identity : PlayerIdentity.ofName(input);
+    }
+
+    private static boolean looksLikeUuid(String value) {
+        return value.length() == 36 && value.charAt(8) == '-' && value.charAt(13) == '-'
+                && value.charAt(18) == '-' && value.charAt(23) == '-';
+    }
+
+    public int backfillIdentityUuids(int batchSize) {
+        Map<String, String> nameToUuid = loadNameToUuidMap();
+        if (nameToUuid.isEmpty()) {
+            return 0;
+        }
+        int size = Math.max(50, batchSize);
+        int updated = 0;
+        updated += backfillUuidColumn("bans", "id", "target", "uuid", nameToUuid, size);
+        updated += backfillUuidColumn("mutes", "target", "target", "uuid", nameToUuid, size);
+        updated += backfillUuidColumn("freezes", "target", "target", "uuid", nameToUuid, size);
+        updated += backfillUuidColumn("warnings", "id", "player", "uuid", nameToUuid, size);
+        updated += backfillUuidColumn("reports", "id", "target", "target_uuid", nameToUuid, size);
+        updated += backfillUuidColumn("reports", "id", "reporter", "reporter_uuid", nameToUuid, size);
+        updated += backfillUuidColumn("player_ips", "player_name", "player_name", "uuid", nameToUuid, size);
+        updated += backfillUuidColumn("player_ip_history", "id", "player_name", "uuid", nameToUuid, size);
+        return updated;
+    }
+
+    private Map<String, String> loadNameToUuidMap() {
+        Map<String, String> map = new HashMap<>();
+        for (String[] row : query("SELECT uuid, name FROM player_identity",
+                rs -> new String[]{value(rs, "uuid"), value(rs, "name")})) {
+            if (!row[0].isEmpty() && !row[1].isEmpty()) {
+                map.put(row[1].toLowerCase(Locale.ROOT), row[0]);
+            }
+        }
+        for (String[] row : query("SELECT uuid, name FROM name_history",
+                rs -> new String[]{value(rs, "uuid"), value(rs, "name")})) {
+            if (!row[0].isEmpty() && !row[1].isEmpty()) {
+                map.putIfAbsent(row[1].toLowerCase(Locale.ROOT), row[0]);
+            }
+        }
+        return map;
+    }
+
+    private int backfillUuidColumn(String table, String keyColumn, String nameColumn, String uuidColumn,
+                                   Map<String, String> nameToUuid, int batchSize) {
+        int updated = 0;
+        Object cursor = null;
+        String select = "SELECT " + keyColumn + ", " + nameColumn + " FROM " + table + " WHERE " + uuidColumn + " = ''";
+        while (true) {
+            String sql = select + (cursor == null ? "" : " AND " + keyColumn + " > ?")
+                    + " ORDER BY " + keyColumn + " ASC LIMIT ?";
+            List<Object[]> rows = cursor == null
+                    ? query(sql, this::readKeyAndName, batchSize)
+                    : query(sql, this::readKeyAndName, cursor, batchSize);
+            if (rows.isEmpty()) {
+                return updated;
+            }
+            for (Object[] row : rows) {
+                cursor = row[0];
+                String name = row[1] == null ? "" : row[1].toString();
+                String uuid = nameToUuid.get(name.toLowerCase(Locale.ROOT));
+                if (uuid == null) {
+                    continue;
+                }
+                updated += Math.max(0, executeUpdateAffected("UPDATE " + table + " SET " + uuidColumn
+                        + " = ? WHERE " + keyColumn + " = ? AND " + uuidColumn + " = ''", uuid, row[0]));
+            }
+            if (rows.size() < batchSize) {
+                return updated;
+            }
+        }
+    }
+
+    private Object[] readKeyAndName(ResultSet rs) throws SQLException {
+        return new Object[]{rs.getObject(1), rs.getString(2)};
     }
 
     public WriteResult addBan(BanEntry entry) {

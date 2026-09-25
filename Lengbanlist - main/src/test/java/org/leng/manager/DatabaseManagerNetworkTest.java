@@ -113,9 +113,9 @@ class DatabaseManagerNetworkTest {
             db.deleteReport(reportId);
             assertNull(db.getReport(reportId));
 
-            db.recordPlayerLoginIp(target, "203.0.113.88", System.currentTimeMillis());
+            db.recordPlayerLoginIp("11111111-2222-3333-4444-555555555555", target, "203.0.113.88", System.currentTimeMillis());
             assertEquals("203.0.113.88", db.getPlayerIp(target));
-            db.recordPlayerLoginIp(target, "203.0.113.89", System.currentTimeMillis());
+            db.recordPlayerLoginIp("11111111-2222-3333-4444-555555555555", target, "203.0.113.89", System.currentTimeMillis());
             assertEquals(2, db.getPlayerIpHistory(target).size());
             assertTrue(db.getPlayersByIpFromHistory("203.0.113.89").contains(target));
 
