@@ -10,6 +10,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.leng.commands.*;
 import org.leng.listeners.*;
 import org.leng.manager.*;
+import org.leng.models.Model;
+import org.leng.utils.ConsoleText;
 import org.leng.utils.GitHubUpdateChecker;
 import org.leng.utils.Metrics;
 import org.leng.utils.AutoUpdateManager;
@@ -95,9 +97,9 @@ public void onLoad() {
         try {
             getConfig().save(configFile);
         } catch (IOException e) {
-            getLogger().warning("写入模型自动检测结果失败: " + e.getMessage());
+            getLogger().warning(ConsoleText.MODEL_DETECT_SAVE_FAILED.text("error", e.getMessage()));
         }
-        getLogger().info("首次加载，根据系统语言（" + language + "）自动选择模型: " + detectedModel);
+        getLogger().info(ConsoleText.MODEL_DETECTED.text("language", language, "model", detectedModel));
     }
 
     if (!getConfig().contains("update-check.enabled")) {
@@ -146,13 +148,13 @@ public void onLoad() {
     File baseModelFile = new File(modelsDir, "_base.yml");
     if (!baseModelFile.exists()) {
         saveResource("models/_base.yml", false);
-        getLogger().info("已预置全局默认文本: models/_base.yml（模型未覆写的字段自动沿用此处）");
+        getLogger().info(ConsoleText.PRESET_BASE.text());
     }
     for (String builtin : new String[]{"default", "english"}) {
         File target = new File(modelsDir, builtin + ".yml");
         if (!target.exists()) {
             saveResource("models/" + builtin + ".yml", false);
-            getLogger().info("已预置内置模型: models/" + builtin + ".yml");
+            getLogger().info(ConsoleText.PRESET_BUILTIN.text("name", builtin));
         }
     }
 
@@ -207,9 +209,9 @@ private void migrateLegacyStorageConfig(File storageFile) {
     try {
         storageConfig.save(storageFile);
         saveConfig();
-        getLogger().info("已把 config.yml 中的数据库配置迁移到 storage.yml");
+        getLogger().info(ConsoleText.STORAGE_MIGRATED.text());
     } catch (IOException e) {
-        getLogger().warning("迁移数据库配置失败: " + e.getMessage());
+        getLogger().warning(ConsoleText.STORAGE_MIGRATE_FAILED.text("error", e.getMessage()));
     }
 }
 
@@ -236,7 +238,7 @@ public int historyRetentionDays() {
 public void onEnable() {
     if (initializationFailed) {
         getLogger().severe("==================================================");
-        getLogger().severe("插件启用被终止：数据库初始化失败，请检查 database 配置和数据库连接。");
+        getLogger().severe(ConsoleText.DB_INIT_FAILED.text());
         getLogger().severe("==================================================");
         Bukkit.getPluginManager().disablePlugin(Lengbanlist.this);
         return;
@@ -244,8 +246,8 @@ public void onEnable() {
 
     if (!eulaAgreed) {
         getLogger().severe("==================================================");
-        getLogger().severe("插件启用被终止：您需要同意EULA才能使用本插件！");
-        getLogger().severe("请编辑 plugins/Lengbanlist/eula.yml 文件");
+        getLogger().severe(ConsoleText.EULA_REQUIRED.text());
+        getLogger().severe(ConsoleText.EULA_HINT.text());
         getLogger().severe("==================================================");
         Bukkit.getPluginManager().disablePlugin(Lengbanlist.this);
         return;
@@ -255,7 +257,7 @@ public void onEnable() {
         return;
     }
 
-    getServer().getConsoleSender().sendMessage(prefix() + "§f原神§2正在加载");
+    consoleMessage("loading");
     SchedulerUtils.runAsync(this, () -> {
         String fetchedHitokoto = getHitokoto();
         if (!Lengbanlist.this.isEnabled()) {
@@ -266,7 +268,8 @@ public void onEnable() {
                 return;
             }
             hitokoto = fetchedHitokoto;
-            getServer().getConsoleSender().sendMessage(prefix() + ModelManager.getInstance().getCurrentModelName() + "§6偷偷告诉你: §e" + hitokoto);
+            getServer().getConsoleSender().sendMessage(prefix()
+                    + ModelManager.getInstance().getCurrentModelName() + consoleText("tip", "tip", hitokoto));
         });
     });
 
@@ -294,14 +297,15 @@ public void onEnable() {
     commandRegistry = new CommandRegistry(this);
     refreshFeatureCommands();
 
-    getServer().getConsoleSender().sendMessage("§bLengbanlist §6干杯[]~(￣▽￣)~* §7v" + getPluginVersion()
-            + " §7| §3模型 " + ModelManager.getInstance().getCurrentModelName()
-            + " §7| §3服务端 " + Bukkit.getServer().getVersion());
+    getServer().getConsoleSender().sendMessage(consoleText("ready",
+            "version", getPluginVersion(),
+            "model", ModelManager.getInstance().getCurrentModelName(),
+            "server", Bukkit.getServer().getVersion()));
 
     new Metrics(this, 33262);
 
     if (getConfig().getBoolean("features.auto-update", false)) {
-        getLogger().info("§a自动更新功能已启用，正在检查更新...");
+        getLogger().info(consoleText("auto-update"));
         SchedulerUtils.runAsyncDelayed(this, this::checkUpdate, 5000);
     } else if (isUpdateCheckEnabled()) {
         SchedulerUtils.runAsync(this, GitHubUpdateChecker::checkUpdate);
@@ -319,7 +323,7 @@ public void onEnable() {
 
     if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
         new org.leng.placeholder.PlaceholderAPIHook(Lengbanlist.this).register();
-        getServer().getConsoleSender().sendMessage(prefix() + "§a已接入 PlaceholderAPI，可使用 %lengbanlist_*% 占位符");
+        getServer().getConsoleSender().sendMessage(prefix() + consoleText("placeholder-hook"));
     }
 
     startHistoryCleanupTask();
@@ -375,7 +379,7 @@ public void restartScheduledTasks() {
 
 @Override
 public void onDisable() {
-    getServer().getConsoleSender().sendMessage(prefix() + "§k§4正在收拾行李qwq...");
+    getServer().getConsoleSender().sendMessage(prefix() + consoleText("shutdown"));
 
     if (broadcastTask != null) broadcastTask.cancel();
     if (historyCleanupTask != null) historyCleanupTask.cancel();
@@ -399,7 +403,7 @@ public void onDisable() {
         shutdownStorage();
     }
 
-    getServer().getConsoleSender().sendMessage(prefix() + "§f期待我们的下一次相遇！");
+    getServer().getConsoleSender().sendMessage(prefix() + consoleText("farewell"));
 }
 
 void shutdownStorage() {
@@ -463,6 +467,22 @@ void shutdownStorage() {
     public String prefix() {
 
         return getConfig().getString("prefix", "§b[Lengbanlist]§r ");
+    }
+
+    private String consoleText(String key, String... placeholders) {
+        Model model = ModelManager.getInstance().getCurrentModel();
+        String template = model == null ? "" : model.getConsole(key);
+        if (template == null || template.isEmpty()) {
+            return ConsoleText.builtIn(key, placeholders);
+        }
+        return ConsoleText.fill(template, placeholders);
+    }
+
+    private void consoleMessage(String key, String... placeholders) {
+        String text = consoleText(key, placeholders);
+        if (!text.isEmpty()) {
+            getServer().getConsoleSender().sendMessage(prefix() + text);
+        }
     }
 
     public static Lengbanlist getInstance() {

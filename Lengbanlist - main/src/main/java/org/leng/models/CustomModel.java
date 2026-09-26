@@ -428,4 +428,9 @@ public class CustomModel implements Model {
     public String getRollbackNoRecords(String actor) {
         return msg("rollback-no-records", placeholders("actor", actor));
     }
+
+    @Override
+    public String getConsole(String key) {
+        return raw("console." + key);
+    }
 }

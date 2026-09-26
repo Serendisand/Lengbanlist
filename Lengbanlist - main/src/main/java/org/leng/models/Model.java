@@ -83,4 +83,8 @@ public interface Model {
     String getRollbackResult(int matched, int executed, int skipped);
 
     String getRollbackNoRecords(String actor);
+
+    default String getConsole(String key) {
+        return "";
+    }
 }

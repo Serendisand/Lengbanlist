@@ -121,3 +121,16 @@ messages:
   history-footer: "§bEnglish Model: §aPunishment history for "
   verify-result-valid: "§bEnglish Model: §aAudit verification passed! All {count} entries are intact."
   verify-result-invalid: "§bEnglish Model: §cAudit verification failed! Detected {count} entries that may have been tampered with!"
+
+# ---------- Console messages ----------
+# What the plugin says to the server console (startup/shutdown banners, first-run notices).
+# Character models can override these to give the console their own voice.
+# Diagnostic logs (database errors, sync failures, webhook retries) stay Chinese on purpose.
+console:
+  ready: "§bLengbanlist §6Cheers! []~(￣▽￣)~* §7v{version} §7| §3Model {model} §7| §3Server {server}"
+  loading: "§fGenshin§2 is loading"
+  tip: "§6Psst, a little secret: §e{tip}"
+  placeholder-hook: "§aPlaceholderAPI hooked — %lengbanlist_*% placeholders are available"
+  auto-update: "§aAuto-update enabled, checking for updates..."
+  shutdown: "§k§4Packing our bags, qwq..."
+  farewell: "§fUntil we meet again!"
