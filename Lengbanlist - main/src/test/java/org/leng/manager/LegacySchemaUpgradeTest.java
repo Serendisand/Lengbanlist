@@ -186,6 +186,28 @@ class LegacySchemaUpgradeTest {
     }
 
     @Test
+    void v6AddsStartTimeColumnsAndBackfillsFromAuditLog() throws Exception {
+        long auditAt = System.currentTimeMillis() - 120_000L;
+        execute(dbFile, concat(schemaMeta("5"), v5Tables(), v5Data(), List.of(
+                "INSERT INTO audit_log (timestamp, actor, action, target, reason, success)"
+                        + " VALUES (" + auditAt + ", 'staff', '封禁', 'Alice', '旧版封禁', 1)")));
+
+        db = open();
+
+        assertTrue(columnExists("bans", "start_time"), "v6 迁移应给 bans 加 start_time 列");
+        assertTrue(columnExists("ip_bans", "start_time"), "v6 迁移应给 ip_bans 加 start_time 列");
+        assertTrue(columnExists("mutes", "start_time"), "v6 迁移应给 mutes 加 start_time 列");
+        assertEquals(auditAt, db.getActiveStartTimes("bans").get("alice"), "活跃封禁的起始时间应从审计日志回填");
+
+        long end = System.currentTimeMillis() + 60_000L;
+        assertEquals(DatabaseManager.WriteResult.APPLIED,
+                db.replaceActiveBan(new BanEntry("Bob", "staff", end, "新封禁", false)));
+        Long bobStart = db.getActiveStartTimes("bans").get("bob");
+        assertNotNull(bobStart, "升级后的库也要记录新封禁的起始时间");
+        assertTrue(end - bobStart > 50_000L, "起始时间应接近写入时刻");
+    }
+
+    @Test
     void preV3BanTableIsMigratedToPrimaryKeyForm() throws Exception {
         execute(dbFile, concat(schemaMeta("2"), List.of(
                 "CREATE TABLE bans (target TEXT PRIMARY KEY, staff TEXT, end_time INTEGER, reason TEXT,"

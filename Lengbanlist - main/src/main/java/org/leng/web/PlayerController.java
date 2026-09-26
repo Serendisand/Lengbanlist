@@ -193,6 +193,8 @@ public class PlayerController extends WebController {
             }
             List<BanEntry> banHistory = plugin.getDatabaseManager().getBansByPlayer(target);
             List<WarnEntry> warnings = plugin.getWarnManager().getAllWarnings(target);
+            Map<Long, Long> banStarts = plugin.getDatabaseManager().getStartTimesByPlayer("bans", target);
+            Map<Long, Long> muteStarts = plugin.getDatabaseManager().getStartTimesByPlayer("mutes", target);
 
             JsonArray banArr = new JsonArray();
             for (BanEntry b : banHistory) {
@@ -203,7 +205,9 @@ public class PlayerController extends WebController {
                 o.addProperty("end_time", b.time());
                 o.addProperty("reason", b.reason());
                 o.addProperty("active", b.active());
-                o.addProperty("duration", TimeUtils.formatDuration(b.time() - System.currentTimeMillis()));
+                Long banStart = banStarts.get(b.time());
+                o.addProperty("duration", TimeUtils.formatIssuedDuration(banStart == null ? 0L : banStart, b.time()));
+                o.addProperty("remaining", TimeUtils.formatRemaining(b.time()));
                 banArr.add(o);
             }
             JsonArray muteArr = new JsonArray();
@@ -212,6 +216,9 @@ public class PlayerController extends WebController {
                 o.addProperty("staff", m.staff());
                 o.addProperty("reason", m.reason());
                 o.addProperty("end_time", m.time());
+                Long muteStart = muteStarts.get(m.time());
+                o.addProperty("duration", TimeUtils.formatIssuedDuration(muteStart == null ? 0L : muteStart, m.time()));
+                o.addProperty("remaining", TimeUtils.formatRemaining(m.time()));
                 o.addProperty("active", m.time() > System.currentTimeMillis());
                 muteArr.add(o);
             }

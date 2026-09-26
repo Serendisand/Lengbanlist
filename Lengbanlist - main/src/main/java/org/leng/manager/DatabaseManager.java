@@ -41,7 +41,7 @@ public class DatabaseManager {
             "SELECT id, player, staff, warn_time, reason, revoked FROM warnings ";
 
     private static final String BAN_INSERT =
-            "INSERT INTO bans (target, uuid, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            "INSERT INTO bans (target, uuid, staff, end_time, reason, is_auto, active, start_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
     private static final String STATUS_PENDING = "未处理";
     private static final String STATUS_CLOSED = "已关闭";
@@ -314,9 +314,9 @@ public class DatabaseManager {
     public void ensureSchema() throws SQLException {
         execute("CREATE TABLE IF NOT EXISTS schema_meta (meta_key " + textPrimaryKey() + ", meta_value " + textType() + " NOT NULL)");
         execute("CREATE TABLE IF NOT EXISTS player_ips (player_name " + textPrimaryKey() + ", ip " + textType() + " NOT NULL, updated_at " + longType() + " NOT NULL)");
-        execute("CREATE TABLE IF NOT EXISTS bans (id " + integerPrimaryKey() + ", target " + textType() + " NOT NULL, staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, is_auto " + booleanType() + " NOT NULL DEFAULT 0, active " + booleanType() + " NOT NULL DEFAULT 1)");
-        execute("CREATE TABLE IF NOT EXISTS ip_bans (id " + integerPrimaryKey() + ", ip " + textType() + " NOT NULL, staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, is_auto " + booleanType() + " NOT NULL DEFAULT 0, active " + booleanType() + " NOT NULL DEFAULT 1)");
-        execute("CREATE TABLE IF NOT EXISTS mutes (target " + textPrimaryKey() + ", staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL)");
+        execute("CREATE TABLE IF NOT EXISTS bans (id " + integerPrimaryKey() + ", target " + textType() + " NOT NULL, staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, is_auto " + booleanType() + " NOT NULL DEFAULT 0, active " + booleanType() + " NOT NULL DEFAULT 1, start_time " + longType() + " NOT NULL DEFAULT 0)");
+        execute("CREATE TABLE IF NOT EXISTS ip_bans (id " + integerPrimaryKey() + ", ip " + textType() + " NOT NULL, staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, is_auto " + booleanType() + " NOT NULL DEFAULT 0, active " + booleanType() + " NOT NULL DEFAULT 1, start_time " + longType() + " NOT NULL DEFAULT 0)");
+        execute("CREATE TABLE IF NOT EXISTS mutes (target " + textPrimaryKey() + ", staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, start_time " + longType() + " NOT NULL DEFAULT 0)");
         execute("CREATE TABLE IF NOT EXISTS freezes (target " + textPrimaryKey() + ", staff " + textType() + " NOT NULL, freeze_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL)");
         execute("CREATE TABLE IF NOT EXISTS warnings (id " + textPrimaryKey() + ", player " + textType() + " NOT NULL, staff " + textType() + " NOT NULL, warn_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, revoked " + booleanType() + " NOT NULL DEFAULT 0)");
         execute("CREATE TABLE IF NOT EXISTS reports (id " + textPrimaryKey() + ", target " + textType() + " NOT NULL, reporter " + textType() + " NOT NULL, reason " + textType() + " NOT NULL, status " + varcharType(32) + " NOT NULL DEFAULT '" + STATUS_PENDING + "', timestamp " + longType() + " NOT NULL)");
@@ -765,6 +765,69 @@ public class DatabaseManager {
                 this::readBan, args.toArray());
     }
 
+    private static final List<String> PUNISHMENT_TABLES = List.of("bans", "ip_bans", "mutes");
+
+    public Map<String, Long> getActiveStartTimes(String table) {
+        Map<String, Long> result = new HashMap<>();
+        if (!PUNISHMENT_TABLES.contains(table)) {
+            return result;
+        }
+        String keyColumn = table.equals("ip_bans") ? "ip" : "target";
+        String filter = table.equals("mutes") ? "" : " WHERE active = 1";
+        try (Connection connection = getConnection();
+             PreparedStatement ps = connection.prepareStatement(
+                     "SELECT LOWER(" + keyColumn + ") AS k, start_time FROM " + table + filter);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                result.put(rs.getString("k"), rs.getLong("start_time"));
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return result;
+    }
+
+    public Map<Long, Long> getStartTimesByPlayer(String table, String player) {
+        Map<Long, Long> result = new HashMap<>();
+        if (!PUNISHMENT_TABLES.contains(table)) {
+            return result;
+        }
+        List<Object> args = new ArrayList<>();
+        String where;
+        if (table.equals("ip_bans")) {
+            where = "LOWER(ip) = LOWER(?)";
+            args.add(player);
+        } else {
+            where = identityPredicate("target", "uuid", identityResolver.resolve(player), args);
+        }
+        try (Connection connection = getConnection();
+             PreparedStatement ps = connection.prepareStatement(
+                     "SELECT end_time, MAX(start_time) AS start_time FROM " + table + " WHERE " + where + " GROUP BY end_time")) {
+            setValues(ps, args.toArray());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    result.put(rs.getLong("end_time"), rs.getLong("start_time"));
+                }
+            }
+        } catch (SQLException e) {
+            logSql(e);
+        }
+        return result;
+    }
+
+    void backfillPunishmentStartTimes() {
+        int bans = executeUpdateAffected("UPDATE bans SET start_time = COALESCE("
+                + "(SELECT MAX(timestamp) FROM audit_log WHERE LOWER(audit_log.target) = LOWER(bans.target) AND audit_log.action = ?), 0)"
+                + " WHERE active = 1 AND start_time <= 0", "封禁");
+        int ipBans = executeUpdateAffected("UPDATE ip_bans SET start_time = COALESCE("
+                + "(SELECT MAX(timestamp) FROM audit_log WHERE LOWER(audit_log.target) = LOWER(ip_bans.ip) AND audit_log.action = ?), 0)"
+                + " WHERE active = 1 AND start_time <= 0", "封禁IP");
+        int mutes = executeUpdateAffected("UPDATE mutes SET start_time = COALESCE("
+                + "(SELECT MAX(timestamp) FROM audit_log WHERE LOWER(audit_log.target) = LOWER(mutes.target) AND audit_log.action = ?), 0)"
+                + " WHERE start_time <= 0", "禁言");
+        plugin.getLogger().info("判罚起始时间回填：封禁 " + bans + " 条、IP 封禁 " + ipBans + " 条、禁言 " + mutes + " 条");
+    }
+
     public List<BanEntry> getRecentBans(int limit) {
         return query("SELECT target, staff, end_time, reason, is_auto, active FROM bans ORDER BY id DESC LIMIT ?",
                 this::readBan, limit);
@@ -832,8 +895,8 @@ public class DatabaseManager {
         WriteResult result = invalidateBans(replaceActiveEntry(
                 "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1",
                 new Object[]{entry.getIp()},
-                "INSERT INTO ip_bans (ip, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
-                new Object[]{entry.getIp(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()}));
+                "INSERT INTO ip_bans (ip, staff, end_time, reason, is_auto, active, start_time) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                new Object[]{entry.getIp(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive(), System.currentTimeMillis()}));
         publishIfApplied(result, SyncEvent.SCOPE_IP_BAN, entry.getIp(), SyncEvent.ACTION_ADD);
         return result;
     }
@@ -842,8 +905,8 @@ public class DatabaseManager {
         WriteResult result = invalidateBans(replaceExistingActiveEntry(
                 "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1",
                 new Object[]{entry.getIp()},
-                "INSERT INTO ip_bans (ip, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
-                new Object[]{entry.getIp(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()}));
+                "INSERT INTO ip_bans (ip, staff, end_time, reason, is_auto, active, start_time) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                new Object[]{entry.getIp(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive(), System.currentTimeMillis()}));
         publishIfApplied(result, SyncEvent.SCOPE_IP_BAN, entry.getIp(), SyncEvent.ACTION_UPDATE);
         return result;
     }
@@ -885,8 +948,12 @@ public class DatabaseManager {
     }
 
     public boolean upsertMute(MuteEntry entry) {
+        return upsertMute(entry, System.currentTimeMillis());
+    }
+
+    public boolean upsertMute(MuteEntry entry, long startTime) {
         MuteEntry normalized = new MuteEntry(entry.getTarget().toLowerCase(Locale.ROOT), entry.getStaff(), entry.getTime(), entry.getReason());
-        boolean applied = executeUpdateAffected(upsertSql("mutes", "target", new String[]{"target", "staff", "end_time", "reason"}, new String[]{"staff", "end_time", "reason"}), normalized.getTarget(), normalized.getStaff(), normalized.getTime(), normalized.getReason()) > 0;
+        boolean applied = executeUpdateAffected(upsertSql("mutes", "target", new String[]{"target", "staff", "end_time", "reason", "start_time"}, new String[]{"staff", "end_time", "reason"}), normalized.getTarget(), normalized.getStaff(), normalized.getTime(), normalized.getReason(), startTime) > 0;
         publishSyncEvent(SyncEvent.SCOPE_MUTE, normalized.getTarget(), SyncEvent.ACTION_ADD);
         return applied;
     }
@@ -1791,7 +1858,7 @@ public class DatabaseManager {
         return dialect.nullableText();
     }
 
-    private String longType() {
+    String longType() {
         return dialect.longType();
     }
 
@@ -1810,7 +1877,7 @@ public class DatabaseManager {
 
     private Object[] banInsertValues(BanEntry entry) {
         return new Object[]{entry.getTarget(), resolvedUuid(entry.getTarget()), entry.getStaff(), entry.getTime(),
-                entry.getReason(), entry.isAuto(), entry.isActive()};
+                entry.getReason(), entry.isAuto(), entry.isActive(), System.currentTimeMillis()};
     }
 
     private String resolvedUuid(String target) {

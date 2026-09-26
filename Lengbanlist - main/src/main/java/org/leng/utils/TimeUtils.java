@@ -138,6 +138,30 @@ public class TimeUtils {
         return formatDuration(remaining);
     }
 
+    public static String formatRemaining(long endTime) {
+        return formatRemaining(endTime, isEnglishLocale());
+    }
+
+    public static String formatRemaining(long endTime, boolean english) {
+        if (endTime == Long.MAX_VALUE) return english ? "permanently" : "永久";
+
+        long remaining = endTime - System.currentTimeMillis();
+        if (remaining <= 0) return english ? "expired" : "已到期";
+
+        return formatDuration(remaining, english);
+    }
+
+    public static String formatIssuedDuration(long startTime, long endTime) {
+        return formatIssuedDuration(startTime, endTime, isEnglishLocale());
+    }
+
+    public static String formatIssuedDuration(long startTime, long endTime, boolean english) {
+        if (endTime == Long.MAX_VALUE) return english ? "permanently" : "永久";
+        if (startTime <= 0 || startTime >= endTime) return english ? "unknown" : "未知";
+
+        return formatDuration(endTime - startTime, english);
+    }
+
     public static boolean isValidTimeFormat(String timeStr) {
         if (timeStr == null || timeStr.isEmpty()) return false;
 

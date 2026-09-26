@@ -27,6 +27,7 @@ import org.leng.object.BanEntry;
 import org.leng.object.MuteEntry;
 import org.leng.object.WarnEntry;
 import java.util.Comparator;
+import java.util.Map;
 import org.leng.utils.IpGeoLookup;
 import org.leng.utils.SaveIP;
 import org.leng.utils.SchedulerUtils;
@@ -274,22 +275,26 @@ public final class QueryCommands {
                 showKnownNames(sender, target);
             }
 
+            Map<Long, Long> banStarts = plugin.getDatabaseManager().getStartTimesByPlayer("bans", target);
+            Map<Long, Long> ipBanStarts = plugin.getDatabaseManager().getStartTimesByPlayer("ip_bans", target);
+            Map<Long, Long> muteStarts = plugin.getDatabaseManager().getStartTimesByPlayer("mutes", target);
+
             if (isIp) {
                 for (BanIpEntry ban : plugin.getDatabaseManager().getIpBansByIp(target)) {
-                    raw.add(new HistoryEntry(ban.getTime(), "ipban", ban));
+                    raw.add(new HistoryEntry(ban.getTime(), "ipban", ban, startOf(ipBanStarts, ban.getTime())));
                 }
             } else {
                 for (BanEntry ban : plugin.getDatabaseManager().getBansByPlayer(target)) {
-                    raw.add(new HistoryEntry(ban.getTime(), "ban", ban));
+                    raw.add(new HistoryEntry(ban.getTime(), "ban", ban, startOf(banStarts, ban.getTime())));
                 }
             }
 
             for (MuteEntry mute : plugin.getDatabaseManager().getMutesByPlayer(target)) {
-                raw.add(new HistoryEntry(mute.getTime(), "mute", mute));
+                raw.add(new HistoryEntry(mute.getTime(), "mute", mute, startOf(muteStarts, mute.getTime())));
             }
 
             for (WarnEntry warn : plugin.getDatabaseManager().getWarnings(target, false)) {
-                raw.add(new HistoryEntry(warn.getTime(), "warn", warn));
+                raw.add(new HistoryEntry(warn.getTime(), "warn", warn, 0L));
             }
 
             raw.sort(Comparator.comparingLong(e -> e.time));
@@ -317,6 +322,11 @@ public final class QueryCommands {
             return true;
         }
 
+        private static long startOf(Map<Long, Long> startTimes, long endTime) {
+            Long value = startTimes.get(endTime);
+            return value == null ? 0L : value;
+        }
+
         private void showKnownNames(CommandSender sender, String target) {
             PlayerIdentity identity = plugin.getIdentityResolver().resolve(target);
             List<String> aliases = new ArrayList<>();
@@ -334,11 +344,13 @@ public final class QueryCommands {
             final long time;
             final String type;
             final Object data;
+            final long startTime;
 
-            HistoryEntry(long time, String type, Object data) {
+            HistoryEntry(long time, String type, Object data, long startTime) {
                 this.time = time;
                 this.type = type;
                 this.data = data;
+                this.startTime = startTime;
             }
 
             String format() {
@@ -348,28 +360,34 @@ public final class QueryCommands {
                         boolean inactive = !b.isActive();
                         boolean expired = b.isExpired();
                         boolean permanent = b.getTime() == Long.MAX_VALUE;
+                        String durationPart = startTime > 0
+                                ? " §7| 封禁时长: §e" + TimeUtils.formatIssuedDuration(startTime, b.getTime()) : "";
                         if (inactive || expired) {
                             String expiryAt = permanent ? "永久" : TimeUtils.timestampToReadable(b.getTime());
-                            return "§7- §c封禁 §7| §a已过期 §7| 过期时间: §f" + expiryAt + " §7| 处理人: §b" + b.getStaff() + " §7| 原因: §f" + b.getReason();
+                            return "§7- §c封禁 §7| §a已过期 §7| 过期时间: §f" + expiryAt + durationPart + " §7| 处理人: §b" + b.getStaff() + " §7| 原因: §f" + b.getReason();
                         }
                         String expiryStr = permanent ? "永久" : TimeUtils.timestampToReadable(b.getTime());
-                        return "§7- §c封禁 §7| 处理人: §b" + b.getStaff() + " §7| 封禁至: §f" + expiryStr + " §7| 原因: §f" + b.getReason();
+                        return "§7- §c封禁 §7| 处理人: §b" + b.getStaff() + " §7| 封禁至: §f" + expiryStr + durationPart + " §7| 原因: §f" + b.getReason();
                     }
                     case "ipban": {
                         BanIpEntry b = (BanIpEntry) data;
                         boolean inactive = !b.isActive();
                         boolean expired = b.isExpired();
                         boolean permanent = b.getTime() == Long.MAX_VALUE;
+                        String durationPart = startTime > 0
+                                ? " §7| 封禁时长: §e" + TimeUtils.formatIssuedDuration(startTime, b.getTime()) : "";
                         if (inactive || expired) {
                             String expiryAt = permanent ? "永久" : TimeUtils.timestampToReadable(b.getTime());
-                            return "§7- §cIP封禁 §7| §a已过期 §7| 过期时间: §f" + expiryAt + " §7| 处理人: §b" + b.getStaff() + " §7| 原因: §f" + b.getReason();
+                            return "§7- §cIP封禁 §7| §a已过期 §7| 过期时间: §f" + expiryAt + durationPart + " §7| 处理人: §b" + b.getStaff() + " §7| 原因: §f" + b.getReason();
                         }
                         String expiryStr = permanent ? "永久" : TimeUtils.timestampToReadable(b.getTime());
-                        return "§7- §cIP封禁 §7| 处理人: §b" + b.getStaff() + " §7| 封禁至: §f" + expiryStr + " §7| 原因: §f" + b.getReason();
+                        return "§7- §cIP封禁 §7| 处理人: §b" + b.getStaff() + " §7| 封禁至: §f" + expiryStr + durationPart + " §7| 原因: §f" + b.getReason();
                     }
                     case "mute": {
                         MuteEntry m = (MuteEntry) data;
-                        return "§7- §c禁言 §7| 处理人: §b" + m.getStaff() + " §7| 时间: §f" + TimeUtils.timestampToReadable(m.getTime()) + " §7| 原因: §f" + m.getReason();
+                        String durationPart = startTime > 0
+                                ? " §7| 禁言时长: §e" + TimeUtils.formatIssuedDuration(startTime, m.getTime()) : "";
+                        return "§7- §c禁言 §7| 处理人: §b" + m.getStaff() + " §7| 解禁时间: §f" + TimeUtils.timestampToReadable(m.getTime()) + durationPart + " §7| 原因: §f" + m.getReason();
                     }
                     case "warn": {
                         WarnEntry w = (WarnEntry) data;

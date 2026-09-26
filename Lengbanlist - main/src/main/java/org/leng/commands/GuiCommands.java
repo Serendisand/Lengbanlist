@@ -143,6 +143,8 @@ public final class GuiCommands {
                 List<Object> list = new ArrayList<>();
                 list.addAll(plugin.getBanManager().getBanList());
                 list.addAll(plugin.getBanManager().getBanIpList());
+                java.util.Map<String, Long> banStarts = plugin.getDatabaseManager().getActiveStartTimes("bans");
+                java.util.Map<String, Long> ipBanStarts = plugin.getDatabaseManager().getActiveStartTimes("ip_bans");
                 for (int s = 0; s < GUI_CONTENT_SLOTS.length; s++) {
                     int index = start + s;
                     if (index >= list.size()) {
@@ -151,32 +153,39 @@ public final class GuiCommands {
                     Object entry = list.get(index);
                     if (entry instanceof BanEntry) {
                         BanEntry ban = (BanEntry) entry;
+                        Long banStart = banStarts.get(ban.getTarget().toLowerCase(java.util.Locale.ROOT));
                         inventory.setItem(GUI_CONTENT_SLOTS[s], createGuiItem(Material.RED_WOOL,
                                 "§c" + ban.getTarget(),
                                 "§7处理人：" + ban.getStaff(),
                                 "§7原因：" + ban.getReason(),
+                                "§7封禁时长：§e" + TimeUtils.formatIssuedDuration(banStart == null ? 0L : banStart, ban.getTime()),
                                 "§7解封时间：" + TimeUtils.timestampToReadable(ban.getTime())));
                     } else if (entry instanceof BanIpEntry) {
                         BanIpEntry banIp = (BanIpEntry) entry;
+                        Long ipStart = ipBanStarts.get(banIp.getIp().toLowerCase(java.util.Locale.ROOT));
                         inventory.setItem(GUI_CONTENT_SLOTS[s], createGuiItem(Material.BLACK_WOOL,
                                 "§c" + banIp.getIp(),
                                 "§7处理人：" + banIp.getStaff(),
                                 "§7原因：" + banIp.getReason(),
+                                "§7封禁时长：§e" + TimeUtils.formatIssuedDuration(ipStart == null ? 0L : ipStart, banIp.getTime()),
                                 "§7解封时间：" + TimeUtils.timestampToReadable(banIp.getTime())));
                     }
                 }
             } else if ("mutes".equals(view)) {
                 List<MuteEntry> list = plugin.getMuteManager().getMuteList();
+                java.util.Map<String, Long> muteStarts = plugin.getDatabaseManager().getActiveStartTimes("mutes");
                 for (int s = 0; s < GUI_CONTENT_SLOTS.length; s++) {
                     int index = start + s;
                     if (index >= list.size()) {
                         break;
                     }
                     MuteEntry mute = list.get(index);
+                    Long muteStart = muteStarts.get(mute.getTarget().toLowerCase(java.util.Locale.ROOT));
                     inventory.setItem(GUI_CONTENT_SLOTS[s], createGuiItem(Material.GRAY_WOOL,
                             "§c" + mute.getTarget(),
                             "§7处理人：" + mute.getStaff(),
                             "§7原因：" + mute.getReason(),
+                            "§7禁言时长：§e" + TimeUtils.formatIssuedDuration(muteStart == null ? 0L : muteStart, mute.getTime()),
                             "§7解禁时间：" + TimeUtils.timestampToReadable(mute.getTime())));
                 }
             } else if ("freezes".equals(view)) {
