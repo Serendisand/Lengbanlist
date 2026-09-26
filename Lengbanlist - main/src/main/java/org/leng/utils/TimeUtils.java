@@ -9,31 +9,39 @@ public class TimeUtils {
             ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));
 
     public static long secondsToMillis(long seconds) {
-        return seconds * 1000L;
+        return multiplyExactOrInvalid(seconds, 1000L);
     }
 
     public static long minutesToMillis(long minutes) {
-        return minutes * 60L * 1000;
+        return multiplyExactOrInvalid(minutes, 60_000L);
     }
 
     public static long hoursToMillis(long hours) {
-        return hours * 60L * 60 * 1000;
+        return multiplyExactOrInvalid(hours, 3_600_000L);
     }
 
     public static long daysToMillis(long days) {
-        return days * 24L * 60 * 60 * 1000;
+        return multiplyExactOrInvalid(days, 86_400_000L);
     }
 
     public static long weeksToMillis(long weeks) {
-        return weeks * 7L * 24 * 60 * 60 * 1000;
+        return multiplyExactOrInvalid(weeks, 604_800_000L);
     }
 
     public static long monthsToMillis(long months) {
-        return months * 30L * 24 * 60 * 60 * 1000;
+        return multiplyExactOrInvalid(months, 2_592_000_000L);
     }
 
     public static long yearsToMillis(long years) {
-        return years * 365L * 24 * 60 * 60 * 1000;
+        return multiplyExactOrInvalid(years, 31_536_000_000L);
+    }
+
+    private static long multiplyExactOrInvalid(long value, long factor) {
+        try {
+            return Math.multiplyExact(value, factor);
+        } catch (ArithmeticException e) {
+            return -1L;
+        }
     }
 
     public static long parseTime(String timeStr) {
@@ -128,6 +136,30 @@ public class TimeUtils {
         if (remaining <= 0) return "已过期";
 
         return formatDuration(remaining);
+    }
+
+    public static String formatRemaining(long endTime) {
+        return formatRemaining(endTime, isEnglishLocale());
+    }
+
+    public static String formatRemaining(long endTime, boolean english) {
+        if (endTime == Long.MAX_VALUE) return english ? "permanently" : "永久";
+
+        long remaining = endTime - System.currentTimeMillis();
+        if (remaining <= 0) return english ? "expired" : "已到期";
+
+        return formatDuration(remaining, english);
+    }
+
+    public static String formatIssuedDuration(long startTime, long endTime) {
+        return formatIssuedDuration(startTime, endTime, isEnglishLocale());
+    }
+
+    public static String formatIssuedDuration(long startTime, long endTime, boolean english) {
+        if (endTime == Long.MAX_VALUE) return english ? "permanently" : "永久";
+        if (startTime <= 0 || startTime >= endTime) return english ? "unknown" : "未知";
+
+        return formatDuration(endTime - startTime, english);
     }
 
     public static boolean isValidTimeFormat(String timeStr) {

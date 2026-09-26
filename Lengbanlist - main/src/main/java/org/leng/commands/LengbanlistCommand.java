@@ -27,6 +27,7 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class LengbanlistCommand extends Command implements CommandExecutor, TabCompleter {
 
@@ -115,6 +116,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 }
 
                 if (plugin.getDatabaseManager() != null) {
+                    plugin.reloadStorageConfig();
                     plugin.getDatabaseManager().applyCacheConfig();
                     plugin.getDatabaseManager().reloadBanCache();
                     plugin.getIdentityResolver().invalidateAll();
@@ -133,8 +135,9 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     plugin.getWebServer().reloadAuth();
                 }
                 break;
-            case "add":
-                if (args.length >= 2 && args[1].contains(".")) {
+            case "add": {
+                int probeOffset = (args.length >= 2 && args[1].equalsIgnoreCase("-s")) ? 2 : 1;
+                if (args.length > probeOffset && args[probeOffset].contains(".")) {
                     if (!plugin.isFeatureEnabled("ban-ip")) {
                         plugin.sendFeatureDisabled(sender);
                         return true;
@@ -163,6 +166,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     return new BanCommands.BanIp(plugin).onCommand(sender, null, label, delegateArgs);
                 }
                 return new BanCommands.Ban(plugin).onCommand(sender, null, label, delegateArgs);
+            }
             case "remove":
                 if (!plugin.isFeatureEnabled("unban")) {
                     plugin.sendFeatureDisabled(sender);
@@ -640,6 +644,11 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                         if (s.startsWith(prefix)) completions.add(s);
                     }
                     break;
+                case "report":
+                    for (String s : new String[]{"accept", "close"}) {
+                        if (s.startsWith(prefix)) completions.add(s);
+                    }
+                    break;
                 case "webhook":
                     for (String s : new String[]{"test", "status"}) {
                         if (s.startsWith(prefix)) completions.add(s);
@@ -698,17 +707,21 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
             return;
         }
         int shown = 0;
+        Map<String, Long> banStarts = plugin.getDatabaseManager().getActiveStartTimes("bans");
+        Map<String, Long> ipBanStarts = plugin.getDatabaseManager().getActiveStartTimes("ip_bans");
         for (BanEntry entry : bans) {
             if (shown++ >= LIST_DISPLAY_LIMIT) {
                 break;
             }
-            Utils.sendMessage(sender, "§c被封禁者：§f" + entry.getTarget() + " §e处理人：§f" + entry.getStaff() + " §e封禁原因：§f" + entry.getReason() + " §f解封时间：" + TimeUtils.timestampToReadable(entry.getTime()));
+            Long start = banStarts.get(entry.getTarget().toLowerCase(java.util.Locale.ROOT));
+            Utils.sendMessage(sender, "§c被封禁者：§f" + entry.getTarget() + " §e处理人：§f" + entry.getStaff() + " §e封禁原因：§f" + entry.getReason() + " §f封禁时长：§e" + TimeUtils.formatIssuedDuration(start == null ? 0L : start, entry.getTime()) + " §f解封时间：§b" + TimeUtils.timestampToReadable(entry.getTime()));
         }
         for (BanIpEntry entry : ipBans) {
             if (shown++ >= LIST_DISPLAY_LIMIT) {
                 break;
             }
-            Utils.sendMessage(sender, "§c被封禁IP：§f" + entry.getIp() + " §e处理人：§f" + entry.getStaff() + " §e封禁原因：§f" + entry.getReason() + " §f解封时间：" + TimeUtils.timestampToReadable(entry.getTime()));
+            Long start = ipBanStarts.get(entry.getIp().toLowerCase(java.util.Locale.ROOT));
+            Utils.sendMessage(sender, "§c被封禁IP：§f" + entry.getIp() + " §e处理人：§f" + entry.getStaff() + " §e封禁原因：§f" + entry.getReason() + " §f封禁时长：§e" + TimeUtils.formatIssuedDuration(start == null ? 0L : start, entry.getTime()) + " §f解封时间：§b" + TimeUtils.timestampToReadable(entry.getTime()));
         }
         int total = bans.size() + ipBans.size();
         if (total > LIST_DISPLAY_LIMIT) {
@@ -737,8 +750,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
 
     private void showMuteList(CommandSender sender) {
         Utils.sendMessage(sender, "§7--§bLengbanlist 禁言名单§7--");
+        Map<String, Long> muteStarts = plugin.getDatabaseManager().getActiveStartTimes("mutes");
         for (MuteEntry entry : plugin.getMuteManager().getMuteList()) {
-            Utils.sendMessage(sender, "§c被禁言者：§f" + entry.getTarget() + " §e处理人：§f" + entry.getStaff() + " §e禁言原因：§f" + entry.getReason() + " §f解禁时间：" + TimeUtils.timestampToReadable(entry.getTime()));
+            Long start = muteStarts.get(entry.getTarget().toLowerCase(java.util.Locale.ROOT));
+            Utils.sendMessage(sender, "§c被禁言者：§f" + entry.getTarget() + " §e处理人：§f" + entry.getStaff() + " §e禁言原因：§f" + entry.getReason() + " §f禁言时长：§e" + TimeUtils.formatIssuedDuration(start == null ? 0L : start, entry.getTime()) + " §f解禁时间：§b" + TimeUtils.timestampToReadable(entry.getTime()));
         }
     }
 }

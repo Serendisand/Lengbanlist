@@ -22,6 +22,7 @@ public class BroadCastManager implements Runnable {
     private static final String BUTTON_HOVER = "§a看看封禁列表§bawa";
 
     private final Lengbanlist plugin;
+    private volatile boolean warnedNoTemplate;
 
     public BroadCastManager(Lengbanlist plugin) {
         this.plugin = plugin;
@@ -46,6 +47,10 @@ public class BroadCastManager implements Runnable {
     private boolean broadcast(CommandSender sender) {
         String template = pickTemplate();
         if (template == null || template.isEmpty()) {
+            if (!warnedNoTemplate) {
+                warnedNoTemplate = true;
+                plugin.getLogger().warning("广播消息为空：请在 broadcast.yml 配置 messages 或 default-message，定时广播已跳过。");
+            }
             if (sender != null) {
                 Utils.sendMessage(sender, plugin.prefix() + "§c广播消息未配置，请在 broadcast.yml 中设置 default-message。");
             }

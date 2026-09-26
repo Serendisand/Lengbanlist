@@ -38,22 +38,27 @@ public class StorageMigrationManager {
         File file = new File(plugin.getDataFolder(), "ip.yml");
         if (!file.exists() || alreadyMigrated("yaml.ip.migrated", file)) return;
         int count = 0;
+        int failures = 0;
         for (String entry : load(file).getStringList("ip")) {
             int index = entry.indexOf(':');
             if (index <= 0 || index == entry.length() - 1) {
                 warn(file, entry, null);
                 continue;
             }
-            databaseManager.upsertPlayerIp(entry.substring(0, index), entry.substring(index + 1), System.currentTimeMillis());
-            count++;
+            if (databaseManager.upsertPlayerIp(entry.substring(0, index), entry.substring(index + 1), System.currentTimeMillis())) {
+                count++;
+            } else {
+                failures++;
+            }
         }
-        finish("yaml.ip.migrated", file, count);
+        finish("yaml.ip.migrated", file, count, failures);
     }
 
     private void migrateBans() {
         File file = new File(plugin.getDataFolder(), "ban-list.yml");
         if (!file.exists() || alreadyMigrated("yaml.bans.migrated", file)) return;
         int count = 0;
+        int failures = 0;
         for (String entry : load(file).getStringList("ban-list")) {
             ParsedEntry parsed = parseEntry(entry, 3, true);
             if (parsed == null) {
@@ -65,20 +70,23 @@ public class StorageMigrationManager {
                         new BanEntry(parsed.parts.get(0), parsed.parts.get(1), Long.parseLong(parsed.parts.get(2)), parsed.reason, parsed.flag));
                 if (result != DatabaseManager.WriteResult.APPLIED) {
                     warn(file, entry, new IllegalStateException("迁移封禁写入失败: " + result));
+                    failures++;
                     continue;
                 }
                 count++;
             } catch (Exception e) {
                 warn(file, entry, e);
+                failures++;
             }
         }
-        finish("yaml.bans.migrated", file, count);
+        finish("yaml.bans.migrated", file, count, failures);
     }
 
     private void migrateIpBans() {
         File file = new File(plugin.getDataFolder(), "banip-list.yml");
         if (!file.exists() || alreadyMigrated("yaml.ip_bans.migrated", file)) return;
         int count = 0;
+        int failures = 0;
         for (String entry : load(file).getStringList("banip-list")) {
             ParsedEntry parsed = parseEntry(entry, 3, true);
             if (parsed == null) {
@@ -90,20 +98,23 @@ public class StorageMigrationManager {
                         new BanIpEntry(parsed.parts.get(0), parsed.parts.get(1), Long.parseLong(parsed.parts.get(2)), parsed.reason, parsed.flag));
                 if (result != DatabaseManager.WriteResult.APPLIED) {
                     warn(file, entry, new IllegalStateException("迁移 IP 封禁写入失败: " + result));
+                    failures++;
                     continue;
                 }
                 count++;
             } catch (Exception e) {
                 warn(file, entry, e);
+                failures++;
             }
         }
-        finish("yaml.ip_bans.migrated", file, count);
+        finish("yaml.ip_bans.migrated", file, count, failures);
     }
 
     private void migrateMutes() {
         File file = new File(plugin.getDataFolder(), "mute-list.yml");
         if (!file.exists() || alreadyMigrated("yaml.mutes.migrated", file)) return;
         int count = 0;
+        int failures = 0;
         for (String entry : load(file).getStringList("mute-list")) {
             ParsedEntry parsed = parseEntry(entry, 3, false);
             if (parsed == null) {
@@ -111,13 +122,17 @@ public class StorageMigrationManager {
                 continue;
             }
             try {
-                databaseManager.upsertMute(new MuteEntry(parsed.parts.get(0), parsed.parts.get(1), Long.parseLong(parsed.parts.get(2)), parsed.reason));
-                count++;
+                if (databaseManager.upsertMute(new MuteEntry(parsed.parts.get(0), parsed.parts.get(1), Long.parseLong(parsed.parts.get(2)), parsed.reason))) {
+                    count++;
+                } else {
+                    failures++;
+                }
             } catch (Exception e) {
                 warn(file, entry, e);
+                failures++;
             }
         }
-        finish("yaml.mutes.migrated", file, count);
+        finish("yaml.mutes.migrated", file, count, failures);
     }
 
     private void migrateWarnings() {
@@ -128,6 +143,7 @@ public class StorageMigrationManager {
         entries.addAll(config.getStringList("warnings"));
         entries.addAll(config.getStringList("players"));
         int count = 0;
+        int failures = 0;
         for (String entry : entries) {
             ParsedEntry parsed = parseEntry(entry, 3, true);
             if (parsed == null) {
@@ -142,13 +158,17 @@ public class StorageMigrationManager {
                 if (parsed.flag) {
                     warnEntry = warnEntry.revoke();
                 }
-                databaseManager.upsertWarning(warnEntry);
-                count++;
+                if (databaseManager.upsertWarning(warnEntry)) {
+                    count++;
+                } else {
+                    failures++;
+                }
             } catch (Exception e) {
                 warn(file, entry, e);
+                failures++;
             }
         }
-        finish("yaml.warnings.migrated", file, count);
+        finish("yaml.warnings.migrated", file, count, failures);
     }
 
     private void migrateReports() {
@@ -157,10 +177,11 @@ public class StorageMigrationManager {
         FileConfiguration config = load(file);
         ConfigurationSection section = config.getConfigurationSection("reports");
         if (section == null) {
-            finish("yaml.reports.migrated", file, 0);
+            finish("yaml.reports.migrated", file, 0, 0);
             return;
         }
         int count = 0;
+        int failures = 0;
         for (String key : section.getKeys(false)) {
             ConfigurationSection reportSection = section.getConfigurationSection(key);
             if (reportSection == null) continue;
@@ -171,14 +192,18 @@ public class StorageMigrationManager {
                 }
                 ReportEntry report = ReportEntry.deserialize(values);
                 if (report != null) {
-                    databaseManager.upsertReport(report);
-                    count++;
+                    if (databaseManager.upsertReport(report)) {
+                        count++;
+                    } else {
+                        failures++;
+                    }
                 }
             } catch (Exception e) {
                 warn(file, key, e);
+                failures++;
             }
         }
-        finish("yaml.reports.migrated", file, count);
+        finish("yaml.reports.migrated", file, count, failures);
     }
 
     private ParsedEntry parseEntry(String entry, int fixedPrefixFields, boolean booleanSuffix) {
@@ -220,7 +245,12 @@ public class StorageMigrationManager {
         return YamlConfiguration.loadConfiguration(file);
     }
 
-    private void finish(String metaKey, File file, int count) {
+    private void finish(String metaKey, File file, int count, int failures) {
+        if (failures > 0) {
+            plugin.getLogger().severe("从 " + file.getName() + " 迁移 " + count + " 条旧数据，其中 " + failures
+                    + " 条写入失败；本次不记录迁移标记，下次启动会自动重试（已导入的数据不会重复）。");
+            return;
+        }
         databaseManager.setMeta(metaKey, String.valueOf(System.currentTimeMillis()));
         plugin.getLogger().info("已从 " + file.getName() + " 迁移 " + count + " 条旧数据到数据库。");
     }

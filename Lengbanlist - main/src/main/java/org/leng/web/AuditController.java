@@ -38,11 +38,14 @@ public class AuditController extends WebController {
         }
 
         String actor = params.get("actor");
+        if (actor == null || actor.isEmpty()) {
+            actor = params.get("player");
+        }
         String action = params.get("action");
 
         List<AuditEntry> entries;
         if (actor != null && !actor.isEmpty()) {
-            entries = plugin.getAuditManager().getLogsByActor(actor, limit);
+            entries = plugin.getAuditManager().getLogs(actor, limit);
         } else {
             entries = plugin.getAuditManager().getLogs("", limit);
         }

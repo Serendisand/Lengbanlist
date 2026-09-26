@@ -254,12 +254,31 @@ public class ModelCloudManager {
             return Optional.of(mem);
         }
         Optional<ModelIndex> disk = readIndexCache();
+        if (disk.isPresent() && cacheFileFresh()) {
+            cachedIndex.set(disk.get());
+            cacheLoadedAt = System.currentTimeMillis();
+            return disk;
+        }
+        Optional<ModelIndex> fetched = fetchIndex();
+        if (fetched.isPresent()) {
+            return fetched;
+        }
         if (disk.isPresent()) {
             cachedIndex.set(disk.get());
             cacheLoadedAt = System.currentTimeMillis();
             return disk;
         }
-        return fetchIndex();
+        return Optional.empty();
+    }
+
+    private boolean cacheFileFresh() {
+        try {
+            Path p = cacheFile();
+            return Files.exists(p)
+                    && System.currentTimeMillis() - Files.getLastModifiedTime(p).toMillis() < INDEX_CACHE_TTL_MS;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     private Path cacheFile() {
@@ -479,7 +498,7 @@ public class ModelCloudManager {
         }
         String lower = id.toLowerCase();
         return idx.get().models().stream()
-                .filter(m -> m.id().equalsIgnoreCase(lower))
+                .filter(m -> m.id() != null && m.id().equalsIgnoreCase(lower))
                 .findFirst();
     }
 
@@ -513,10 +532,11 @@ public class ModelCloudManager {
         }
         int installed = 0;
         for (ModelInfo info : idx.get().models()) {
-            if (isPinned(info.id()) || isPlaceholder(info)) {
+            String id = info.id() == null ? "" : info.id().trim().toLowerCase(java.util.Locale.ROOT);
+            if (!isValidModelId(id) || isPinned(id) || isPlaceholder(info)) {
                 continue;
             }
-            if (isInstalled(info.id()) && isCurrent(info.id(), info.version())) {
+            if (isInstalled(id) && isCurrent(id, info.version())) {
                 continue;
             }
             if (downloadModel(info) == InstallResult.INSTALLED) {
@@ -535,7 +555,15 @@ public class ModelCloudManager {
     }
 
     private InstallResult downloadModel(ModelInfo info) {
-        if (info.id() == null || info.id().isEmpty()) {
+        String id = info.id() == null ? "" : info.id().trim().toLowerCase(java.util.Locale.ROOT);
+        if (!isValidModelId(id)) {
+            plugin.getLogger().warning("[ModelCloud] 云端索引里的模型 id 非法,已跳过: " + info.id());
+            return InstallResult.FAILED;
+        }
+        Path root = localModelsDir().toAbsolutePath().normalize();
+        Path target = root.resolve(id + ".yml").normalize();
+        if (!target.startsWith(root)) {
+            plugin.getLogger().warning("[ModelCloud] 模型 " + id + " 的写入路径越界,已拒绝");
             return InstallResult.FAILED;
         }
         for (String url : withoutPrimary(modelDownloadCandidates(info))) {
@@ -547,17 +575,16 @@ public class ModelCloudManager {
                 String body = http.get(url, "Lengbanlist-ModelCloud/1.0", "text/yaml");
 
                 if (!body.contains("name:")) {
-                    plugin.getLogger().warning("[ModelCloud] 模型 " + info.id() + " 下载内容缺少 name 字段,拒绝安装 (" + url + ")");
+                    plugin.getLogger().warning("[ModelCloud] 模型 " + id + " 下载内容缺少 name 字段,拒绝安装 (" + url + ")");
                     return InstallResult.FAILED;
                 }
-                Path target = modelFile(info.id());
                 Files.createDirectories(target.getParent());
                 Files.writeString(target, body, StandardCharsets.UTF_8);
                 if (info.version() != null && !info.version().isEmpty()) {
-                    setMetaValue(info.id(), META_PREFIX_VERSION, info.version());
+                    setMetaValue(id, META_PREFIX_VERSION, info.version());
                 }
-                plugin.getLogger().info("[ModelCloud] 模型已安装: " + info.id() + " (" + info.name() + " v" + info.version() + ") 来源 " + url);
-                recordInstall(info.id());
+                plugin.getLogger().info("[ModelCloud] 模型已安装: " + id + " (" + info.name() + " v" + info.version() + ") 来源 " + url);
+                recordInstall(id);
                 return InstallResult.INSTALLED;
             } catch (IOException | InterruptedException e) {
                 noteSourceFailure(url, e);
@@ -568,7 +595,7 @@ public class ModelCloudManager {
                 }
             }
         }
-        plugin.getLogger().warning("[ModelCloud] 模型下载失败: " + info.id() + "（所有镜像均不可用）");
+        plugin.getLogger().warning("[ModelCloud] 模型下载失败: " + id + "（所有镜像均不可用）");
         return InstallResult.FAILED;
     }
 

@@ -713,12 +713,12 @@
         var rows = pageItems.map(function (b) {
           return ctxRow('ban', b.target,
             cell(b.target, 'cell-strong') + cell(b.staff) + cell(b.reason) +
-            cell(b.end_time, 'cell-mono') + cell(b.remaining, 'cell-mono') +
+            cell(b.duration, 'cell-mono') + cell(b.end_time, 'cell-mono') + cell(b.remaining, 'cell-mono') +
             '<td>' + badge(b.auto ? '自动' : '手动', b.auto ? 'warn' : 'danger') + '</td>' + moreCell(b.target));
         }).join('');
         panelRender('banListResult',
           '<div class="toolbar"><span>共 <strong>' + esc(String(d.total)) + '</strong> 条</span></div>' +
-          tableWrap(['玩家', '处理人', '原因', '到期时间', '剩余', '类型', ''], rows) +
+          tableWrap(['玩家', '处理人', '原因', '封禁时长', '到期时间', '剩余', '类型', ''], rows) +
           renderPagination('bans', bans.length));
       } else {
         panelRender('banListResult', emptyState('暂无封禁记录', '服务器当前没有生效中的封禁'));
@@ -730,17 +730,17 @@
     var ipRes = await api('/api/ipbans');
     if (ipRes.ok) {
       var d2 = ipRes.data || {};
-      var ipBans = d2.bans || [];
+      var ipBans = d2.ip_bans || [];
       if (ipBans.length > 0) {
         var pageIps = paginate('ipbans', ipBans);
         var ipRows = pageIps.map(function (b) {
           return ctxRow('ipban', b.ip,
             cell(b.ip, 'cell-mono cell-strong') + cell(b.staff) + cell(b.reason) +
-            cell(b.end_time, 'cell-mono') + cell(b.remaining, 'cell-mono') + moreCell(b.ip));
+            cell(b.duration, 'cell-mono') + cell(b.end_time, 'cell-mono') + cell(b.remaining, 'cell-mono') + moreCell(b.ip));
         }).join('');
         panelRender('ipBanListResult',
           '<div class="toolbar"><span>共 <strong>' + esc(String(d2.total)) + '</strong> 条</span></div>' +
-          tableWrap(['IP', '处理人', '原因', '到期时间', '剩余', ''], ipRows) +
+          tableWrap(['IP', '处理人', '原因', '封禁时长', '到期时间', '剩余', ''], ipRows) +
           renderPagination('ipbans', ipBans.length));
       } else {
         panelRender('ipBanListResult', emptyState('暂无 IP 封禁记录', '服务器当前没有生效中的 IP 封禁'));
@@ -787,11 +787,11 @@
     var pageItems = paginate('mutes', mutes);
     var rows = pageItems.map(function (m) {
       return ctxRow('mute', m.target,
-        cell(m.target, 'cell-strong') + cell(m.staff) + cell(m.reason) + cell(m.time, 'cell-mono') + moreCell(m.target));
+        cell(m.target, 'cell-strong') + cell(m.staff) + cell(m.reason) + cell(m.duration, 'cell-mono') + cell(m.end_time, 'cell-mono') + cell(m.remaining, 'cell-mono') + moreCell(m.target));
     }).join('');
     panelRender('muteListResult',
       '<div class="toolbar"><span>共 <strong>' + esc(String(d.total)) + '</strong> 条</span></div>' +
-      tableWrap(['玩家', '处理人', '原因', '禁言时间', ''], rows) +
+      tableWrap(['玩家', '处理人', '原因', '禁言时长', '解禁时间', '剩余', ''], rows) +
       renderPagination('mutes', mutes.length));
   }
 
@@ -952,8 +952,8 @@
 
     html += '<h3 class="section-title">封禁记录</h3>';
     if (d.bans && d.bans.length) {
-      html += tableWrap(['目标', '处理人', '原因', '到期', '状态'], d.bans.map(function (b) {
-        return '<tr>' + cell(b.target, 'cell-strong') + cell(b.staff) + cell(b.reason) + cell(b.end_time, 'cell-mono') +
+      html += tableWrap(['目标', '处理人', '原因', '封禁时长', '到期', '剩余', '状态'], d.bans.map(function (b) {
+        return '<tr>' + cell(b.target, 'cell-strong') + cell(b.staff) + cell(b.reason) + cell(b.duration, 'cell-mono') + cell(b.end_time, 'cell-mono') + cell(b.remaining, 'cell-mono') +
           '<td>' + badge(b.active ? '封禁中' : '已解封', b.active ? 'danger' : 'ok') + '</td></tr>';
       }).join(''));
     } else {
@@ -962,8 +962,8 @@
 
     html += '<h3 class="section-title">禁言记录</h3>';
     if (d.mutes && d.mutes.length) {
-      html += tableWrap(['处理人', '原因', '到期'], d.mutes.map(function (m) {
-        return '<tr>' + cell(m.staff) + cell(m.reason) + cell(m.end_time, 'cell-mono') + '</tr>';
+      html += tableWrap(['处理人', '原因', '禁言时长', '到期', '剩余'], d.mutes.map(function (m) {
+        return '<tr>' + cell(m.staff) + cell(m.reason) + cell(m.duration, 'cell-mono') + cell(m.end_time, 'cell-mono') + cell(m.remaining, 'cell-mono') + '</tr>';
       }).join(''));
     } else {
       html += '<p class="hint">无禁言记录</p>';

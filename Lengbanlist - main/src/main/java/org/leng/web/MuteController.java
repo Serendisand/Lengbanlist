@@ -11,6 +11,7 @@ import org.leng.utils.TimeUtils;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class MuteController extends WebController {
@@ -131,6 +132,7 @@ public class MuteController extends WebController {
 
         try {
             List<MuteEntry> mutes = plugin.getMuteManager().getMuteList();
+            Map<String, Long> startTimes = plugin.getDatabaseManager().getActiveStartTimes("mutes");
             JsonArray arr = new JsonArray();
             for (MuteEntry m : mutes) {
                 JsonObject o = new JsonObject();
@@ -139,7 +141,9 @@ public class MuteController extends WebController {
                 o.addProperty("end_time", m.time());
                 o.addProperty("reason", m.reason());
                 o.addProperty("active", m.time() > System.currentTimeMillis());
-                o.addProperty("remaining", TimeUtils.formatDuration(m.time() - System.currentTimeMillis()));
+                Long start = m.target() == null ? null : startTimes.get(m.target().toLowerCase(java.util.Locale.ROOT));
+                o.addProperty("duration", TimeUtils.formatIssuedDuration(start == null ? 0L : start, m.time()));
+                o.addProperty("remaining", TimeUtils.formatRemaining(m.time()));
                 arr.add(o);
             }
             JsonObject result = new JsonObject();

@@ -5,6 +5,7 @@ import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.leng.Lengbanlist;
+import org.leng.utils.SchedulerUtils;
 
 import java.io.IOException;
 
@@ -32,7 +33,8 @@ public class AdminController extends WebController {
         }
 
         try {
-            JsonObject json = JsonParser.parseString(WebResponse.readBody(exchange)).getAsJsonObject();
+            String body = WebResponse.readBody(exchange);
+            JsonObject json = body.trim().isEmpty() ? new JsonObject() : JsonParser.parseString(body).getAsJsonObject();
             boolean restartWeb = !json.has("web") || json.get("web").getAsBoolean();
 
             if (!restartWeb) {
@@ -40,17 +42,17 @@ public class AdminController extends WebController {
                 return;
             }
 
-            boolean[] ok = new boolean[1];
-            boolean completed = runSync(exchange, () -> ok[0] = plugin.reloadWebServer());
-            if (!completed) return;
-            if (!ok[0]) {
-                WebResponse.sendError(exchange, 500, "Web 配置校验未通过（web.jwt-secret/web.admin-password 等），面板已下线，请修正配置后再次调用本接口或重启服务器");
-                return;
-            }
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
             result.addProperty("message", "Web 配置已热重载");
             WebResponse.sendJson(exchange, 200, result.toString());
+
+            SchedulerUtils.runTask(plugin, () -> {
+                if (!plugin.reloadWebServer()) {
+                    plugin.getLogger().warning("Web 热重载失败：web.jwt-secret / web.admin-password 校验未通过，"
+                            + "面板已下线，请修正配置后再次重载或重启服务器");
+                }
+            });
         } catch (IOException e) {
             WebResponse.sendError(exchange, 413, e.getMessage());
         } catch (Exception e) {

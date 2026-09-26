@@ -61,15 +61,22 @@ public record BanEntry(
     }
 
     public static BanEntry fromString(String entry) {
-        String[] parts = entry.split(":");
+        String[] parts = entry.split(":", -1);
         if (parts.length < 5) {
             throw new IllegalArgumentException("Invalid ban entry format");
         }
-        return new BanEntry(
-            parts[0], parts[1], Long.parseLong(parts[2]), parts[3],
-            Boolean.parseBoolean(parts[4]),
-            parts.length >= 6 ? Boolean.parseBoolean(parts[5]) : true
-        );
+        if (parts.length == 5) {
+            return new BanEntry(parts[0], parts[1], Long.parseLong(parts[2]), parts[3],
+                    Boolean.parseBoolean(parts[4]), true);
+        }
+        StringBuilder reason = new StringBuilder();
+        for (int i = 3; i < parts.length - 2; i++) {
+            if (i > 3) reason.append(':');
+            reason.append(parts[i]);
+        }
+        return new BanEntry(parts[0], parts[1], Long.parseLong(parts[2]), reason.toString(),
+                Boolean.parseBoolean(parts[parts.length - 2]),
+                Boolean.parseBoolean(parts[parts.length - 1]));
     }
 
     public String getTarget() { return target; }

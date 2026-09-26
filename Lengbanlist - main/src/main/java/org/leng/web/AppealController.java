@@ -69,7 +69,7 @@ public class AppealController extends WebController {
                 out.addProperty("ticket", result.ticket());
             }
             WebResponse.sendJson(exchange, 200, out.toString());
-        } catch (IOException | IllegalStateException e) {
+        } catch (IOException | RuntimeException e) {
             WebResponse.sendError(exchange, 400, "请求格式不正确");
         }
     }
@@ -89,7 +89,7 @@ public class AppealController extends WebController {
                 out.addProperty("ticket", result.ticket());
             }
             WebResponse.sendJson(exchange, 200, out.toString());
-        } catch (IOException | IllegalStateException e) {
+        } catch (IOException | RuntimeException e) {
             WebResponse.sendError(exchange, 400, "请求格式不正确");
         }
     }

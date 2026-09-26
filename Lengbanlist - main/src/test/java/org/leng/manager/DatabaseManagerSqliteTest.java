@@ -22,6 +22,7 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -59,8 +60,7 @@ class DatabaseManagerSqliteTest {
     }
 
     @Test
-    void banThenUnban_cacheStaysConsistent() {
-        long end = System.currentTimeMillis() + 60_000L;
+    void banThenUnban_cacheStaysConsistent() {        long end = System.currentTimeMillis() + 60_000L;
         assertEquals(DatabaseManager.WriteResult.APPLIED, db.replaceActiveBan(new BanEntry("Alice", "staff", end, "作弊", false)));
 
         assertTrue(db.isPlayerBanned("Alice"), "封禁后应立即可查(写路径必须失效缓存)");
@@ -356,5 +356,31 @@ class DatabaseManagerSqliteTest {
         db.initialize();
         assertTrue(db.isPlayerBanned("Persist"));
         assertEquals("持久化", db.getBan("Persist").getReason());
+    }
+
+    @Test
+    void punishmentsRecordIssuedDurationStartTime() {
+        long end = System.currentTimeMillis() + 3_600_000L;
+        assertEquals(DatabaseManager.WriteResult.APPLIED,
+                db.replaceActiveBan(new BanEntry("Alice", "staff", end, "作弊", false)));
+
+        Long banStart = db.getActiveStartTimes("bans").get("alice");
+        assertNotNull(banStart, "封禁必须记录起始时间，否则无法显示判罚时长");
+        assertTrue(end - banStart > 3_500_000L && end - banStart <= 3_600_000L, "起始时间应接近写入时刻");
+        assertEquals("1小时", org.leng.utils.TimeUtils.formatIssuedDuration(banStart, banStart + 3_600_000L));
+        assertEquals("未知", org.leng.utils.TimeUtils.formatIssuedDuration(0L, end));
+        assertEquals("永久", org.leng.utils.TimeUtils.formatIssuedDuration(banStart, Long.MAX_VALUE));
+
+        assertTrue(db.upsertMute(new MuteEntry("Bob", "staff", end, "刷屏")));
+        Long muteStart = db.getActiveStartTimes("mutes").get("bob");
+        assertNotNull(muteStart, "禁言必须记录起始时间");
+        assertEquals(muteStart, db.getStartTimesByPlayer("mutes", "Bob").get(end));
+
+        long ipEnd = System.currentTimeMillis() + 600_000L;
+        assertEquals(DatabaseManager.WriteResult.APPLIED,
+                db.replaceActiveIpBan(new BanIpEntry("203.0.113.5", "staff", ipEnd, "扫描", false)));
+        Long ipStart = db.getActiveStartTimes("ip_bans").get("203.0.113.5");
+        assertNotNull(ipStart, "IP 封禁必须记录起始时间");
+        assertEquals(ipStart, db.getStartTimesByPlayer("ip_bans", "203.0.113.5").get(ipEnd));
     }
 }

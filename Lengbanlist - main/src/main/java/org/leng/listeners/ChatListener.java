@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ChatListener implements Listener {
     private final Lengbanlist plugin;
     private final Map<String, Integer> badWordCount = new ConcurrentHashMap<>();
-    private static final java.util.regex.Pattern MEOW_REPEAT = java.util.regex.Pattern.compile(".*\\b(\\w*喵\\w*){2,}.*");
+    private static final java.util.regex.Pattern MEOW_REPEAT = java.util.regex.Pattern.compile(".*喵.*喵.*");
 
     private record FilterConfig(List<String> badWords, int muteThreshold) {}
 
@@ -88,7 +88,7 @@ public class ChatListener implements Listener {
             int violations = badWordCount.merge(player.getName(), 1, Integer::sum);
             if (violations >= muteThreshold) {
                 long muteDurationMillis;
-                switch (violations) {
+                switch (violations - muteThreshold + 3) {
                     case 3: muteDurationMillis = TimeUtils.hoursToMillis(1); break;
                     case 4: muteDurationMillis = TimeUtils.hoursToMillis(12); break;
                     case 5: muteDurationMillis = TimeUtils.daysToMillis(1); break;

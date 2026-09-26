@@ -40,47 +40,57 @@ public class PlayerController extends WebController {
         }
         if (!requireAuth(exchange)) return;
         try {
-            List<BanEntry> bans = plugin.getBanManager().getBanList();
-            List<BanIpEntry> ipBans = plugin.getBanManager().getBanIpList();
-            List<MuteEntry> mutes = plugin.getMuteManager().getMuteList();
+            Map<String, String> params = parseQuery(exchange);
+            String query = params.get("q");
+            if (query == null || query.trim().isEmpty()) {
+                WebResponse.sendError(exchange, 400, "缺少 q 参数");
+                return;
+            }
+            query = query.trim();
 
-            JsonArray banArr = new JsonArray();
-            for (BanEntry e : bans) {
-                JsonObject o = new JsonObject();
-                o.addProperty("target", e.target());
-                o.addProperty("staff", e.staff());
-                o.addProperty("end_time", e.time());
-                o.addProperty("reason", e.reason());
-                o.addProperty("active", e.isActive());
-                banArr.add(o);
-            }
-            JsonArray ipBanArr = new JsonArray();
-            for (BanIpEntry e : ipBans) {
-                JsonObject o = new JsonObject();
-                o.addProperty("ip", e.ip());
-                o.addProperty("staff", e.staff());
-                o.addProperty("end_time", e.time());
-                o.addProperty("reason", e.reason());
-                o.addProperty("active", e.isActive());
-                ipBanArr.add(o);
-            }
-            JsonArray muteArr = new JsonArray();
-            for (MuteEntry e : mutes) {
-                JsonObject o = new JsonObject();
-                o.addProperty("target", e.target());
-                o.addProperty("staff", e.staff());
-                o.addProperty("end_time", e.time());
-                o.addProperty("reason", e.reason());
-                muteArr.add(o);
-            }
             JsonObject result = new JsonObject();
-            result.add("bans", banArr);
-            result.add("ip_bans", ipBanArr);
-            result.add("mutes", muteArr);
-            result.addProperty("total", bans.size() + ipBans.size() + mutes.size());
+            result.addProperty("query", query);
+            if (query.contains(".") || query.contains(":")) {
+                result.addProperty("type", "ip");
+                JsonArray players = new JsonArray();
+                for (String name : plugin.getDatabaseManager().getPlayersByIpFromHistory(query)) {
+                    players.add(name);
+                }
+                result.add("players", players);
+            } else {
+                result.addProperty("type", "player");
+                JsonArray associated = new JsonArray();
+                for (String name : plugin.getIpAssociationManager().getAllAssociatedPlayerNames(query)) {
+                    if (name != null && !name.equalsIgnoreCase(query)) {
+                        associated.add(name);
+                    }
+                }
+                result.add("associated_players", associated);
+
+                JsonArray ips = new JsonArray();
+                for (String[] row : plugin.getDatabaseManager().getPlayerIpHistory(query)) {
+                    if (row == null || row.length < 3) {
+                        continue;
+                    }
+                    JsonObject o = new JsonObject();
+                    o.addProperty("ip", row[0]);
+                    o.addProperty("first_seen", TimeUtils.timestampToReadable(parseLongSafe(row[1])));
+                    o.addProperty("last_seen", TimeUtils.timestampToReadable(parseLongSafe(row[2])));
+                    ips.add(o);
+                }
+                result.add("ips", ips);
+            }
             WebResponse.sendJson(exchange, 200, result.toString());
         } catch (Exception e) {
             WebResponse.sendError(exchange, 500, "查询失败");
+        }
+    }
+
+    private long parseLongSafe(String value) {
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            return 0L;
         }
     }
 
@@ -173,24 +183,44 @@ public class PlayerController extends WebController {
 
         try {
             Map<String, String> params = parseQuery(exchange);
-            String target = params.get("target");
+            String target = params.get("player");
+            if (target == null || target.isEmpty()) {
+                target = params.get("target");
+            }
             if (target == null || target.isEmpty()) {
                 WebResponse.sendError(exchange, 400, "缺少 target 参数");
                 return;
             }
             List<BanEntry> banHistory = plugin.getDatabaseManager().getBansByPlayer(target);
             List<WarnEntry> warnings = plugin.getWarnManager().getAllWarnings(target);
+            Map<Long, Long> banStarts = plugin.getDatabaseManager().getStartTimesByPlayer("bans", target);
+            Map<Long, Long> muteStarts = plugin.getDatabaseManager().getStartTimesByPlayer("mutes", target);
 
             JsonArray banArr = new JsonArray();
             for (BanEntry b : banHistory) {
                 JsonObject o = new JsonObject();
                 o.addProperty("type", "ban");
+                o.addProperty("target", target);
                 o.addProperty("staff", b.staff());
                 o.addProperty("end_time", b.time());
                 o.addProperty("reason", b.reason());
                 o.addProperty("active", b.active());
-                o.addProperty("duration", TimeUtils.formatDuration(b.time() - System.currentTimeMillis()));
+                Long banStart = banStarts.get(b.time());
+                o.addProperty("duration", TimeUtils.formatIssuedDuration(banStart == null ? 0L : banStart, b.time()));
+                o.addProperty("remaining", TimeUtils.formatRemaining(b.time()));
                 banArr.add(o);
+            }
+            JsonArray muteArr = new JsonArray();
+            for (MuteEntry m : plugin.getDatabaseManager().getMutesByPlayer(target)) {
+                JsonObject o = new JsonObject();
+                o.addProperty("staff", m.staff());
+                o.addProperty("reason", m.reason());
+                o.addProperty("end_time", m.time());
+                Long muteStart = muteStarts.get(m.time());
+                o.addProperty("duration", TimeUtils.formatIssuedDuration(muteStart == null ? 0L : muteStart, m.time()));
+                o.addProperty("remaining", TimeUtils.formatRemaining(m.time()));
+                o.addProperty("active", m.time() > System.currentTimeMillis());
+                muteArr.add(o);
             }
             JsonArray warnArr = new JsonArray();
             for (WarnEntry w : warnings) {
@@ -199,13 +229,16 @@ public class PlayerController extends WebController {
                 o.addProperty("id", w.id());
                 o.addProperty("staff", w.staff());
                 o.addProperty("time", w.time());
+                o.addProperty("warn_time", w.time());
                 o.addProperty("reason", w.reason());
                 o.addProperty("revoked", w.revoked());
                 warnArr.add(o);
             }
             JsonObject result = new JsonObject();
             result.addProperty("target", target);
+            result.addProperty("player", target);
             result.add("bans", banArr);
+            result.add("mutes", muteArr);
             result.add("warnings", warnArr);
             WebResponse.sendJson(exchange, 200, result.toString());
         } catch (Exception e) {

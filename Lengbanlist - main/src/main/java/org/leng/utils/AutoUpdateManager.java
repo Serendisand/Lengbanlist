@@ -132,10 +132,14 @@ public class AutoUpdateManager {
                 throw new IOException("下载内容为空");
             }
         } catch (IllegalStateException e) {
-
+            tempFile.delete();
             throw new IOException(e.getMessage(), e);
         } catch (RuntimeException e) {
+            tempFile.delete();
             throw new IOException(e.getMessage(), e);
+        } catch (IOException e) {
+            tempFile.delete();
+            throw e;
         }
 
         long bytesRead = totalBytes[0];

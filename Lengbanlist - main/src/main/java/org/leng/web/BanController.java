@@ -13,6 +13,7 @@ import org.leng.utils.TimeUtils;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class BanController extends WebController {
@@ -145,6 +146,7 @@ public class BanController extends WebController {
 
         try {
             List<BanEntry> bans = plugin.getBanManager().getBanList();
+            Map<String, Long> startTimes = plugin.getDatabaseManager().getActiveStartTimes("bans");
             JsonArray arr = new JsonArray();
             for (BanEntry b : bans) {
                 JsonObject o = new JsonObject();
@@ -153,7 +155,9 @@ public class BanController extends WebController {
                 o.addProperty("end_time", b.time());
                 o.addProperty("reason", b.reason());
                 o.addProperty("active", b.isActive());
-                o.addProperty("remaining", TimeUtils.formatDuration(b.time() - System.currentTimeMillis()));
+                o.addProperty("duration", TimeUtils.formatIssuedDuration(startOf(startTimes, b.target()), b.time()));
+                o.addProperty("remaining", TimeUtils.formatRemaining(b.time()));
+                o.addProperty("auto", b.isAuto());
                 arr.add(o);
             }
             JsonObject result = new JsonObject();
@@ -165,6 +169,11 @@ public class BanController extends WebController {
         }
     }
 
+    private static long startOf(Map<String, Long> startTimes, String key) {
+        Long value = key == null ? null : startTimes.get(key.toLowerCase(java.util.Locale.ROOT));
+        return value == null ? 0L : value;
+    }
+
     private void handleIpBanList(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
             WebResponse.handleOptions(exchange);
@@ -174,6 +183,7 @@ public class BanController extends WebController {
 
         try {
             List<BanIpEntry> ipBans = plugin.getBanManager().getBanIpList();
+            Map<String, Long> startTimes = plugin.getDatabaseManager().getActiveStartTimes("ip_bans");
             JsonArray arr = new JsonArray();
             for (BanIpEntry b : ipBans) {
                 JsonObject o = new JsonObject();
@@ -182,7 +192,8 @@ public class BanController extends WebController {
                 o.addProperty("end_time", b.time());
                 o.addProperty("reason", b.reason());
                 o.addProperty("active", b.isActive());
-                o.addProperty("remaining", TimeUtils.formatDuration(b.time() - System.currentTimeMillis()));
+                o.addProperty("duration", TimeUtils.formatIssuedDuration(startOf(startTimes, b.ip()), b.time()));
+                o.addProperty("remaining", TimeUtils.formatRemaining(b.time()));
                 arr.add(o);
             }
             JsonObject result = new JsonObject();

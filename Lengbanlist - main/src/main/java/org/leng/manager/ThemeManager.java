@@ -262,11 +262,13 @@ public class ThemeManager {
     }
 
     public void save() {
-        plugin.getConfig().set(CFG_PREFIX + ".background-type", backgroundType);
-        plugin.getConfig().set(CFG_PREFIX + ".background-url", backgroundUrl);
-        plugin.getConfig().set(CFG_PREFIX + ".background-file", backgroundFile);
-        plugin.getConfig().set(CFG_PREFIX + ".hidden-buttons", new ArrayList<>(hiddenButtons));
-        plugin.saveConfig();
+        SchedulerUtils.runSync(plugin, () -> {
+            plugin.getConfig().set(CFG_PREFIX + ".background-type", backgroundType);
+            plugin.getConfig().set(CFG_PREFIX + ".background-url", backgroundUrl);
+            plugin.getConfig().set(CFG_PREFIX + ".background-file", backgroundFile);
+            plugin.getConfig().set(CFG_PREFIX + ".hidden-buttons", new ArrayList<>(hiddenButtons));
+            plugin.saveConfig();
+        });
     }
 
     public String getBackgroundType() { return backgroundType; }
@@ -329,8 +331,11 @@ public class ThemeManager {
         Files.write(target, data);
 
         if (!backgroundFile.isEmpty() && !backgroundFile.equals(safeName)) {
-            Path old = Paths.get(webAssetsDir.getAbsolutePath(), backgroundFile);
-            try { Files.deleteIfExists(old); } catch (IOException ignored) {}
+            Path assetsRoot = webAssetsDir.toPath().toAbsolutePath().normalize();
+            Path old = assetsRoot.resolve(backgroundFile).normalize();
+            if (!old.equals(assetsRoot) && old.startsWith(assetsRoot)) {
+                try { Files.deleteIfExists(old); } catch (IOException ignored) {}
+            }
         }
 
         setBackgroundFile(safeName);

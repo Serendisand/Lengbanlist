@@ -180,7 +180,7 @@ public final class WarnCommands {
                         if (!entry.isRevoked()) {
                             entry = entry.revoke();
                             plugin.getDatabaseManager().updateWarningRevoked(entry.getId(), true, target);
-                            plugin.getAuditManager().log("取消警告", Utils.getSenderName(sender), target, "警告ID: " + warnId);
+                            plugin.getAuditManager().log("取消警告", Utils.getSenderName(sender), target, "警告ID: " + entry.getId());
                             if (!silent) {
                                 Utils.sendMessage(sender, plugin.prefix() + "§a警告 #" + warnId + " 已移除");
                             }

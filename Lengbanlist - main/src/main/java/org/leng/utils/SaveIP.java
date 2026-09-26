@@ -24,7 +24,7 @@ public class SaveIP {
                 }
             }
         }
-        if (ip.equalsIgnoreCase("::1")) {
+        if (ip.equalsIgnoreCase("::1") || ip.equals("0:0:0:0:0:0:0:1")) {
             return false;
         }
         if (ip.startsWith("fd") || ip.startsWith("fc")) {
