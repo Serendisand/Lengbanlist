@@ -60,6 +60,8 @@ public class DatabaseManager {
 
     private final WarnCache warnCache;
 
+    private final PlayerIdentityResolver identityResolver;
+
     private final Lengbanlist plugin;
     private HikariDataSource dataSource;
     private DatabaseDialect dialect = DatabaseDialect.SQLITE;
@@ -74,6 +76,7 @@ public class DatabaseManager {
 
     public DatabaseManager(Lengbanlist plugin) {
         this.plugin = plugin;
+        this.identityResolver = new PlayerIdentityResolver(this);
         this.banCache = new BanCache(new BanCache.Loader() {
             @Override
             public List<BanEntry> loadActiveBans() {
@@ -295,6 +298,10 @@ public class DatabaseManager {
         return dialect;
     }
 
+    public PlayerIdentityResolver getIdentityResolver() {
+        return identityResolver;
+    }
+
     public void close() {
         if (dataSource != null) {
             dataSource.close();
@@ -358,6 +365,8 @@ public class DatabaseManager {
         createIndexIfMissing("warnings", "idx_warnings_player", indexTextColumn("player"));
         createIndexIfMissing("reports", "idx_reports_target", indexTextColumn("target"));
         createIndexIfMissing("reports", "idx_reports_reporter", indexTextColumn("reporter"));
+        createIndexIfMissing("reports", "idx_reports_target_uuid", "target_uuid");
+        createIndexIfMissing("reports", "idx_reports_reporter_uuid", "reporter_uuid");
         createIndexIfMissing("audit_log", "idx_audit_log_timestamp", "timestamp");
         createIndexIfMissing("audit_log", "idx_audit_log_actor", indexTextColumn("actor"));
         createIndexIfMissing("audit_log", "idx_audit_log_target", indexTextColumn("target"));
@@ -451,7 +460,10 @@ public class DatabaseManager {
     }
 
     public String getPlayerIp(String playerName) {
-        return queryOne("SELECT ip FROM player_ips WHERE player_name = ?", rs -> rs.getString("ip"), playerName);
+        List<Object> args = new ArrayList<>();
+        String where = identityPredicate("player_name", "uuid", identityResolver.resolve(playerName), args);
+        return queryOne("SELECT ip FROM player_ips WHERE " + where + " ORDER BY updated_at DESC",
+                rs -> rs.getString("ip"), args.toArray());
     }
 
     public List<String> getPlayersByIp(String ip) {
@@ -464,9 +476,12 @@ public class DatabaseManager {
     }
 
     public List<String[]> getPlayerIpHistory(String playerName) {
-        return query("SELECT ip, first_seen, last_seen FROM player_ip_history WHERE player_name = ? ORDER BY last_seen DESC",
+        List<Object> args = new ArrayList<>();
+        String where = identityPredicate("player_name", "uuid", identityResolver.resolve(playerName), args);
+        return query("SELECT ip, MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen FROM player_ip_history WHERE "
+                        + where + " GROUP BY ip ORDER BY MAX(last_seen) DESC",
                 rs -> new String[]{rs.getString("ip"), String.valueOf(rs.getLong("first_seen")), String.valueOf(rs.getLong("last_seen"))},
-                playerName);
+                args.toArray());
     }
 
     public List<String> getPlayersByIpFromHistory(String ip) {
@@ -523,11 +538,20 @@ public class DatabaseManager {
         names.add(current);
         for (String old : query("SELECT name FROM name_history WHERE uuid = ? ORDER BY changed_at ASC",
                 rs -> value(rs, "name"), id)) {
-            if (!old.isEmpty() && !names.contains(old)) {
+            if (!old.isEmpty() && !containsIgnoreCase(names, old)) {
                 names.add(old);
             }
         }
         return new PlayerIdentity(id, current, names);
+    }
+
+    private static boolean containsIgnoreCase(List<String> names, String candidate) {
+        for (String name : names) {
+            if (name.equalsIgnoreCase(candidate)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public PlayerIdentity resolveIdentity(String nameOrUuid) {
@@ -577,19 +601,32 @@ public class DatabaseManager {
 
     private Map<String, String> loadNameToUuidMap() {
         Map<String, String> map = new HashMap<>();
-        for (String[] row : query("SELECT uuid, name FROM player_identity",
-                rs -> new String[]{value(rs, "uuid"), value(rs, "name")})) {
-            if (!row[0].isEmpty() && !row[1].isEmpty()) {
-                map.put(row[1].toLowerCase(Locale.ROOT), row[0]);
-            }
+        Set<String> ambiguous = new HashSet<>();
+        for (String[] row : query("SELECT uuid, name FROM player_identity", this::readUuidAndName)) {
+            putNameToUuid(map, ambiguous, row[1], row[0]);
         }
-        for (String[] row : query("SELECT uuid, name FROM name_history",
-                rs -> new String[]{value(rs, "uuid"), value(rs, "name")})) {
-            if (!row[0].isEmpty() && !row[1].isEmpty()) {
-                map.putIfAbsent(row[1].toLowerCase(Locale.ROOT), row[0]);
-            }
+        for (String[] row : query("SELECT uuid, name FROM name_history", this::readUuidAndName)) {
+            putNameToUuid(map, ambiguous, row[1], row[0]);
+        }
+        for (String name : ambiguous) {
+            map.remove(name);
         }
         return map;
+    }
+
+    private static void putNameToUuid(Map<String, String> map, Set<String> ambiguous, String name, String uuid) {
+        if (name == null || name.isEmpty() || uuid == null || uuid.isEmpty()) {
+            return;
+        }
+        String key = name.toLowerCase(Locale.ROOT);
+        String existing = map.putIfAbsent(key, uuid);
+        if (existing != null && !existing.equals(uuid)) {
+            ambiguous.add(key);
+        }
+    }
+
+    private String[] readUuidAndName(ResultSet rs) throws SQLException {
+        return new String[]{value(rs, "uuid"), value(rs, "name")};
     }
 
     private int backfillUuidColumn(String table, String keyColumn, String nameColumn, String uuidColumn,
@@ -703,8 +740,14 @@ public class DatabaseManager {
     }
 
     public List<BanEntry> getBansByPlayer(String player) {
-        return query("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE LOWER(target) = LOWER(?) ORDER BY end_time DESC",
-                this::readBan, player);
+        return getBansByPlayer(identityResolver.resolve(player));
+    }
+
+    public List<BanEntry> getBansByPlayer(PlayerIdentity identity) {
+        List<Object> args = new ArrayList<>();
+        String where = identityPredicate("target", "uuid", identity, args);
+        return query("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE " + where + " ORDER BY end_time DESC",
+                this::readBan, args.toArray());
     }
 
     public List<BanEntry> getRecentBans(int limit) {
@@ -713,7 +756,9 @@ public class DatabaseManager {
     }
 
     public int countBanHistory(String target) {
-        return count("SELECT COUNT(*) FROM bans WHERE LOWER(target) = LOWER(?)", target);
+        List<Object> args = new ArrayList<>();
+        String where = identityPredicate("target", "uuid", identityResolver.resolve(target), args);
+        return count("SELECT COUNT(*) FROM bans WHERE " + where, args.toArray());
     }
 
     public List<BanEntry> getAllActiveBans() {
@@ -876,8 +921,14 @@ public class DatabaseManager {
     }
 
     public MuteEntry getMute(String target) {
-        return queryOne("SELECT target, staff, end_time, reason FROM mutes WHERE LOWER(target) = LOWER(?)",
-                this::readMute, target);
+        return getMute(identityResolver.resolve(target));
+    }
+
+    public MuteEntry getMute(PlayerIdentity identity) {
+        List<Object> args = new ArrayList<>();
+        String where = identityPredicate("target", "uuid", identity, args);
+        return queryOne("SELECT target, staff, end_time, reason FROM mutes WHERE " + where + " ORDER BY end_time DESC",
+                this::readMute, args.toArray());
     }
 
     public List<MuteEntry> getMutes() {
@@ -908,8 +959,20 @@ public class DatabaseManager {
     }
 
     public List<MuteEntry> getMutesByPlayer(String player) {
-        return query("SELECT target, staff, end_time, reason FROM mutes WHERE LOWER(target) = LOWER(?) ORDER BY end_time DESC",
-                this::readMute, player);
+        return getMutesByPlayer(identityResolver.resolve(player));
+    }
+
+    public List<MuteEntry> getMutesByPlayer(PlayerIdentity identity) {
+        List<Object> args = new ArrayList<>();
+        String where = identityPredicate("target", "uuid", identity, args);
+        return query("SELECT target, staff, end_time, reason FROM mutes WHERE " + where + " ORDER BY end_time DESC",
+                this::readMute, args.toArray());
+    }
+
+    public List<String> getMuteTargets(PlayerIdentity identity) {
+        List<Object> args = new ArrayList<>();
+        String where = identityPredicate("target", "uuid", identity, args);
+        return query("SELECT target FROM mutes WHERE " + where, rs -> value(rs, "target"), args.toArray());
     }
 
     public List<MuteEntry> getAllMutes() {
@@ -935,9 +998,11 @@ public class DatabaseManager {
     }
 
     List<WarnEntry> loadWarnsForCache(String player) {
+        List<Object> args = new ArrayList<>();
+        String where = identityPredicate("player", "uuid", identityResolver.resolve(player), args);
         try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement(
-                WARN_SELECT + "WHERE LOWER(player) = LOWER(?) ORDER BY warn_time ASC, id ASC")) {
-            setValues(ps, player);
+                WARN_SELECT + "WHERE " + where + " ORDER BY warn_time ASC, id ASC")) {
+            setValues(ps, args.toArray());
             try (ResultSet rs = ps.executeQuery()) {
                 List<WarnEntry> entries = new ArrayList<>();
                 while (rs.next()) {
@@ -976,8 +1041,12 @@ public class DatabaseManager {
     }
 
     public List<ReportEntry> getReportsByReporterWithStatus(String reporter, String reportStatus) {
-        return query("SELECT id, target, reporter, reason, status, timestamp FROM reports WHERE reporter = ? AND status = ? ORDER BY timestamp ASC",
-                this::readReport, reporter, status(reportStatus));
+        List<Object> args = new ArrayList<>();
+        String where = identityPredicate("reporter", "reporter_uuid", identityResolver.resolve(reporter), args);
+        args.add(status(reportStatus));
+        return query("SELECT id, target, reporter, reason, status, timestamp FROM reports WHERE " + where
+                        + " AND status = ? ORDER BY timestamp ASC",
+                this::readReport, args.toArray());
     }
 
     public int getPendingReportCount() {
@@ -985,12 +1054,18 @@ public class DatabaseManager {
     }
 
     public int getReportCount(String target) {
-        return count("SELECT COUNT(*) FROM reports WHERE target = ?", target);
+        List<Object> args = new ArrayList<>();
+        String where = identityPredicate("target", "target_uuid", identityResolver.resolve(target), args);
+        return count("SELECT COUNT(*) FROM reports WHERE " + where, args.toArray());
     }
 
     public List<ReportEntry> getReportsByReporterAndTarget(String reporter, String target) {
-        return query("SELECT id, target, reporter, reason, status, timestamp FROM reports WHERE reporter = ? AND target = ? ORDER BY timestamp DESC",
-                this::readReport, reporter, target);
+        List<Object> args = new ArrayList<>();
+        String reporterWhere = identityPredicate("reporter", "reporter_uuid", identityResolver.resolve(reporter), args);
+        String targetWhere = identityPredicate("target", "target_uuid", identityResolver.resolve(target), args);
+        return query("SELECT id, target, reporter, reason, status, timestamp FROM reports WHERE " + reporterWhere
+                        + " AND " + targetWhere + " ORDER BY timestamp DESC",
+                this::readReport, args.toArray());
     }
 
     private static final String APPEAL_SELECT =
@@ -1708,6 +1783,29 @@ public class DatabaseManager {
 
     private String integerPrimaryKey() {
         return dialect.integerPrimaryKey();
+    }
+
+    private String identityPredicate(String nameColumn, String uuidColumn, PlayerIdentity identity, List<Object> args) {
+        List<String> names = identity == null ? List.<String>of() : identity.lowerNames();
+        StringBuilder sql = new StringBuilder("(");
+        boolean matched = false;
+        if (!names.isEmpty()) {
+            sql.append("LOWER(").append(nameColumn).append(") IN (").append(placeholders(names.size())).append(")");
+            args.addAll(names);
+            matched = true;
+        }
+        if (identity != null && identity.hasUuid()) {
+            if (matched) {
+                sql.append(" OR ");
+            }
+            sql.append(uuidColumn).append(" = ?");
+            args.add(identity.uuid());
+            matched = true;
+        }
+        if (!matched) {
+            sql.append("1 = 0");
+        }
+        return sql.append(")").toString();
     }
 
     private String placeholders(int count) {

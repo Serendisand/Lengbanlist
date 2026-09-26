@@ -7,6 +7,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.OfflinePlayer;
 import org.leng.Lengbanlist;
 import org.leng.object.BanIpEntry;
+import org.leng.object.PlayerIdentity;
 import org.leng.utils.IpMatcher;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
@@ -16,7 +17,10 @@ import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 public class CheckCommand extends Command implements CommandExecutor {
     private final Lengbanlist plugin;
@@ -83,6 +87,7 @@ public class CheckCommand extends Command implements CommandExecutor {
         Utils.sendMessage(sender, plugin.prefix() + "§a玩家信息：");
         Utils.sendMessage(sender, plugin.prefix() + "§b玩家名: " + specialTag + playerName);
         Utils.sendMessage(sender, plugin.prefix() + "§bUUID: " + uuid);
+        showIdentityNames(sender, uuid, playerName);
         Utils.sendMessage(sender, plugin.prefix() + "§b最后登录时间: " + lastLoginTime);
         Utils.sendMessage(sender, plugin.prefix() + "§b是否禁言: " + (isMuted ? "是" : "否"));
         Utils.sendMessage(sender, plugin.prefix() + "§b是否封禁: " + (isBanned ? "是" : "否"));
@@ -100,22 +105,24 @@ public class CheckCommand extends Command implements CommandExecutor {
         if (plugin.isFeatureEnabled("ip-association")) {
             Utils.sendMessage(sender, "§7--- §cIP关联信息 §7---");
             List<String[]> ipHistory = plugin.getIpAssociationManager().getPlayerIps(playerName);
+            Set<String> ownNames = plugin.getIpAssociationManager().ownNames(uuid);
+            ownNames.add(playerName.toLowerCase(Locale.ROOT));
             if (ipHistory.isEmpty()) {
                 Utils.sendMessage(sender, plugin.prefix() + "§e暂无 IP 记录");
             } else {
                 for (String[] record : ipHistory) {
                     String ip = record[0];
                     String firstSeen = TimeUtils.timestampToReadable(Long.parseLong(record[1]));
-                    List<String> associatedPlayers = plugin.getDatabaseManager().getPlayersByIpFromHistory(ip);
+                    List<String> others = new ArrayList<>();
+                    for (String ap : plugin.getDatabaseManager().getPlayersByIpFromHistory(ip)) {
+                        if (!ownNames.contains(ap.toLowerCase(Locale.ROOT))) {
+                            others.add(ap);
+                        }
+                    }
                     StringBuilder line = new StringBuilder();
                     line.append(" §7- §f").append(ip).append(" §7(首次: ").append(firstSeen).append(")");
-                    if (associatedPlayers.size() > 1) {
-                        line.append(" §c关联: §f");
-                        for (String ap : associatedPlayers) {
-                            if (!ap.equalsIgnoreCase(playerName)) {
-                                line.append(ap).append(" ");
-                            }
-                        }
+                    if (!others.isEmpty()) {
+                        line.append(" §c关联: §f").append(String.join(" ", others));
                     }
                     Utils.sendMessage(sender, plugin.prefix() + line.toString());
                 }
@@ -126,6 +133,28 @@ public class CheckCommand extends Command implements CommandExecutor {
             showSponsorInfo(sender);
         }
 
+    }
+
+    private void showIdentityNames(CommandSender sender, String uuid, String playerName) {
+        PlayerIdentity identity = plugin.getIdentityResolver().resolve(uuid);
+        if (!identity.hasUuid()) {
+            identity = plugin.getIdentityResolver().resolve(playerName);
+        }
+        if (!identity.hasUuid()) {
+            return;
+        }
+        if (!identity.name().isEmpty() && !identity.name().equalsIgnoreCase(playerName)) {
+            Utils.sendMessage(sender, plugin.prefix() + "§b当前名: §f" + identity.name());
+        }
+        List<String> aliases = new ArrayList<>();
+        for (String name : identity.knownNames()) {
+            if (!name.equalsIgnoreCase(identity.name())) {
+                aliases.add(name);
+            }
+        }
+        if (!aliases.isEmpty()) {
+            Utils.sendMessage(sender, plugin.prefix() + "§b曾用名: §f" + String.join("§7, §f", aliases));
+        }
     }
 
     private void checkIpInfo(CommandSender sender, String ip) {

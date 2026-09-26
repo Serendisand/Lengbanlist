@@ -12,6 +12,7 @@ import org.leng.models.Model;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.object.MuteEntry;
+import org.leng.object.PlayerIdentity;
 import org.leng.object.WarnEntry;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
@@ -65,6 +66,10 @@ public class HistoryCommand implements CommandExecutor, TabCompleter {
 
         boolean isIp = target.contains(".");
 
+        if (!isIp) {
+            showKnownNames(sender, target);
+        }
+
         if (isIp) {
             for (BanIpEntry ban : plugin.getDatabaseManager().getIpBansByIp(target)) {
                 raw.add(new HistoryEntry(ban.getTime(), "ipban", ban));
@@ -106,6 +111,19 @@ public class HistoryCommand implements CommandExecutor, TabCompleter {
             Utils.sendMessage(sender, line);
         }
         return true;
+    }
+
+    private void showKnownNames(CommandSender sender, String target) {
+        PlayerIdentity identity = plugin.getIdentityResolver().resolve(target);
+        List<String> aliases = new ArrayList<>();
+        for (String name : identity.knownNames()) {
+            if (!name.equalsIgnoreCase(identity.name())) {
+                aliases.add(name);
+            }
+        }
+        if (!aliases.isEmpty()) {
+            Utils.sendMessage(sender, plugin.prefix() + "§b曾用名: §f" + String.join("§7, §f", aliases));
+        }
     }
 
     private static class HistoryEntry {

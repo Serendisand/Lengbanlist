@@ -35,15 +35,29 @@ public class FreezeManager {
     }
 
     public boolean isFrozen(Player player) {
-        return player != null && frozen.containsKey(key(player.getName()));
+        return player != null && lookup(player.getName()) != null;
     }
 
     public FreezeEntry get(Player player) {
-        return player == null ? null : frozen.get(key(player.getName()));
+        return player == null ? null : lookup(player.getName());
     }
 
     public FreezeEntry getByName(String name) {
-        return name == null || name.isEmpty() ? null : frozen.get(key(name));
+        return name == null || name.isEmpty() ? null : lookup(name);
+    }
+
+    private FreezeEntry lookup(String name) {
+        FreezeEntry direct = frozen.get(key(name));
+        if (direct != null || frozen.isEmpty()) {
+            return direct;
+        }
+        for (String known : db.getIdentityResolver().resolve(name).lowerNames()) {
+            FreezeEntry entry = frozen.get(known);
+            if (entry != null) {
+                return entry;
+            }
+        }
+        return null;
     }
 
     public Collection<FreezeEntry> all() {

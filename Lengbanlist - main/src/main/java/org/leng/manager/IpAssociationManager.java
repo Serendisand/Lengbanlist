@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -52,29 +53,45 @@ public class IpAssociationManager {
         if (ip == null || ip.isEmpty()) {
             return result;
         }
+        Set<String> own = ownNames(target);
         Set<String> seen = new HashSet<>();
         for (String name : plugin.getDatabaseManager().getPlayersByIp(ip)) {
-            seen.add(name.toLowerCase());
+            if (isOwnAccount(own, name) || !seen.add(name.toLowerCase(Locale.ROOT))) {
+                continue;
+            }
             result.add(new AltAccount(name, plugin.getBanManager().isPlayerBanned(name), true));
         }
         for (String name : plugin.getDatabaseManager().getPlayersByIpFromHistory(ip)) {
-            if (!seen.contains(name.toLowerCase())) {
-                seen.add(name.toLowerCase());
-                result.add(new AltAccount(name, plugin.getBanManager().isPlayerBanned(name), false));
+            if (isOwnAccount(own, name) || !seen.add(name.toLowerCase(Locale.ROOT))) {
+                continue;
             }
+            result.add(new AltAccount(name, plugin.getBanManager().isPlayerBanned(name), false));
         }
         return result;
+    }
+
+    public Set<String> ownNames(String target) {
+        Set<String> names = new HashSet<>(plugin.getDatabaseManager().getIdentityResolver().resolve(target).lowerNames());
+        if (target != null && !target.trim().isEmpty()) {
+            names.add(target.trim().toLowerCase(Locale.ROOT));
+        }
+        return names;
+    }
+
+    private static boolean isOwnAccount(Set<String> own, String name) {
+        return name == null || own.contains(name.trim().toLowerCase(Locale.ROOT));
     }
 
     public Map<String, List<String>> getAssociatedPlayers(String playerName) {
         Map<String, List<String>> result = new HashMap<>();
         List<String[]> ipHistory = getPlayerIps(playerName);
+        Set<String> own = ownNames(playerName);
         for (String[] record : ipHistory) {
             String ip = record[0];
             List<String> players = getPlayersByIp(ip);
             List<String> others = new ArrayList<>();
             for (String p : players) {
-                if (!p.equalsIgnoreCase(playerName)) {
+                if (!isOwnAccount(own, p)) {
                     others.add(p);
                 }
             }
@@ -99,9 +116,13 @@ public class IpAssociationManager {
         if (ip == null || !isRealIp(ip)) {
             return new ArrayList<>();
         }
+        Set<String> own = player.getUniqueId() == null
+                ? ownNames(player.getName())
+                : ownNames(player.getUniqueId().toString());
+        own.add(player.getName().toLowerCase(Locale.ROOT));
         List<String> others = new ArrayList<>();
         for (String p : getPlayersByIp(ip)) {
-            if (!p.equalsIgnoreCase(player.getName())) {
+            if (!isOwnAccount(own, p)) {
                 others.add(p);
             }
         }

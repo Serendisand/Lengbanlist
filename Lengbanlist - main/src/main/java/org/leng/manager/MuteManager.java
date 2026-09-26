@@ -2,12 +2,14 @@ package org.leng.manager;
 
 import org.leng.Lengbanlist;
 import org.leng.object.MuteEntry;
+import org.leng.object.PlayerIdentity;
 import org.leng.utils.IpMatcher;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -75,13 +77,13 @@ public class MuteManager {
         if (IpMatcher.isIpv4(target) && hasEquivalentIpv4Mute(target)) {
             return Long.MAX_VALUE; 
         }
-        MuteEntry entry = db.getMute(target);
+        MuteEntry entry = db.getMute(identityOf(target));
         if (entry == null) return null;
         if (entry.getTime() == Long.MAX_VALUE || entry.getTime() > System.currentTimeMillis()) {
             muteCache.put(target, entry.getTime());
             return entry.getTime();
         }
-        db.deleteMuteIfExpiresAt(target, entry.getTime());
+        db.deleteMuteIfExpiresAt(entry.getTarget().toLowerCase(Locale.ROOT), entry.getTime());
         mutationGeneration++;
         return null;
     }
@@ -129,12 +131,12 @@ public class MuteManager {
     }
 
     private boolean hasActiveMuteLocked(String target) {
-        String key = target.toLowerCase();
+        String key = target.toLowerCase(Locale.ROOT);
         Long cached = muteCache.get(key);
         if (cached != null) {
             return isActive(cached);
         }
-        MuteEntry entry = db.getMute(key);
+        MuteEntry entry = db.getMute(identityOf(key));
         return entry != null && isActive(entry.getTime());
     }
 
@@ -231,7 +233,7 @@ public class MuteManager {
                 return null;
             }
         }
-        MuteEntry entry = db.getMute(normalized);
+        MuteEntry entry = db.getMute(identityOf(normalized));
         if (entry == null) {
             return null;
         }
@@ -242,7 +244,7 @@ public class MuteManager {
             }
             return endTime;
         }
-        db.deleteMuteIfExpiresAt(normalized, endTime);
+        db.deleteMuteIfExpiresAt(entry.getTarget().toLowerCase(Locale.ROOT), endTime);
         return null;
     }
 
@@ -250,7 +252,7 @@ public class MuteManager {
         if (playerName == null) {
             return false;
         }
-        String normalized = playerName.toLowerCase();
+        String normalized = playerName.toLowerCase(Locale.ROOT);
         synchronized (muteLock) {
             Long cached = muteCache.get(normalized);
             if (cached != null) {
@@ -262,13 +264,13 @@ public class MuteManager {
                 mutationGeneration++;
                 return false;
             }
-            MuteEntry entry = db.getMute(normalized);
+            MuteEntry entry = db.getMute(identityOf(normalized));
             if (entry == null) return false;
             if (entry.getTime() == Long.MAX_VALUE || entry.getTime() > System.currentTimeMillis()) {
                 muteCache.put(normalized, entry.getTime());
                 return true;
             }
-            db.deleteMuteIfExpiresAt(normalized, entry.getTime());
+            db.deleteMuteIfExpiresAt(entry.getTarget().toLowerCase(Locale.ROOT), entry.getTime());
             mutationGeneration++;
             return false;
         }
@@ -321,6 +323,17 @@ public class MuteManager {
         return false;
     }
 
+    private PlayerIdentity identityOf(String target) {
+        if (target == null || target.isEmpty()) {
+            return PlayerIdentity.EMPTY;
+        }
+        String value = target.trim();
+        if (isIpTarget(value) || value.indexOf('.') >= 0 || value.indexOf(':') >= 0) {
+            return PlayerIdentity.ofName(value);
+        }
+        return db.getIdentityResolver().resolve(value);
+    }
+
     private List<String> storedTargetsFor(String target) {
         List<String> storedTargets = new ArrayList<>();
         if (IpMatcher.isIpv4(target)) {
@@ -333,6 +346,15 @@ public class MuteManager {
             for (String storedTarget : ipMuteCache.keySet()) {
                 if (IpMatcher.isCidr(storedTarget) && IpMatcher.cidrMatches(target, storedTarget)) {
                     storedTargets.add(storedTarget);
+                }
+            }
+        } else {
+            PlayerIdentity identity = identityOf(target);
+            storedTargets.addAll(identity.lowerNames());
+            for (String stored : db.getMuteTargets(identity)) {
+                String key = stored.toLowerCase(Locale.ROOT);
+                if (!storedTargets.contains(key)) {
+                    storedTargets.add(key);
                 }
             }
         }

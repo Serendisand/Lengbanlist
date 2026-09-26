@@ -117,6 +117,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 if (plugin.getDatabaseManager() != null) {
                     plugin.getDatabaseManager().applyCacheConfig();
                     plugin.getDatabaseManager().reloadBanCache();
+                    plugin.getIdentityResolver().invalidateAll();
                 }
                 if (plugin.getChatListener() != null) {
                     plugin.getChatListener().invalidateFilterCache();

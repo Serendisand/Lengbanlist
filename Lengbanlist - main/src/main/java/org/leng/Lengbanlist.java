@@ -324,6 +324,7 @@ public void onEnable() {
     }
 
     startHistoryCleanupTask();
+    startIdentityBackfillTask();
 
     if (syncManager != null) {
         syncManager.startAutoSync();
@@ -424,6 +425,24 @@ void shutdownStorage() {
         long delay = 200L;
         broadcastTask = SchedulerUtils.runTaskTimer(this,
                 broadCastManager, delay, interval);
+    }
+
+    private void startIdentityBackfillTask() {
+        if (storageConfig != null && !storageConfig.getBoolean("database.identity-backfill", true)) {
+            return;
+        }
+        SchedulerUtils.runAsyncDelayed(this, () -> {
+            long start = System.currentTimeMillis();
+            try {
+                int filled = databaseManager.backfillIdentityUuids(200);
+                if (filled > 0) {
+                    getLogger().info("身份层回填完成：为 " + filled + " 条历史记录补上了 UUID（耗时 "
+                            + (System.currentTimeMillis() - start) + " 毫秒）");
+                }
+            } catch (Exception e) {
+                getLogger().warning("身份层回填失败，下次启动会自动重试: " + e.getMessage());
+            }
+        }, 200L);
     }
 
     private void startHistoryCleanupTask() {
@@ -565,6 +584,10 @@ void shutdownStorage() {
 
     public DatabaseManager getDatabaseManager() {
         return databaseManager;
+    }
+
+    public PlayerIdentityResolver getIdentityResolver() {
+        return databaseManager.getIdentityResolver();
     }
 
     public ThemeManager getThemeManager() {
