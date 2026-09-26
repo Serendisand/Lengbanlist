@@ -40,6 +40,9 @@ public class DatabaseManager {
     private static final String WARN_SELECT =
             "SELECT id, player, staff, warn_time, reason, revoked FROM warnings ";
 
+    private static final String BAN_INSERT =
+            "INSERT INTO bans (target, uuid, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?, ?)";
+
     private static final String STATUS_PENDING = "未处理";
     private static final String STATUS_CLOSED = "已关闭";
     private static final String STATUS_HANDLED = "已处理";
@@ -79,7 +82,7 @@ public class DatabaseManager {
         this.identityResolver = new PlayerIdentityResolver(this);
         this.banCache = new BanCache(new BanCache.Loader() {
             @Override
-            public List<BanEntry> loadActiveBans() {
+            public List<BanCache.BanRow> loadActiveBans() {
                 return queryActiveBans();
             }
 
@@ -672,33 +675,29 @@ public class DatabaseManager {
     }
 
     public WriteResult replaceActiveBan(BanEntry entry) {
+        List<Object> args = new ArrayList<>();
         WriteResult result = invalidateBans(replaceActiveEntry(
-                "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1",
-                new Object[]{entry.getTarget()},
-                "INSERT INTO bans (target, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
-                new Object[]{entry.getTarget(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()}));
+                banDeactivateSql(args, entry.getTarget()), args.toArray(),
+                BAN_INSERT, banInsertValues(entry)));
         publishIfApplied(result, SyncEvent.SCOPE_BAN, entry.getTarget(), SyncEvent.ACTION_ADD);
         return result;
     }
 
     public WriteResult replaceExistingActiveBan(BanEntry entry) {
+        List<Object> args = new ArrayList<>();
         WriteResult result = invalidateBans(replaceExistingActiveEntry(
-                "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1",
-                new Object[]{entry.getTarget()},
-                "INSERT INTO bans (target, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
-                new Object[]{entry.getTarget(), entry.getStaff(), entry.getTime(), entry.getReason(), entry.isAuto(), entry.isActive()}));
+                banDeactivateSql(args, entry.getTarget()), args.toArray(),
+                BAN_INSERT, banInsertValues(entry)));
         publishIfApplied(result, SyncEvent.SCOPE_BAN, entry.getTarget(), SyncEvent.ACTION_UPDATE);
         return result;
     }
 
     public WriteResult replaceActiveBanAndUpdateReport(BanEntry banEntry, ReportEntry reportEntry,
                                                        String reportStatus) {
+        List<Object> args = new ArrayList<>();
         WriteResult result = invalidateBans(replaceActiveEntry(
-                "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1",
-                new Object[]{banEntry.getTarget()},
-                "INSERT INTO bans (target, staff, end_time, reason, is_auto, active) VALUES (?, ?, ?, ?, ?, ?)",
-                new Object[]{banEntry.getTarget(), banEntry.getStaff(), banEntry.getTime(), banEntry.getReason(),
-                        banEntry.isAuto(), banEntry.isActive()},
+                banDeactivateSql(args, banEntry.getTarget()), args.toArray(),
+                BAN_INSERT, banInsertValues(banEntry),
                 "UPDATE reports SET status = ? WHERE id = ? AND status = ?",
                 new Object[]{status(reportStatus), reportEntry.getId(), status(reportEntry.getStatus())}));
         publishIfApplied(result, SyncEvent.SCOPE_BAN, banEntry.getTarget(), SyncEvent.ACTION_ADD);
@@ -706,16 +705,21 @@ public class DatabaseManager {
     }
 
     public WriteResult deactivateBanForUnban(String target, long now) {
+        List<Object> args = new ArrayList<>();
+        String where = identityPredicate("target", "uuid", identityResolver.resolve(target), args);
+        args.add(now);
         WriteResult result = invalidateBans(deactivateForUnban(
-                "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1 AND end_time > ?",
-                "UPDATE bans SET active = 0 WHERE LOWER(target) = LOWER(?) AND active = 1 AND end_time <= ?",
-                target, now));
+                "UPDATE bans SET active = 0 WHERE " + where + " AND active = 1 AND end_time > ?",
+                "UPDATE bans SET active = 0 WHERE " + where + " AND active = 1 AND end_time <= ?",
+                args.toArray()));
         publishIfApplied(result, SyncEvent.SCOPE_BAN, target, SyncEvent.ACTION_REMOVE);
         return result;
     }
 
     public void deleteBan(String target) {
-        executeUpdate("DELETE FROM bans WHERE LOWER(target) = LOWER(?)", target);
+        List<Object> args = new ArrayList<>();
+        String where = identityPredicate("target", "uuid", identityResolver.resolve(target), args);
+        executeUpdate("DELETE FROM bans WHERE " + where, args.toArray());
         banCache.invalidate();
         publishSyncEvent(SyncEvent.SCOPE_BAN, target, SyncEvent.ACTION_REMOVE);
     }
@@ -731,8 +735,16 @@ public class DatabaseManager {
         return banCache.isBanned(target);
     }
 
+    public boolean isPlayerBannedByUuid(String uuid) {
+        return banCache.isBannedByUuid(uuid);
+    }
+
     public BanEntry getBan(String target) {
         return banCache.getBan(target);
+    }
+
+    public BanEntry getBanByUuid(String uuid) {
+        return banCache.getBanByUuid(uuid);
     }
 
     public List<BanEntry> getBans() {
@@ -773,18 +785,18 @@ public class DatabaseManager {
         return banCache.countUnexpiredIpBans();
     }
 
-    private List<BanEntry> queryActiveBans() {
-        List<BanEntry> entries = new ArrayList<>();
-        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, staff, end_time, reason, is_auto, active FROM bans WHERE active = 1")) {
+    private List<BanCache.BanRow> queryActiveBans() {
+        List<BanCache.BanRow> rows = new ArrayList<>();
+        try (Connection connection = getConnection(); PreparedStatement ps = connection.prepareStatement("SELECT target, uuid, staff, end_time, reason, is_auto, active FROM bans WHERE active = 1")) {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    entries.add(readBan(rs));
+                    rows.add(new BanCache.BanRow(readBan(rs), value(rs, "uuid")));
                 }
             }
         } catch (SQLException e) {
             throw new BanCache.LoadFailure(e);
         }
-        return entries;
+        return rows;
     }
 
     private List<BanIpEntry> queryActiveIpBans() {
@@ -1783,6 +1795,24 @@ public class DatabaseManager {
 
     private String integerPrimaryKey() {
         return dialect.integerPrimaryKey();
+    }
+
+    private String banDeactivateSql(List<Object> args, String target) {
+        String where = identityPredicate("target", "uuid", identityResolver.resolve(target), args);
+        return "UPDATE bans SET active = 0 WHERE " + where + " AND active = 1";
+    }
+
+    private Object[] banInsertValues(BanEntry entry) {
+        return new Object[]{entry.getTarget(), resolvedUuid(entry.getTarget()), entry.getStaff(), entry.getTime(),
+                entry.getReason(), entry.isAuto(), entry.isActive()};
+    }
+
+    private String resolvedUuid(String target) {
+        if (target == null || target.trim().isEmpty()) {
+            return "";
+        }
+        PlayerIdentity identity = identityResolver.resolve(target);
+        return identity == null ? "" : identity.uuid();
     }
 
     private String identityPredicate(String nameColumn, String uuidColumn, PlayerIdentity identity, List<Object> args) {

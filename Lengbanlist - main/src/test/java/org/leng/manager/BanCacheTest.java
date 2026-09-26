@@ -5,24 +5,46 @@ import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BanCacheTest {
 
     private static final Logger LOGGER = Logger.getLogger("BanCacheTest");
 
+    private static final String UUID_ALICE = "11111111-1111-1111-1111-111111111111";
+
     private static BanEntry ban(String target) {
         return new BanEntry(target, "staff", System.currentTimeMillis() + 600_000L, "作弊", false);
     }
 
+    private static BanEntry ban(String target, long endTime, String reason) {
+        return new BanEntry(target, "staff", endTime, reason, false);
+    }
+
     private static BanIpEntry ipBan(String ip) {
         return new BanIpEntry(ip, "staff", System.currentTimeMillis() + 600_000L, "VPN", false);
+    }
+
+    private static BanCache cacheOf(List<BanCache.BanRow> bans) {
+        return new BanCache(new BanCache.Loader() {
+            @Override
+            public List<BanCache.BanRow> loadActiveBans() {
+                return bans;
+            }
+
+            @Override
+            public List<BanIpEntry> loadActiveIpBans() {
+                return List.of();
+            }
+        }, 5000L, LOGGER);
     }
 
     private static class Flaky implements BanCache.Loader {
@@ -30,12 +52,12 @@ class BanCacheTest {
         final AtomicInteger loads = new AtomicInteger();
 
         @Override
-        public List<BanEntry> loadActiveBans() {
+        public List<BanCache.BanRow> loadActiveBans() {
             loads.incrementAndGet();
             if (failing.get()) {
                 throw new BanCache.LoadFailure(new IllegalStateException("数据库连接已断开"));
             }
-            return List.of(ban("Alice"));
+            return List.of(new BanCache.BanRow(ban("Alice"), UUID_ALICE));
         }
 
         @Override
@@ -85,22 +107,44 @@ class BanCacheTest {
     @Test
     void duplicateTargets_keepOnlyTheNewestEndTime() {
         long now = System.currentTimeMillis();
-        BanCache cache = new BanCache(new BanCache.Loader() {
-            @Override
-            public List<BanEntry> loadActiveBans() {
-                return List.of(
-                        new BanEntry("Alice", "s1", now + 1000L, "旧", false),
-                        new BanEntry("Alice", "s2", now + 900_000L, "新", false));
-            }
-
-            @Override
-            public List<BanIpEntry> loadActiveIpBans() {
-                return List.of();
-            }
-        }, 5000L, LOGGER);
+        BanCache cache = cacheOf(List.of(
+                new BanCache.BanRow(ban("Alice", now + 1000L, "旧"), ""),
+                new BanCache.BanRow(ban("Alice", now + 900_000L, "新"), "")));
 
         assertEquals(1, cache.getUnexpiredBans().size());
         assertEquals(now + 900_000L, cache.getBan("Alice").getTime());
         assertEquals(1, cache.countUnexpiredBans());
+    }
+
+    @Test
+    void banIsFoundByUuidAfterRename() {
+        BanCache cache = cacheOf(List.of(new BanCache.BanRow(ban("Alice"), UUID_ALICE)));
+
+        assertTrue(cache.isBanned("Alice"));
+        assertTrue(cache.isBannedByUuid(UUID_ALICE));
+        assertTrue(cache.isBannedByUuid(UUID_ALICE.toUpperCase(Locale.ROOT)), "UUID 大小写不敏感");
+        assertFalse(cache.isBanned("Alicia"), "改名后按名字本来就查不到，靠 UUID 兜底");
+        assertNull(cache.getBanByUuid(""));
+        assertNull(cache.getBanByUuid(null));
+    }
+
+    @Test
+    void uuidIndexKeepsTheNewestBanOfTheSameAccount() {
+        long now = System.currentTimeMillis();
+        BanCache cache = cacheOf(List.of(
+                new BanCache.BanRow(ban("Alice", now + 1000L, "旧"), UUID_ALICE),
+                new BanCache.BanRow(ban("Alicia", now + 900_000L, "新"), UUID_ALICE)));
+
+        assertEquals(now + 900_000L, cache.getBanByUuid(UUID_ALICE).getTime());
+        assertEquals(2, cache.getUnexpiredBans().size(), "两个名字各自的记录都还在，只是 UUID 索引取最新那条");
+    }
+
+    @Test
+    void rowsWithoutUuidAreNotIndexedByUuid() {
+        BanCache cache = cacheOf(List.of(new BanCache.BanRow(ban("Ghost"), "")));
+
+        assertTrue(cache.isBanned("Ghost"));
+        assertFalse(cache.isBannedByUuid(""));
+        assertFalse(cache.isBannedByUuid(UUID_ALICE));
     }
 }

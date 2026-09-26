@@ -15,9 +15,16 @@ import java.util.logging.Logger;
 
 final class BanCache {
 
+    record BanRow(BanEntry entry, String uuid) {
+
+        BanRow {
+            uuid = uuid == null ? "" : uuid.trim().toLowerCase(Locale.ROOT);
+        }
+    }
+
     interface Loader {
 
-        List<BanEntry> loadActiveBans();
+        List<BanRow> loadActiveBans();
 
         List<BanIpEntry> loadActiveIpBans();
     }
@@ -32,13 +39,15 @@ final class BanCache {
 
     private static final class Snapshot {
         final Map<String, BanEntry> bansByTarget;
+        final Map<String, BanEntry> bansByUuid;
         final Map<String, BanIpEntry> ipBansByIp;
         final List<BanIpEntry> ipBans;
         final List<BanEntry> allActiveBans;
 
-        Snapshot(Map<String, BanEntry> bansByTarget, Map<String, BanIpEntry> ipBansByIp,
-                 List<BanIpEntry> ipBans, List<BanEntry> allActiveBans) {
+        Snapshot(Map<String, BanEntry> bansByTarget, Map<String, BanEntry> bansByUuid,
+                 Map<String, BanIpEntry> ipBansByIp, List<BanIpEntry> ipBans, List<BanEntry> allActiveBans) {
             this.bansByTarget = bansByTarget;
+            this.bansByUuid = bansByUuid;
             this.ipBansByIp = ipBansByIp;
             this.ipBans = ipBans;
             this.allActiveBans = allActiveBans;
@@ -46,7 +55,8 @@ final class BanCache {
     }
 
     private static final Snapshot EMPTY = new Snapshot(
-            Collections.emptyMap(), Collections.emptyMap(), Collections.emptyList(), Collections.emptyList());
+            Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(),
+            Collections.emptyList(), Collections.emptyList());
 
     private static final Comparator<BanEntry> BY_TARGET =
             Comparator.comparing(BanEntry::getTarget, String.CASE_INSENSITIVE_ORDER);
@@ -121,16 +131,27 @@ final class BanCache {
     }
 
     private Snapshot build() {
-        List<BanEntry> bans = loader.loadActiveBans();
+        List<BanRow> bans = loader.loadActiveBans();
         List<BanIpEntry> ipBans = loader.loadActiveIpBans();
 
         Map<String, BanEntry> byTarget = new HashMap<>(Math.max(16, bans.size() * 2));
-        for (BanEntry ban : bans) {
+        Map<String, BanEntry> byUuid = new HashMap<>(Math.max(16, bans.size() * 2));
+        List<BanEntry> allBans = new ArrayList<>(bans.size());
+        for (BanRow row : bans) {
+            BanEntry ban = row.entry();
+            allBans.add(ban);
             String key = normalize(ban.getTarget());
             BanEntry existing = byTarget.get(key);
 
             if (existing == null || ban.getTime() > existing.getTime()) {
                 byTarget.put(key, ban);
+            }
+
+            if (!row.uuid().isEmpty()) {
+                BanEntry existingUuid = byUuid.get(row.uuid());
+                if (existingUuid == null || ban.getTime() > existingUuid.getTime()) {
+                    byUuid.put(row.uuid(), ban);
+                }
             }
         }
 
@@ -142,7 +163,7 @@ final class BanCache {
             }
         }
 
-        return new Snapshot(byTarget, byIp, new ArrayList<>(ipBans), new ArrayList<>(bans));
+        return new Snapshot(byTarget, byUuid, byIp, new ArrayList<>(ipBans), allBans);
     }
 
     private static String normalize(String target) {
@@ -179,6 +200,19 @@ final class BanCache {
 
     boolean isBanned(String target) {
         BanEntry ban = getBan(target);
+        return ban != null && ban.getTime() > System.currentTimeMillis();
+    }
+
+    BanEntry getBanByUuid(String uuid) {
+        if (uuid == null || uuid.trim().isEmpty()) {
+            return null;
+        }
+        ensureFresh();
+        return snapshot.bansByUuid.get(uuid.trim().toLowerCase(Locale.ROOT));
+    }
+
+    boolean isBannedByUuid(String uuid) {
+        BanEntry ban = getBanByUuid(uuid);
         return ban != null && ban.getTime() > System.currentTimeMillis();
     }
 

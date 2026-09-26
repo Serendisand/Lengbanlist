@@ -62,7 +62,7 @@ public class PlaceholderAPIHook extends PlaceholderExpansion {
         }
 
         if (lower.equals("banned")) {
-            return String.valueOf(isBannedByName(player));
+            return String.valueOf(isBanned(player));
         }
         if (lower.equals("muted")) {
             return String.valueOf(isMutedByName(player));
@@ -125,8 +125,15 @@ public class PlaceholderAPIHook extends PlaceholderExpansion {
         return null;
     }
 
-    private boolean isBannedByName(OfflinePlayer player) {
-        return player != null && plugin.getBanManager().isPlayerBanned(player.getName());
+    private boolean isBanned(OfflinePlayer player) {
+        if (player == null) {
+            return false;
+        }
+        if (plugin.getBanManager().isPlayerBanned(player.getName())) {
+            return true;
+        }
+        return player.getUniqueId() != null
+                && plugin.getBanManager().isPlayerBannedByUuid(player.getUniqueId().toString());
     }
 
     private boolean isMutedByName(OfflinePlayer player) {

@@ -179,6 +179,10 @@ public class BanManager {
         return db.isPlayerBanned(target);
     }
 
+    public boolean isPlayerBannedByUuid(String uuid) {
+        return db.isPlayerBannedByUuid(uuid);
+    }
+
     public boolean isIpBanned(String ip) {
         return db.isIpBanned(ip);
     }
@@ -201,11 +205,13 @@ public class BanManager {
 
     public void checkBanOnJoin(Player player) {
         if (plugin.isFeatureEnabled("ban")) {
-            BanEntry ban = getBanEntry(player.getName());
+            BanEntry nameBan = getBanEntry(player.getName());
+            BanEntry ban = nameBan != null ? nameBan : getBanEntryByUuid(
+                    player.getUniqueId() == null ? "" : player.getUniqueId().toString());
             if (ban != null) {
                 long currentTime = System.currentTimeMillis();
                 if (ban.getTime() <= currentTime) {
-                    BanMutationResult result = tryUnbanPlayer(player.getName(), null, true);
+                    BanMutationResult result = tryUnbanPlayer(ban.getTarget(), null, true);
                     if (result == BanMutationResult.DATABASE_ERROR) {
                         plugin.getLogger().warning("清理玩家过期封禁失败，玩家将被拦截: " + player.getName());
                     }
@@ -235,6 +241,10 @@ public class BanManager {
 
     public BanEntry getBanEntry(String target) {
         return db.getBan(target);
+    }
+
+    public BanEntry getBanEntryByUuid(String uuid) {
+        return db.getBanByUuid(uuid);
     }
 
     public BanIpEntry getBanIpEntry(String ip) {
