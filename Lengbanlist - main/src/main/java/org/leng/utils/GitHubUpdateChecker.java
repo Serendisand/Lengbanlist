@@ -293,7 +293,7 @@ public class GitHubUpdateChecker {
                 if (asset.has("browser_download_url")) {
                     downloadUrl = asset.get("browser_download_url").getAsString();
                 }
-                if (asset.has("digest")) {
+                if (asset.has("digest") && !asset.get("digest").isJsonNull()) {
                     sha256 = asset.get("digest").getAsString();
                 }
             }

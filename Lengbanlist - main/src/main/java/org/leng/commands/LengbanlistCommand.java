@@ -115,6 +115,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 }
 
                 if (plugin.getDatabaseManager() != null) {
+                    plugin.reloadStorageConfig();
                     plugin.getDatabaseManager().applyCacheConfig();
                     plugin.getDatabaseManager().reloadBanCache();
                     plugin.getIdentityResolver().invalidateAll();
@@ -133,8 +134,9 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     plugin.getWebServer().reloadAuth();
                 }
                 break;
-            case "add":
-                if (args.length >= 2 && args[1].contains(".")) {
+            case "add": {
+                int probeOffset = (args.length >= 2 && args[1].equalsIgnoreCase("-s")) ? 2 : 1;
+                if (args.length > probeOffset && args[probeOffset].contains(".")) {
                     if (!plugin.isFeatureEnabled("ban-ip")) {
                         plugin.sendFeatureDisabled(sender);
                         return true;
@@ -163,6 +165,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     return new BanCommands.BanIp(plugin).onCommand(sender, null, label, delegateArgs);
                 }
                 return new BanCommands.Ban(plugin).onCommand(sender, null, label, delegateArgs);
+            }
             case "remove":
                 if (!plugin.isFeatureEnabled("unban")) {
                     plugin.sendFeatureDisabled(sender);
@@ -637,6 +640,11 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     break;
                 case "audit":
                     for (String s : new String[]{"export", "verify"}) {
+                        if (s.startsWith(prefix)) completions.add(s);
+                    }
+                    break;
+                case "report":
+                    for (String s : new String[]{"accept", "close"}) {
                         if (s.startsWith(prefix)) completions.add(s);
                     }
                     break;

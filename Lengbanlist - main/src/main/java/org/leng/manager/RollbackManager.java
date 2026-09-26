@@ -258,8 +258,7 @@ public class RollbackManager {
             if (warn.getTime() >= fromMillis && warn.getTime() <= toMillis) {
                 if (!reason.isEmpty() && reason.equals(warn.getReason())) {
                     warn = warn.revoke();
-                    plugin.getDatabaseManager().updateWarningRevoked(warn.getId(), true, target);
-                    return true;
+                    return plugin.getDatabaseManager().updateWarningRevoked(warn.getId(), true, target);
                 }
                 if (fallback == null) {
                     fallback = warn;
@@ -268,8 +267,7 @@ public class RollbackManager {
         }
         if (fallback != null) {
             fallback = fallback.revoke();
-            plugin.getDatabaseManager().updateWarningRevoked(fallback.getId(), true, target);
-            return true;
+            return plugin.getDatabaseManager().updateWarningRevoked(fallback.getId(), true, target);
         }
         return false;
     }
@@ -284,8 +282,9 @@ public class RollbackManager {
             }
             if (warn.isRevoked()) {
                 warn = warn.unrevoke();
-                plugin.getDatabaseManager().updateWarningRevoked(warn.getId(), false, target);
-                anyRestored = true;
+                if (plugin.getDatabaseManager().updateWarningRevoked(warn.getId(), false, target)) {
+                    anyRestored = true;
+                }
             }
         }
         return anyRestored;

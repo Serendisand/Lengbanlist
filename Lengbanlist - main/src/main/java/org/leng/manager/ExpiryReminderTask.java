@@ -60,8 +60,9 @@ public class ExpiryReminderTask implements Runnable {
 
     private boolean claim(String kind, String target, long endTime) {
         String key = kind + "|" + target + "|" + endTime;
-        boolean fresh = announced.putIfAbsent(key, endTime) == null;
         long now = System.currentTimeMillis();
+        long keepUntil = Math.max(endTime, now + 60_000L);
+        boolean fresh = announced.putIfAbsent(key, keepUntil) == null;
         Iterator<Map.Entry<String, Long>> it = announced.entrySet().iterator();
         while (it.hasNext()) {
             if (it.next().getValue() <= now) {

@@ -89,6 +89,24 @@ public class SchedulerUtils {
         return new SchedulerTask(bt);
     }
 
+    public static void runSync(Lengbanlist plugin, Runnable task) {
+        if (folia) {
+            runTask(plugin, task);
+            return;
+        }
+        boolean defer;
+        try {
+            defer = !Bukkit.isPrimaryThread() && Bukkit.getScheduler() != null;
+        } catch (Throwable e) {
+            defer = false;
+        }
+        if (!defer) {
+            task.run();
+            return;
+        }
+        Bukkit.getScheduler().runTask(plugin, task);
+    }
+
     public static SchedulerTask runTask(Lengbanlist plugin, CommandSender sender, Runnable task) {
         if (sender instanceof Entity) {
             return runTask(plugin, (Entity) sender, task);

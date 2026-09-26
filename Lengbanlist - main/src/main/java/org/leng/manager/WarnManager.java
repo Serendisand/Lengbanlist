@@ -82,6 +82,7 @@ public class WarnManager {
         long now = System.currentTimeMillis();
         long timeWindow = 30L * 24 * 60 * 60 * 1000;
         List<WarnEntry> validWarnings = getAllWarnings(player).stream()
+                .filter(e -> !e.isRevoked())
                 .filter(e -> (now - e.getTime()) <= timeWindow)
                 .collect(Collectors.toList());
 
@@ -161,6 +162,7 @@ public class WarnManager {
         long now = System.currentTimeMillis();
         long timeWindow = 30L * 24 * 60 * 60 * 1000;
         List<WarnEntry> validWarnings = getAllWarnings(player).stream()
+                .filter(e -> !e.isRevoked())
                 .filter(e -> (now - e.getTime()) <= timeWindow)
                 .collect(Collectors.toList());
 

@@ -105,22 +105,22 @@ public class PlaceholderAPIHook extends PlaceholderExpansion {
             return banExpire(params.substring(11));
         }
         if (lower.startsWith("ban_remaining_")) {
-            return banRemaining(params.substring(15));
+            return banRemaining(params.substring(14));
         }
         if (lower.startsWith("ban_reason_")) {
-            return banReason(params.substring(12));
+            return banReason(params.substring(11));
         }
         if (lower.startsWith("ban_actor_")) {
-            return banActor(params.substring(11));
+            return banActor(params.substring(10));
         }
         if (lower.startsWith("mute_remaining_")) {
-            return muteRemaining(params.substring(16));
+            return muteRemaining(params.substring(15));
+        }
+        if (lower.startsWith("warnings_total_")) {
+            return String.valueOf(totalWarnings(params.substring(15)));
         }
         if (lower.startsWith("warnings_")) {
             return String.valueOf(activeWarnings(params.substring(9)));
-        }
-        if (lower.startsWith("warnings_total_")) {
-            return String.valueOf(totalWarnings(params.substring(16)));
         }
         return null;
     }

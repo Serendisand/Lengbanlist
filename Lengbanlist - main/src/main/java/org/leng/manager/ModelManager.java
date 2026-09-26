@@ -242,8 +242,6 @@ public class ModelManager {
         int safePage = Math.max(0, Math.min(page, totalPages - 1));
 
         GuiSessionManager sessions = Lengbanlist.getInstance().getGuiSessionManager();
-        sessions.setView(player.getUniqueId(), MODEL_VIEW);
-        sessions.setPage(player.getUniqueId(), MODEL_VIEW, safePage);
 
         Inventory modelSelectionUI = Bukkit.createInventory(null, 54, MODEL_UI_TITLE);
 
@@ -286,6 +284,8 @@ public class ModelManager {
         modelSelectionUI.setItem(53, pageItem(Material.ARROW, "§e下一页", "MODEL_PAGE_NEXT",
                 "§7第 " + (safePage + 1) + " / " + totalPages + " 页"));
         player.openInventory(modelSelectionUI);
+        sessions.setView(player.getUniqueId(), MODEL_VIEW);
+        sessions.setPage(player.getUniqueId(), MODEL_VIEW, safePage);
     }
 
     private ItemStack pageItem(Material material, String displayName, String action, String description) {

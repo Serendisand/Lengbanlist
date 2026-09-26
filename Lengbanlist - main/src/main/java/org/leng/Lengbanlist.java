@@ -358,7 +358,12 @@ public boolean reloadWebServer() {
     return true;
 }
 
+public void reloadStorageConfig() {
+    loadStorageConfig();
+}
+
 public void restartScheduledTasks() {
+    isBroadcast = getConfig().getBoolean("opensendtime");
     if (broadcastTask != null) {
         broadcastTask.cancel();
         broadcastTask = null;
@@ -507,7 +512,13 @@ void shutdownStorage() {
 
     public void setBroadcastEnabled(boolean broadcastEnabled) {
         this.isBroadcast = broadcastEnabled;
+        getConfig().set("opensendtime", broadcastEnabled);
+        saveConfig();
         if (isBroadcast) {
+            if (broadcastTask != null) {
+                broadcastTask.cancel();
+                broadcastTask = null;
+            }
             startBroadcastTask();
         } else {
             if (broadcastTask != null) {

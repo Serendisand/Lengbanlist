@@ -26,6 +26,7 @@ public class FreezeManager {
     private final Lengbanlist plugin;
     private final DatabaseManager db;
     private final Map<String, FreezeEntry> frozen = new ConcurrentHashMap<>();
+    private volatile long mutationGeneration;
 
     public FreezeManager(Lengbanlist plugin) {
         this.plugin = plugin;
@@ -84,7 +85,10 @@ public class FreezeManager {
             ErrorLog.record(plugin, "冻结记录写入数据库失败: " + target.getName(), e);
             return false;
         }
-        frozen.put(key, entry);
+        synchronized (frozen) {
+            mutationGeneration++;
+            frozen.put(key, entry);
+        }
         return true;
     }
 
@@ -99,7 +103,10 @@ public class FreezeManager {
             ErrorLog.record(plugin, "冻结记录删除失败: " + entry.player(), e);
             return false;
         }
-        return frozen.remove(key) != null;
+        synchronized (frozen) {
+            mutationGeneration++;
+            return frozen.remove(key) != null;
+        }
     }
 
     public int unfreezeAll() {
@@ -112,17 +119,26 @@ public class FreezeManager {
             ErrorLog.record(plugin, "清空冻结记录失败", e);
             return 0;
         }
-        int removed = frozen.size();
-        frozen.clear();
-        return removed;
+        synchronized (frozen) {
+            mutationGeneration++;
+            int removed = frozen.size();
+            frozen.clear();
+            return removed;
+        }
     }
 
     public boolean reload() {
         try {
+            long generationBefore = mutationGeneration;
             List<FreezeEntry> entries = db.loadFreezes();
-            frozen.clear();
-            for (FreezeEntry entry : entries) {
-                frozen.put(entry.key(), entry);
+            synchronized (frozen) {
+                if (mutationGeneration != generationBefore) {
+                    return true;
+                }
+                frozen.clear();
+                for (FreezeEntry entry : entries) {
+                    frozen.put(entry.key(), entry);
+                }
             }
             return true;
         } catch (Exception e) {

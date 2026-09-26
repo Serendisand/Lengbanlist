@@ -42,7 +42,7 @@ public final class LengbanlistAPI {
     }
 
     public boolean banPlayer(String target, String staff, long durationMillis, String reason, boolean silent) {
-        BanEntry entry = new BanEntry(target, staff, durationMillis, reason, false);
+        BanEntry entry = new BanEntry(target, staff, org.leng.utils.TimeUtils.calculateEndTime(durationMillis), reason, false);
         BanManager.BanMutationResult result = plugin.getBanManager().tryBanPlayer(entry, silent);
         return result == BanManager.BanMutationResult.APPLIED;
     }
@@ -52,7 +52,7 @@ public final class LengbanlistAPI {
     }
 
     public boolean banIp(String ip, String staff, long durationMillis, String reason, boolean silent) {
-        BanIpEntry entry = new BanIpEntry(ip, staff, durationMillis, reason, false);
+        BanIpEntry entry = new BanIpEntry(ip, staff, org.leng.utils.TimeUtils.calculateEndTime(durationMillis), reason, false);
         BanManager.BanMutationResult result = plugin.getBanManager().tryBanIp(entry, silent);
         return result == BanManager.BanMutationResult.APPLIED;
     }
@@ -90,7 +90,7 @@ public final class LengbanlistAPI {
     }
 
     public boolean mutePlayer(String target, String staff, long durationMillis, String reason) {
-        MuteEntry entry = new MuteEntry(target, staff, durationMillis, reason);
+        MuteEntry entry = new MuteEntry(target, staff, org.leng.utils.TimeUtils.calculateEndTime(durationMillis), reason);
         try {
             return plugin.getMuteManager().mutePlayer(entry) != null;
         } catch (Exception e) {

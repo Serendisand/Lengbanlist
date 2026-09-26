@@ -38,7 +38,6 @@ public class AuthManager {
         this.secret = newSecret;
         this.username = newUsername;
         setPassword(newPassword);
-        this.revokedTokens.clear();
     }
 
     public String login(String user, String pass) {

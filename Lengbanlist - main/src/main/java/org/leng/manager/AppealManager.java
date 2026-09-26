@@ -60,6 +60,12 @@ public class AppealManager {
         }
         DatabaseManager db = plugin.getDatabaseManager();
         BanEntry ban = db.getBan(player);
+        if (ban == null) {
+            PlayerIdentity identity = db.getIdentityResolver().resolve(player);
+            if (identity.hasUuid()) {
+                ban = db.getBanByUuid(identity.uuid());
+            }
+        }
         long now = System.currentTimeMillis();
         if (ban == null || ban.getTime() <= now) {
             return new Precheck(false, "没有查到该玩家生效中的封禁，无法申诉", player, "", 0L, "");
@@ -75,7 +81,7 @@ public class AppealManager {
         purgeExpiredTickets(now);
         String ticket = UUID.randomUUID().toString();
         long ttl = Math.max(1, intSetting("appeal.ticket-ttl-minutes", 30)) * 60000L;
-        tickets.put(ticket, new PendingTicket(player, db.getActiveBanId(player), now + ttl));
+        tickets.put(ticket, new PendingTicket(player, db.getActiveBanId(ban.getTarget()), now + ttl));
         return new Precheck(true, "", player, ChatColor.stripColor(ban.getReason()), ban.getTime(), ticket);
     }
 

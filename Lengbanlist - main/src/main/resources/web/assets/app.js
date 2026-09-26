@@ -730,7 +730,7 @@
     var ipRes = await api('/api/ipbans');
     if (ipRes.ok) {
       var d2 = ipRes.data || {};
-      var ipBans = d2.bans || [];
+      var ipBans = d2.ip_bans || [];
       if (ipBans.length > 0) {
         var pageIps = paginate('ipbans', ipBans);
         var ipRows = pageIps.map(function (b) {
@@ -787,7 +787,7 @@
     var pageItems = paginate('mutes', mutes);
     var rows = pageItems.map(function (m) {
       return ctxRow('mute', m.target,
-        cell(m.target, 'cell-strong') + cell(m.staff) + cell(m.reason) + cell(m.time, 'cell-mono') + moreCell(m.target));
+        cell(m.target, 'cell-strong') + cell(m.staff) + cell(m.reason) + cell(m.end_time, 'cell-mono') + moreCell(m.target));
     }).join('');
     panelRender('muteListResult',
       '<div class="toolbar"><span>共 <strong>' + esc(String(d.total)) + '</strong> 条</span></div>' +

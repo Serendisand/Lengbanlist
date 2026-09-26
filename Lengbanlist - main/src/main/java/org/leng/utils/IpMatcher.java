@@ -155,7 +155,6 @@ public class IpMatcher {
         int slash = cidr.indexOf('/');
         String base = cidr.substring(0, slash);
         int prefix = Integer.parseInt(cidr.substring(slash + 1));
-        if (prefix == 0) return false;
         long ipLong = ipToLong(ip);
         long baseLong = ipToLong(base);
         long mask = (0xFFFFFFFFL << (32 - prefix)) & 0xFFFFFFFFL;

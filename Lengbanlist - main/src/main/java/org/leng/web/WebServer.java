@@ -38,7 +38,11 @@ public class WebServer {
                 return false;
             }
 
-            authManager = new AuthManager(secret, username, password);
+            if (authManager == null) {
+                authManager = new AuthManager(secret, username, password);
+            } else {
+                authManager.reload(secret, username, password);
+            }
             server = HttpServer.create(new InetSocketAddress(host, port), 64);
             executor = Executors.newFixedThreadPool(Math.max(4, Runtime.getRuntime().availableProcessors() * 2));
             server.setExecutor(executor);
@@ -88,7 +92,7 @@ public class WebServer {
         String username = plugin.getConfig().getString("web.admin-username", "admin");
         String password = plugin.getConfig().getString("web.admin-password", "lban123");
         authManager.reload(secret, username, password);
-        plugin.getLogger().info("Web 鉴权配置已刷新,已签发 token 全部失效");
+        plugin.getLogger().info("Web 鉴权配置已刷新（已登出的 token 保持失效，已签发的 token 仍按原有效期有效）");
     }
 
     public AuthManager getAuthManager() {

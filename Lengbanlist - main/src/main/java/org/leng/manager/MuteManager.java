@@ -4,6 +4,7 @@ import org.leng.Lengbanlist;
 import org.leng.object.MuteEntry;
 import org.leng.object.PlayerIdentity;
 import org.leng.utils.IpMatcher;
+import org.leng.utils.SchedulerUtils;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -34,7 +35,7 @@ public class MuteManager {
 
     public Long mutePlayer(MuteEntry muteEntry) {
         synchronized (muteLock) {
-            String target = muteEntry.getTarget().toLowerCase();
+            String target = muteEntry.getTarget().toLowerCase(Locale.ROOT);
             Long existing = existingActiveMute(target);
             if (existing != null) {
                 if (existing.equals(muteEntry.getTime())) {
@@ -47,7 +48,8 @@ public class MuteManager {
                 }
                 mutationGeneration++;
                 plugin.getAuditManager().log("修改禁言", muteEntry.getStaff(), muteEntry.getTarget(), muteEntry.getReason());
-                org.bukkit.Bukkit.getPluginManager().callEvent(new org.leng.api.events.LengbanlistMuteEvent(muteEntry));
+                SchedulerUtils.runSync(plugin, () -> org.bukkit.Bukkit.getPluginManager()
+                        .callEvent(new org.leng.api.events.LengbanlistMuteEvent(muteEntry)));
                 return muteEntry.getTime();
             }
             db.upsertMute(muteEntry);
@@ -57,7 +59,8 @@ public class MuteManager {
             }
             mutationGeneration++;
             plugin.getAuditManager().log("禁言", muteEntry.getStaff(), muteEntry.getTarget(), muteEntry.getReason());
-            org.bukkit.Bukkit.getPluginManager().callEvent(new org.leng.api.events.LengbanlistMuteEvent(muteEntry));
+            SchedulerUtils.runSync(plugin, () -> org.bukkit.Bukkit.getPluginManager()
+                    .callEvent(new org.leng.api.events.LengbanlistMuteEvent(muteEntry)));
             return muteEntry.getTime();
         }
     }
@@ -97,7 +100,7 @@ public class MuteManager {
             List<String> storedTargets = storedTargetsFor(target);
             boolean wasMuted = false;
             for (String storedTarget : storedTargets) {
-                String cacheKey = storedTarget.toLowerCase();
+                String cacheKey = storedTarget.toLowerCase(Locale.ROOT);
                 Long cached = muteCache.get(cacheKey);
                 if (cached != null && isActive(cached)) {
                     wasMuted = true;
@@ -115,7 +118,8 @@ public class MuteManager {
             mutationGeneration++;
             if (wasMuted) {
                 plugin.getAuditManager().log("解除禁言", actor, target, "");
-                org.bukkit.Bukkit.getPluginManager().callEvent(new org.leng.api.events.LengbanlistUnmuteEvent(target, actor == null ? "System" : actor));
+                SchedulerUtils.runSync(plugin, () -> org.bukkit.Bukkit.getPluginManager()
+                        .callEvent(new org.leng.api.events.LengbanlistUnmuteEvent(target, actor == null ? "System" : actor)));
             }
         }
     }
@@ -376,7 +380,7 @@ public class MuteManager {
 
     public boolean isPlayerMuted(org.bukkit.entity.Player player) {
         if (isPlayerMuted(player.getName())) return true;
-        if (player.getAddress() != null) {
+        if (player.getAddress() != null && player.getAddress().getAddress() != null) {
             String ip = player.getAddress().getAddress().getHostAddress();
             return isIpMuted(ip);
         }

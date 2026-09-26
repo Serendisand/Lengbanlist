@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.leng.utils.IpMatcher;
 import org.leng.object.BanIpEntry;
+import org.leng.object.PlayerIdentity;
 import org.leng.models.Model;
 import org.leng.utils.SchedulerUtils;
 
@@ -214,7 +215,7 @@ public final class BanCommands {
                 return false;
             }
 
-            if (!plugin.getImmunityManager().canPunish(sender, args[0])) {
+            if (!plugin.getImmunityManager().canPunishTarget(plugin.getImmunityManager().getStaffWeight(sender), args[0])) {
                 Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(args[0]));
                 return false;
             }
@@ -419,9 +420,16 @@ public final class BanCommands {
                 return true;
             }
 
-            if (!isIp && !banManager.isPlayerBanned(target) && !banManager.isIpBanned(target)) {
-                Utils.sendMessage(sender, plugin.prefix() + "§c目标 " + target + " 未被封禁，无法设置封禁时间。");
-                return true;
+            if (!isIp) {
+                boolean banned = banManager.isPlayerBanned(target) || banManager.isIpBanned(target);
+                if (!banned) {
+                    PlayerIdentity identity = plugin.getIdentityResolver().resolve(target);
+                    banned = identity.hasUuid() && banManager.isPlayerBannedByUuid(identity.uuid());
+                }
+                if (!banned) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c目标 " + target + " 未被封禁，无法设置封禁时间。");
+                    return true;
+                }
             }
 
 
@@ -433,7 +441,8 @@ public final class BanCommands {
                 banDuration = Long.MAX_VALUE;
             } else if (timeArg.equalsIgnoreCase("auto")) {
                 isAuto = true;
-                escalationResult = plugin.getEscalationManager().resolveBan(target);
+                escalationResult = isIp ? plugin.getEscalationManager().resolveIpBan(target)
+                        : plugin.getEscalationManager().resolveBan(target);
                 banDuration = escalationResult.durationMillis;
             } else {
                 banDuration = TimeUtils.parseDurationToMillis(timeArg);
@@ -459,6 +468,12 @@ public final class BanCommands {
             } else {
 
                 BanEntry existingBan = banManager.getBanEntry(target);
+                if (existingBan == null) {
+                    PlayerIdentity identity = plugin.getIdentityResolver().resolve(target);
+                    if (identity.hasUuid()) {
+                        existingBan = banManager.getBanEntryByUuid(identity.uuid());
+                    }
+                }
                 if (existingBan == null) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c玩家 " + target + " 未被封禁，无法设置封禁时间。");
                     return true;
