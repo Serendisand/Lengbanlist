@@ -18,7 +18,7 @@
   var refreshTimer = null;
   var banListTimer = null;
   var banListCountdownVal = 10;
-  var pageState = { bans: 1, ipbans: 1, mutes: 1, reports: 1 };
+  var pageState = { bans: 1, ipbans: 1, mutes: 1, reports: 1, appeals: 1 };
   var ctxTarget = '';
   var lastFocus = null;
 
@@ -1035,6 +1035,7 @@
     if (key === 'bans' || key === 'ipbans') loadBanLists();
     else if (key === 'mutes') loadMuteList();
     else if (key === 'reports') loadReports();
+    else if (key === 'appeals') loadAppeals();
   }
 
   /* ================= 右键菜单 ================= */
@@ -1300,7 +1301,7 @@
     'report-accept': function (el) { reportAction(el.getAttribute('data-id'), 'accept'); },
     'report-close': function (el) { reportAction(el.getAttribute('data-id'), 'close'); },
     'refresh-appeals': function () { loadAppeals(); },
-    'appeal-filter': function (el) { appealFilter = el.getAttribute('data-status') || ''; loadAppeals(); },
+    'appeal-filter': function (el) { appealFilter = el.getAttribute('data-status') || ''; pageState.appeals = 1; loadAppeals(); },
     'appeal-approve': function (el) { appealAction(el.getAttribute('data-id'), 'approve'); },
     'appeal-reject': function (el) { appealAction(el.getAttribute('data-id'), 'reject'); },
     'row-menu': function (el) {
