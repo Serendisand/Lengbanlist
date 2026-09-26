@@ -52,14 +52,15 @@ class ModelCloudSourceFallbackTest {
         server = HttpServer.create(new InetSocketAddress(0), 0);
         port = server.getAddress().getPort();
         primaryBase = "http://127.0.0.1:" + port;
-        mirrorBase = "http://127.0.0.2:" + port;
+
+        mirrorBase = "http://localhost:" + port;
 
         String index = "{\n  \"version\": 1,\n  \"models\": [\n"
                 + "    {\"id\": \"hutao\", \"name\": \"胡桃\", \"version\": \"1.2.0\", \"url\": \"" + mirrorBase + "/model\"},\n"
                 + "    {\"id\": \"furina\", \"name\": \"芙宁娜\", \"version\": \"1.0.0\", \"url\": \"" + mirrorBase + "/model\"}\n"
                 + "  ]\n}";
 
-        register("/down", 500, "primary is down");
+        countPrimary("/down", 500, "primary is down");
         register("/index.json", 200, index);
         register("/model", 200, MODEL_BODY);
         server.start();
@@ -70,21 +71,31 @@ class ModelCloudSourceFallbackTest {
         if (server != null) server.stop(0);
     }
 
+    private static void countPrimary(String path, int code, String body) {
+        server.createContext(path, new HttpHandler() {
+            @Override
+            public void handle(HttpExchange ex) throws IOException {
+                primaryHits.incrementAndGet();
+                respond(ex, code, body);
+            }
+        });
+    }
+
     private static void register(String path, int code, String body) {
         server.createContext(path, new HttpHandler() {
             @Override
             public void handle(HttpExchange ex) throws IOException {
-                String host = ex.getRequestHeaders().getFirst("Host");
-                if (host != null && host.startsWith("127.0.0.1:")) {
-                    primaryHits.incrementAndGet();
-                }
-                byte[] resp = body.getBytes(StandardCharsets.UTF_8);
-                ex.sendResponseHeaders(code, resp.length);
-                try (OutputStream os = ex.getResponseBody()) {
-                    os.write(resp);
-                }
+                respond(ex, code, body);
             }
         });
+    }
+
+    private static void respond(HttpExchange ex, int code, String body) throws IOException {
+        byte[] resp = body.getBytes(StandardCharsets.UTF_8);
+        ex.sendResponseHeaders(code, resp.length);
+        try (OutputStream os = ex.getResponseBody()) {
+            os.write(resp);
+        }
     }
 
     @BeforeEach
