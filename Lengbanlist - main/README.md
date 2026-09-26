@@ -37,30 +37,22 @@ src/main/java/org/leng/
 
 ## commands 包职责
 
-`commands` 包内每个类都负责一个 Bukkit 命令或一组主命令子命令。命令类通常只做权限检查、参数解析、功能开关检查和用户反馈，核心业务交给 `manager` 包处理。
+`commands` 包内按命令领域分文件，一个文件里放一组相关的命令实现（`XxxCommands` 内部是若干 `static` 嵌套类，一个类对应一条命令）。命令类通常只做权限检查、参数解析、功能开关检查和用户反馈，核心业务交给 `manager` 包处理。
 
-| 类 | 命令 | 实现内容 |
+| 文件 | 内含命令 | 实现内容 |
 | --- | --- | --- |
+| `CommandRegistry` | — | 按 `features.*` 在运行时注册/注销独立命令（禁用则完全不占用命令名），并维护权限、用法与 `/lban help` 的功能键映射。 |
+| `FeatureCommand` | — | 独立命令的外壳，统一做开关兜底、权限校验与 Tab 补全转发。 |
 | `LengbanlistCommand` | `/lban` | 主命令入口，处理广播开关、手动广播、封禁列表、配置重载、封禁/解封、帮助、GUI、IP 查询、模型切换、LBAC、Web 面板配置、赞助入口等子命令。 |
-| `BanCommand` | `/ban` | 封禁玩家，解析时长与原因，调用 `BanManager.banPlayer()`。 |
-| `BanIpCommand` | `/ban-ip` | 封禁 IP，解析时长与原因，调用 `BanManager.banIp()`。 |
-| `SetBanCommand` | `/setban` | 修改玩家或 IP 的封禁时间与原因，支持永久和自动时长。 |
-| `UnbanCommand` | `/unban` | 根据参数判断玩家名或 IP，并执行对应解封。 |
-| `WarnCommand` | `/warn` | 给玩家添加警告，触发警告管理器的自动处罚逻辑。 |
-| `UnwarnCommand` | `/unwarn` | 移除玩家指定警告或全部有效警告，并按需解除自动封禁。 |
-| `WarnMsgCommand` | `/warnmsg` | 管理员对违规聊天进行警告处理。 |
-| `AllowMsgCommand` | `/allowmsg` | 放行被聊天审核拦截的玩家消息。 |
-| `MuteCommand` | `/mute` | 禁言玩家，写入禁言记录。 |
-| `UnmuteCommand` | `/unmute` | 解除玩家禁言。 |
-| `ListMuteCommand` | `/listmute` | 输出当前禁言列表。 |
-| `CheckCommand` | `/check` | 查询玩家或 IP 的处罚状态、历史、关联信息和赞助提示。 |
-| `HistoryCommand` | `/history` | 查询玩家处罚历史记录，提供补全。 |
-| `ReportCommand` | `/report` | 玩家提交举报。 |
-| `AdminReportCommand` | `/admin` | 管理员查看、处理和关闭举报。 |
-| `KickCommand` | `/kick` | 踢出在线玩家并发送原因。 |
-| `InfoCommand` | `/info` | 输出插件版本、服务端核心、内存、CPU、在线人数和更新状态。 |
-| `GetIPCommand` | `/getip` | 查询玩家 IP 和地理位置。 |
-| `StaffChatCommand` | `/sc` | 管理员工作频道聊天。 |
+| `BanCommands` | `/ban`、`/ban-ip`、`/setban`、`/unban`、`/kick` | 封禁一条线：解析时长与原因、区分玩家名与 IP、修改已有封禁为永久或自动时长、按参数解封、踢出在线玩家。 |
+| `MuteCommands` | `/mute`、`/unmute`、`/listmute`、`/allowmsg` | 禁言与消息管控：写入/解除禁言、输出禁言列表、放行被聊天审核拦截的玩家消息。 |
+| `WarnCommands` | `/warn`、`/unwarn`、`/warnmsg` | 警告体系：添加/移除警告并触发警告管理器的自动处罚与自动解封，管理员对违规聊天做警告处理。 |
+| `FreezeCommands` | `/lban freeze`、`/lban unfreeze` | 冻结与解冻：冻结期间禁止移动与交互，解冻恢复。 |
+| `QueryCommands` | `/check`、`/history`、`/getip`、`/info` | 查询与诊断：玩家或 IP 的处罚状态与历史、IP 地理位置、插件版本与运行状态。 |
+| `ReportCommands` | `/report`、`/admin` | 举报流程：玩家提交举报，管理员查看、处理和关闭。 |
+| `StaffCommands` | `/sc`、`/lban vanish`、`/lban rollback` | 管理工具：工作频道聊天、管理员隐身、按时间批量回滚处罚（带二次确认）。 |
+| `GuiCommands` | `/alts`、`/lban open` | 箱子 GUI：主管理菜单、模型选择界面，以及同 IP 小号查询界面。 |
+| `ModelsCommand` | `/lban models`、`/lban model` | 云端角色模型：列出、按需下载安装与切换当前模型。 |
 
 ## listeners 包职责
 
@@ -114,7 +106,7 @@ src/main/java/org/leng/
 - Bukkit API 主线程敏感操作要通过 `SchedulerUtils.runTask()` 回到主线程；耗时网络和数据库查询优先异步执行。
 - 更新链接、下载文件名和版本比较统一放在 `GitHubUpdateChecker`，不要在命令或监听器里硬编码 GitHub 地址。
 - 自动更新只负责安装新 jar 并提示重启，不做运行时热重载。
-- 新命令需要同时更新 `plugin.yml` 的 commands 和 permissions，并在 `Lengbanlist.onEnable()` 注册执行器。
+- 新命令要同步三处：对应 `XxxCommands` 里的嵌套类、`CommandRegistry.specs()`（功能键/权限/用法/执行器）、`plugin.yml` 的 `permissions:` 段；再加上 `CommandRegistry.HELP_FEATURES` 让 `/lban help` 按开关过滤该行。独立命令不写进 `plugin.yml` 的 `commands:`，由注册表在运行时按 `features.*` 注册。`CommandRegistryTest` 会校验这些同步关系。
 - 新增内置角色模型需要实现 `Model`，注册到 `ModelManager`，并确认模型切换 GUI 能显示；如需让玩家自定义消息风格，可指导其使用 `plugins/Lengbanlist/models/` 目录下的 YAML 自定义模型。
 - 修改处罚逻辑后至少验证封禁、解封、警告、禁言和历史查询的主路径。
 

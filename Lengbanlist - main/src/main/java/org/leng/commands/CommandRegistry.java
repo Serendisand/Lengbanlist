@@ -158,54 +158,54 @@ public class CommandRegistry {
         }
     }
 
-    private record Spec(String feature, String name, String permission, String usage, String description,
-                        CommandExecutor executor) {
+    record Spec(String feature, String name, String permission, String usage, String description,
+                CommandExecutor executor) {
 
         TabCompleter tabCompleter() {
             return executor instanceof TabCompleter ? (TabCompleter) executor : null;
         }
     }
 
-    private List<Spec> specs() {
+    List<Spec> specs() {
         List<Spec> specs = new ArrayList<>();
         specs.add(new Spec("ban", "ban", "lengbanlist.ban",
-                "/ban [-s] <玩家名> <时间/auto> <理由>", "封禁玩家", new BanCommand(plugin)));
+                "/ban [-s] <玩家名> <时间/auto> <理由>", "封禁玩家", new BanCommands.Ban(plugin)));
         specs.add(new Spec("ban-ip", "ban-ip", "lengbanlist.banip",
-                "/ban-ip [-s] <IP> <时间/auto> <理由>", "封禁 IP", new BanIpCommand(plugin)));
+                "/ban-ip [-s] <IP> <时间/auto> <理由>", "封禁 IP", new BanCommands.BanIp(plugin)));
         specs.add(new Spec("unban", "unban", "lengbanlist.unban",
-                "/unban <玩家名/IP>", "解封玩家", new UnbanCommand(plugin)));
+                "/unban <玩家名/IP>", "解封玩家", new BanCommands.Unban(plugin)));
         specs.add(new Spec("warn", "warn", "lengbanlist.warn",
-                "/warn <玩家名> <理由>", "警告玩家", new WarnCommand(plugin)));
+                "/warn <玩家名> <理由>", "警告玩家", new WarnCommands.Warn(plugin)));
         specs.add(new Spec("unwarn", "unwarn", "lengbanlist.unwarn",
-                "/unwarn <玩家名> [警告ID]", "移除警告", new UnwarnCommand(plugin)));
+                "/unwarn <玩家名> [警告ID]", "移除警告", new WarnCommands.Unwarn(plugin)));
         specs.add(new Spec("check", "check", "lengbanlist.check",
-                "/check <玩家名/IP>", "检查玩家或 IP 的封禁状态", new CheckCommand(plugin)));
+                "/check <玩家名/IP>", "检查玩家或 IP 的封禁状态", new QueryCommands.Check(plugin)));
         specs.add(new Spec("report", "report", "lengbanlist.report",
-                "/report <玩家名> <理由>", "举报玩家", new ReportCommand(plugin)));
+                "/report <玩家名> <理由>", "举报玩家", new ReportCommands.Report(plugin)));
         specs.add(new Spec("admin", "admin", "lengbanlist.admin",
-                "/admin <子命令>", "管理举报", new AdminReportCommand(plugin)));
+                "/admin <子命令>", "管理举报", new ReportCommands.AdminReport(plugin)));
         specs.add(new Spec("info", "info", "lengbanlist.info",
-                "/info", "显示插件信息", new InfoCommand(plugin)));
+                "/info", "显示插件信息", new QueryCommands.Info(plugin)));
         specs.add(new Spec("kick", "kick", "lengbanlist.kick",
-                "/kick <玩家名> [理由]", "踢出玩家", new KickCommand(plugin)));
+                "/kick <玩家名> [理由]", "踢出玩家", new BanCommands.Kick(plugin)));
         specs.add(new Spec("chat-filter", "allowmsg", "lengbanlist.allowmsg",
-                "/allowmsg <玩家名>", "允许玩家发送消息", new AllowMsgCommand(plugin)));
+                "/allowmsg <玩家名>", "允许玩家发送消息", new MuteCommands.AllowMsg(plugin)));
         specs.add(new Spec("warn", "warnmsg", "lengbanlist.warnmsg",
-                "/warnmsg <玩家名>", "警告玩家发送违规消息", new WarnMsgCommand(plugin)));
+                "/warnmsg <玩家名>", "警告玩家发送违规消息", new WarnCommands.WarnMsg(plugin)));
         specs.add(new Spec("setban", "setban", "lengbanlist.setban",
-                "/setban <玩家名/IP> <时间/forever/auto> <理由>", "设置玩家的封禁时间", new SetBanCommand(plugin)));
+                "/setban <玩家名/IP> <时间/forever/auto> <理由>", "设置玩家的封禁时间", new BanCommands.SetBan(plugin)));
         specs.add(new Spec("history", "history", "lengbanlist.history",
-                "/history <玩家名>", "查询玩家的处罚历史", new HistoryCommand(plugin)));
+                "/history <玩家名>", "查询玩家的处罚历史", new QueryCommands.History(plugin)));
         specs.add(new Spec("mute", "mute", "lengbanlist.mute",
-                "/mute [-s] <玩家名> <时间/auto> <原因>", "禁言玩家", new MuteCommand(plugin)));
+                "/mute [-s] <玩家名> <时间/auto> <原因>", "禁言玩家", new MuteCommands.Mute(plugin)));
         specs.add(new Spec("mute", "unmute", "lengbanlist.mute",
-                "/unmute [-s] <玩家名>", "解除禁言", new UnmuteCommand(plugin)));
+                "/unmute [-s] <玩家名>", "解除禁言", new MuteCommands.Unmute(plugin)));
         specs.add(new Spec("mute", "listmute", "lengbanlist.listmute",
-                "/listmute", "查看禁言列表", new ListMuteCommand(plugin)));
+                "/listmute", "查看禁言列表", new MuteCommands.ListMute(plugin)));
         specs.add(new Spec("getip", "getip", "lengbanlist.getip",
-                "/getip [玩家名]", "查询玩家 IP 地理位置", new GetIPCommand(plugin)));
+                "/getip [玩家名]", "查询玩家 IP 地理位置", new QueryCommands.GetIp(plugin)));
         specs.add(new Spec("staffchat", "sc", "lengbanlist.staffchat",
-                "/sc <内容>", "工作频道聊天", new StaffChatCommand(plugin)));
+                "/sc <内容>", "工作频道聊天", new StaffCommands.StaffChat(plugin)));
         specs.add(new Spec("alts", "alts", "lengbanlist.alts",
                 "/alts <玩家名>", "查询玩家同IP小号", plugin.getAltsCommand()));
         return specs;

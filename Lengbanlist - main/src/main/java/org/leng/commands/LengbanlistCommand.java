@@ -32,13 +32,13 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
 
     private final Lengbanlist plugin;
     private final IpGeoLookup ipGeoLookup;
-    private final GuiCommand guiCommand;
+    private final GuiCommands.Gui guiCommand;
 
     public LengbanlistCommand(String name, Lengbanlist plugin) {
         super(name);
         this.plugin = plugin;
         this.ipGeoLookup = new IpGeoLookup(plugin);
-        this.guiCommand = new GuiCommand(plugin);
+        this.guiCommand = new GuiCommands.Gui(plugin);
     }
 
     @Override
@@ -160,9 +160,9 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                         IpMatcher.isValidIpOrCidrOrWildcard(delegateArgs[ipOffset])
                                 || delegateArgs[ipOffset].contains(":"));
                 if (isIp) {
-                    return new BanIpCommand(plugin).onCommand(sender, null, label, delegateArgs);
+                    return new BanCommands.BanIp(plugin).onCommand(sender, null, label, delegateArgs);
                 }
-                return new BanCommand(plugin).onCommand(sender, null, label, delegateArgs);
+                return new BanCommands.Ban(plugin).onCommand(sender, null, label, delegateArgs);
             case "remove":
                 if (!plugin.isFeatureEnabled("unban")) {
                     plugin.sendFeatureDisabled(sender);
@@ -172,7 +172,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
                 }
-                return new UnbanCommand(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
+                return new BanCommands.Unban(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
             case "help":
 
                 currentModel.showHelp(sender);
@@ -203,7 +203,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
                 }
-                return new GetIPCommand(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
+                return new QueryCommands.GetIp(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
             case "model":
                 if (!plugin.isFeatureEnabled("model")) {
                     plugin.sendFeatureDisabled(sender);
@@ -256,7 +256,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
                 }
-                return new MuteCommand(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
+                return new MuteCommands.Mute(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
             case "unmute":
                 if (!plugin.isFeatureEnabled("mute")) {
                     plugin.sendFeatureDisabled(sender);
@@ -266,7 +266,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
                 }
-                return new UnmuteCommand(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
+                return new MuteCommands.Unmute(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
             case "list-mute":
                 if (!plugin.isFeatureEnabled("mute")) {
                     plugin.sendFeatureDisabled(sender);
@@ -287,7 +287,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
                 }
-                return new WarnCommand(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
+                return new WarnCommands.Warn(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
             case "unwarn":
                 if (!plugin.isFeatureEnabled("unwarn")) {
                     plugin.sendFeatureDisabled(sender);
@@ -297,7 +297,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
                 }
-                return new UnwarnCommand(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
+                return new WarnCommands.Unwarn(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
             case "report":
                 if (!plugin.isFeatureEnabled("report")) {
                     plugin.sendFeatureDisabled(sender);
@@ -309,7 +309,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 }
 
                 String[] reportArgs = Arrays.copyOfRange(args, 1, args.length);
-                return new ReportCommand(plugin).onCommand(sender, this, label, reportArgs);
+                return new ReportCommands.Report(plugin).onCommand(sender, this, label, reportArgs);
             case "tp":
                 if (!plugin.isFeatureEnabled("tp")) {
                     plugin.sendFeatureDisabled(sender);
@@ -332,11 +332,11 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 }
                 break;
             case "vanish":
-                return new VanishCommand(plugin).onCommand(sender, this, label, Arrays.copyOfRange(args, 1, args.length));
+                return new StaffCommands.Vanish(plugin).onCommand(sender, this, label, Arrays.copyOfRange(args, 1, args.length));
             case "freeze":
-                return new FreezeCommand(plugin).onCommand(sender, this, label, Arrays.copyOfRange(args, 1, args.length));
+                return new FreezeCommands.Freeze(plugin).onCommand(sender, this, label, Arrays.copyOfRange(args, 1, args.length));
             case "unfreeze":
-                return new UnfreezeCommand(plugin).onCommand(sender, this, label, Arrays.copyOfRange(args, 1, args.length));
+                return new FreezeCommands.Unfreeze(plugin).onCommand(sender, this, label, Arrays.copyOfRange(args, 1, args.length));
             case "admin":
                 if (!plugin.isFeatureEnabled("admin")) {
                     plugin.sendFeatureDisabled(sender);
@@ -346,7 +346,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
                 }
-                new AdminReportCommand(plugin).onCommand(sender, this, label, args);
+                new ReportCommands.AdminReport(plugin).onCommand(sender, this, label, args);
                 break;
             case "check":
                 if (!plugin.isFeatureEnabled("check")) {
@@ -364,7 +364,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 String checkTarget = args[1];
                 String normalizedCheck = IpMatcher.normalizeIpOrCidr(checkTarget);
                 if (normalizedCheck != null) checkTarget = normalizedCheck;
-                CheckCommand checkCommand = new CheckCommand(plugin);
+                QueryCommands.Check checkCommand = new QueryCommands.Check(plugin);
                 checkCommand.execute(sender, "check", new String[]{checkTarget});
                 break;
             case "info":
@@ -376,7 +376,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
                 }
-                return new InfoCommand(plugin).onCommand(sender, null, "info", new String[0]);
+                return new QueryCommands.Info(plugin).onCommand(sender, null, "info", new String[0]);
             case "history":
                 if (!plugin.isFeatureEnabled("history")) {
                     plugin.sendFeatureDisabled(sender);
@@ -396,7 +396,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     String normalizedHist = IpMatcher.normalizeIpOrCidr(histTarget);
                     if (normalizedHist != null) histArgs[0] = normalizedHist;
                 }
-                return new HistoryCommand(plugin).onCommand(sender, this, "history", histArgs);
+                return new QueryCommands.History(plugin).onCommand(sender, this, "history", histArgs);
             case "audit":
                 if (!plugin.isFeatureEnabled("audit")) {
                     plugin.sendFeatureDisabled(sender);
@@ -576,7 +576,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     return true;
                 }
                 String[] rollbackArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
-                return new RollbackCommand(plugin).onCommand(sender, null, "lban rollback", rollbackArgs);
+                return new StaffCommands.Rollback(plugin).onCommand(sender, null, "lban rollback", rollbackArgs);
             default:
 
                 Utils.sendMessage(sender, plugin.prefix() + "§c未知子命令喵: §f" + args[0] + "§c，输入 §f/lban help §c看看能用什么喵。");
@@ -615,10 +615,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
             return new ModelsCommand(plugin).onTabComplete(sender, null, "", Arrays.copyOfRange(args, 1, args.length));
         } else if (args.length >= 2 && args[0].equalsIgnoreCase("freeze")) {
 
-            return new FreezeCommand(plugin).onTabComplete(sender, null, "", Arrays.copyOfRange(args, 1, args.length));
+            return new FreezeCommands.Freeze(plugin).onTabComplete(sender, null, "", Arrays.copyOfRange(args, 1, args.length));
         } else if (args.length >= 2 && args[0].equalsIgnoreCase("unfreeze")) {
 
-            return new UnfreezeCommand(plugin).onTabComplete(sender, null, "", Arrays.copyOfRange(args, 1, args.length));
+            return new FreezeCommands.Unfreeze(plugin).onTabComplete(sender, null, "", Arrays.copyOfRange(args, 1, args.length));
         } else if (args.length == 2) {
             String sub = args[0].toLowerCase();
             String prefix = args[1].toLowerCase();

@@ -20,7 +20,6 @@ import java.io.File;
 import java.io.IOException;
 
 import org.leng.web.WebServer;
-import org.leng.commands.GuiCommand;
 
 public class Lengbanlist extends JavaPlugin {
     private static Lengbanlist instance;
@@ -38,9 +37,9 @@ public class Lengbanlist extends JavaPlugin {
     private ImmunityManager immunityManager;
     private EscalationManager escalationManager;
     private GuiSessionManager guiSessionManager;
-    private GuiCommand guiCommand;
+    private GuiCommands.Gui guiCommand;
     private ModelCloudManager modelCloudManager;
-    private AltsCommand altsCommand;
+    private GuiCommands.Alts altsCommand;
     private CommandRegistry commandRegistry;
     private boolean isBroadcast;
     private FileConfiguration broadcastFC;
@@ -125,7 +124,7 @@ public void onLoad() {
     immunityManager = new ImmunityManager(this);
     escalationManager = new EscalationManager(this);
     guiSessionManager = new GuiSessionManager();
-    guiCommand = new GuiCommand(this);
+    guiCommand = new GuiCommands.Gui(this);
     modelCloudManager = new ModelCloudManager(this);
     webhookNotifier = new WebhookNotifier(this);
     auditManager = new AuditManager(this);
@@ -291,7 +290,7 @@ public void onEnable() {
         lban.setExecutor(lbanCmd);
         lban.setTabCompleter(lbanCmd);
     }
-    altsCommand = new AltsCommand(this);
+    altsCommand = new GuiCommands.Alts(this);
     commandRegistry = new CommandRegistry(this);
     refreshFeatureCommands();
 
@@ -538,7 +537,7 @@ void shutdownStorage() {
         return guiSessionManager;
     }
 
-    public GuiCommand getGuiCommand() {
+    public GuiCommands.Gui getGuiCommand() {
         return guiCommand;
     }
 
@@ -546,7 +545,7 @@ void shutdownStorage() {
         return modelCloudManager;
     }
 
-    public AltsCommand getAltsCommand() {
+    public GuiCommands.Alts getAltsCommand() {
         return altsCommand;
     }
 
