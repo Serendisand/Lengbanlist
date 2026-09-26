@@ -45,6 +45,13 @@ update-check:
 ```yaml
 server-name: "default"              # 本服标识：多子服共用数据库时标记数据来源
 
+sync:                               # 跨服同步，仅共享数据库（MySQL/MariaDB/PostgreSQL）生效，单机 SQLite 可整段忽略
+  event-poll: true                  # 事件轮询开关。处罚变更时写一条事件，各子服按 poll-seconds 拉增量，只失效受影响的缓存
+  poll-seconds: 1                   # 事件拉取间隔（秒，1~60）。调小=跨服生效更快、查库更频繁
+  auto-sync: true                   # 兜底全量刷新开关
+  interval-seconds: 60              # 全量刷新间隔（秒，最小 10）。事件表被清理、子服久断、拉取异常时靠它最终对齐
+  event-retention-minutes: 60       # 事件表保留时长（分钟），超时事件由维护任务清理
+
 database:
   type: "sqlite"                    # sqlite / mysql / mariadb / postgresql
   sqlite:
@@ -54,6 +61,7 @@ database:
   retention:
     ip-history-days: 0              # IP 历史保留天数，0=永久
     history-days: 7                 # 处罚历史保留天数
+  identity-backfill: true           # 启动后异步把历史记录里的玩家名补成对应 UUID，供改名归并查询；关掉不影响按名字查询
   cache:
     ban-ttl-seconds: 5              # 封禁缓存 TTL（多服共享库时的兜底刷新间隔）
     warn-ttl-seconds: 5
@@ -82,4 +90,5 @@ database:
 
 > 多子服共用一份 MySQL / MariaDB / PostgreSQL 时：
 > - 每台子服起个不同的 `server-name`，审计日志会记下每条操作来自哪台服（`/lban audit`、Web 面板可见）；
-> - `database.retention.*` 建议只在一台子服开启清理，避免多台同时删数据。
+> - `database.retention.*` 建议只在一台子服开启清理，避免多台同时删数据；
+> - 跨服秒级生效靠 `sync.event-poll`，建议保持开启；`sync.auto-sync` 是事件表被清理或子服长时间断连后的兜底对齐，不建议关闭。
