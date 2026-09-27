@@ -118,9 +118,48 @@ class TimeUtilsTest {
     }
 
     @Test
+    void formatDuration_englishSingularAndPlural() {
+        assertEquals("0 seconds", TimeUtils.formatDuration(0, true));
+        assertEquals("1 second", TimeUtils.formatDuration(1_000L, true));
+        assertEquals("30 seconds", TimeUtils.formatDuration(30_000L, true));
+        assertEquals("1 minute", TimeUtils.formatDuration(60_000L, true));
+        assertEquals("5 minutes", TimeUtils.formatDuration(5 * 60_000L, true));
+        assertEquals("1 hour", TimeUtils.formatDuration(3_600_000L, true));
+        assertEquals("3 hours", TimeUtils.formatDuration(3 * 3_600_000L, true));
+        assertEquals("1 day", TimeUtils.formatDuration(86_400_000L, true));
+        assertEquals("2 days", TimeUtils.formatDuration(2L * 86_400_000L, true));
+        assertEquals("1 week", TimeUtils.formatDuration(7L * 86_400_000L, true));
+        assertEquals("2 weeks", TimeUtils.formatDuration(14L * 86_400_000L, true));
+        assertEquals("1 month", TimeUtils.formatDuration(30L * 86_400_000L, true));
+        assertEquals("3 months", TimeUtils.formatDuration(90L * 86_400_000L, true));
+        assertEquals("1 year", TimeUtils.formatDuration(365L * 86_400_000L, true));
+        assertEquals("2 years", TimeUtils.formatDuration(2L * 365 * 86_400_000L, true));
+        assertEquals("permanently", TimeUtils.formatDuration(Long.MAX_VALUE, true));
+    }
+
+    @Test
     void getRemainingTime_handlesEdgeCases() {
         assertEquals("永久", TimeUtils.getRemainingTime(Long.MAX_VALUE));
         long past = System.currentTimeMillis() - 1000;
         assertEquals("已过期", TimeUtils.getRemainingTime(past));
+    }
+
+    @Test
+    void ceilToSecond_roundsUpOnlyWhenNeeded() {
+        assertEquals(60_000L, TimeUtils.ceilToSecond(60_000L));
+        assertEquals(60_000L, TimeUtils.ceilToSecond(59_001L));
+        assertEquals(60_000L, TimeUtils.ceilToSecond(59_999L));
+        assertEquals(1_000L, TimeUtils.ceilToSecond(1L));
+        assertEquals(0L, TimeUtils.ceilToSecond(0L));
+        assertEquals(-5L, TimeUtils.ceilToSecond(-5L));
+        assertEquals(Long.MAX_VALUE, TimeUtils.ceilToSecond(Long.MAX_VALUE));
+    }
+
+    @Test
+    void formatDuration_keepsIssuedUnitAfterCeilToSecond() {
+        assertEquals("1分钟", TimeUtils.formatDuration(TimeUtils.ceilToSecond(TimeUtils.minutesToMillis(1) - 7)));
+        assertEquals("1天", TimeUtils.formatDuration(TimeUtils.ceilToSecond(TimeUtils.daysToMillis(1) - 7)));
+        assertEquals("1周", TimeUtils.formatDuration(TimeUtils.ceilToSecond(TimeUtils.weeksToMillis(1) - 7)));
+        assertEquals("1年", TimeUtils.formatDuration(TimeUtils.ceilToSecond(TimeUtils.yearsToMillis(1) - 7)));
     }
 }

@@ -22,7 +22,7 @@
 # 【可用占位符】
 #   {player}    - 玩家名
 #   {reason}    - 处罚原因
-#   {days}      - 天数（永久封禁自动显示为"永久"；可用 days-forever/days-suffix 覆盖格式）
+#   {days}      - 处罚时长（按真实时长格式化，如"30秒"、"5分钟"、"3天"、"永久"）
 #   {ip}        - IP 地址
 #   {count}     - 数量（如警告次数、记录条数）
 #   {enabled}   - 自动替换为"开启"或"关闭"（可用 enabled-on/enabled-off 覆盖词）
@@ -45,8 +45,6 @@
 
 enabled-on: "开启"
 enabled-off: "关闭"
-days-forever: "永久"
-days-suffix: " 天"
 
 help:
   - "§b╔══════════════════════════════════╗"

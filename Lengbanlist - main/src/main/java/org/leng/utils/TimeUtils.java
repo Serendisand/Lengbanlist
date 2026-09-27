@@ -85,6 +85,12 @@ public class TimeUtils {
         }
     }
 
+    public static long ceilToSecond(long millis) {
+        if (millis <= 0 || millis == Long.MAX_VALUE) return millis;
+        long remainder = millis % 1000L;
+        return remainder == 0 ? millis : millis + (1000L - remainder);
+    }
+
     public static String formatDuration(long millis) {
         return formatDuration(millis, false);
     }
@@ -94,25 +100,29 @@ public class TimeUtils {
         if (millis <= 0) return english ? "0 seconds" : "0秒";
 
         long seconds = TimeUnit.MILLISECONDS.toSeconds(millis);
-        if (seconds < 60) return english ? seconds + " seconds" : seconds + "秒";
+        if (seconds < 60) return unit(seconds, "秒", "second", english);
 
         long minutes = TimeUnit.MILLISECONDS.toMinutes(millis);
-        if (minutes < 60) return english ? minutes + " minutes" : minutes + "分钟";
+        if (minutes < 60) return unit(minutes, "分钟", "minute", english);
 
         long hours = TimeUnit.MILLISECONDS.toHours(millis);
-        if (hours < 24) return english ? hours + " hours" : hours + "小时";
+        if (hours < 24) return unit(hours, "小时", "hour", english);
 
         long days = TimeUnit.MILLISECONDS.toDays(millis);
-        if (days < 7) return english ? days + " days" : days + "天";
+        if (days < 7) return unit(days, "天", "day", english);
 
         long weeks = days / 7;
-        if (weeks < 4) return english ? weeks + " weeks" : weeks + "周";
+        if (weeks < 4) return unit(weeks, "周", "week", english);
 
         long months = days / 30;
-        if (months < 12) return english ? months + " months" : months + "个月";
+        if (months < 12) return unit(months, "个月", "month", english);
 
-        long years = days / 365;
-        return english ? years + " years" : years + "年";
+        return unit(days / 365, "年", "year", english);
+    }
+
+    private static String unit(long value, String chineseUnit, String englishUnit, boolean english) {
+        if (!english) return value + chineseUnit;
+        return value + " " + englishUnit + (value == 1 ? "" : "s");
     }
 
     public static boolean isEnglishLocale() {
