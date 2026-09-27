@@ -50,11 +50,11 @@ public class BanManager {
     }
 
     void publishAppliedPlayerBan(BanEntry banEntry, boolean silent) {
-        long durationMillis = banEntry.getEndTime() == Long.MAX_VALUE ? Long.MAX_VALUE : banEntry.getEndTime() - System.currentTimeMillis();
-        int durationDays = durationMillis == Long.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(1, Math.round(durationMillis / (double) (1000 * 60 * 60 * 24)));
+        long durationMillis = issuedDurationMillis(banEntry.getEndTime());
+        String duration = TimeUtils.formatDuration(durationMillis, TimeUtils.isEnglishLocale());
 
         Model currentModel = plugin.getModelManager().getCurrentModel();
-        String banResult = currentModel.addBan(banEntry.getTarget(), durationDays, banEntry.getReason());
+        String banResult = currentModel.addBan(banEntry.getTarget(), duration, banEntry.getReason());
         plugin.getAuditManager().log("封禁", banEntry.getStaff(), banEntry.getTarget(), banEntry.getReason());
 
         SchedulerUtils.runSync(plugin, () -> {
@@ -79,7 +79,7 @@ public class BanManager {
             if (banResult != null && !banResult.isEmpty()) {
                 Utils.broadcast(banResult);
             } else {
-                String defaultMessage = String.format("§c玩家 %s 已被封禁！原因：%s，时长：%s", banEntry.getTarget(), banEntry.getReason(), TimeUtils.formatDuration(durationMillis));
+                String defaultMessage = String.format("§c玩家 %s 已被封禁！原因：%s，时长：%s", banEntry.getTarget(), banEntry.getReason(), duration);
                 Utils.broadcast(defaultMessage);
             }
         }
@@ -97,11 +97,11 @@ public class BanManager {
         if (!writeResult.isApplied()) {
             return writeResult;
         }
-        long durationMillis = banIpEntry.getEndTime() == Long.MAX_VALUE ? Long.MAX_VALUE : banIpEntry.getEndTime() - System.currentTimeMillis();
-        int durationDays = durationMillis == Long.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(1, Math.round(durationMillis / (double) (1000 * 60 * 60 * 24)));
+        long durationMillis = issuedDurationMillis(banIpEntry.getEndTime());
+        String duration = TimeUtils.formatDuration(durationMillis, TimeUtils.isEnglishLocale());
 
         Model currentModel = plugin.getModelManager().getCurrentModel();
-        String banIpResult = currentModel.addBanIp(banIpEntry.getIp(), durationDays, banIpEntry.getReason());
+        String banIpResult = currentModel.addBanIp(banIpEntry.getIp(), duration, banIpEntry.getReason());
         plugin.getAuditManager().log("封禁IP", banIpEntry.getStaff(), banIpEntry.getIp(), banIpEntry.getReason());
 
         SchedulerUtils.runSync(plugin, () -> org.bukkit.Bukkit.getPluginManager()
@@ -111,7 +111,7 @@ public class BanManager {
             if (banIpResult != null && !banIpResult.isEmpty()) {
                 Utils.broadcast(banIpResult);
             } else {
-                String defaultMessage = String.format("§cIP %s 已被封禁！原因：%s，时长：%s", banIpEntry.getIp(), banIpEntry.getReason(), TimeUtils.formatDuration(durationMillis));
+                String defaultMessage = String.format("§cIP %s 已被封禁！原因：%s，时长：%s", banIpEntry.getIp(), banIpEntry.getReason(), duration);
                 Utils.broadcast(defaultMessage);
             }
         }
@@ -265,6 +265,11 @@ public class BanManager {
             return BanMutationResult.REJECTED_PRIVATE_OR_RESERVED_IP;
         }
         return mapWriteResult(db.replaceExistingActiveIpBan(entry));
+    }
+
+    private static long issuedDurationMillis(long endTime) {
+        if (endTime == Long.MAX_VALUE) return Long.MAX_VALUE;
+        return TimeUtils.ceilToSecond(endTime - System.currentTimeMillis());
     }
 
     private String appealHint() {

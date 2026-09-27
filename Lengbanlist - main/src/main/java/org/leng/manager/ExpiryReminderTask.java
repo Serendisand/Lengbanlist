@@ -29,19 +29,22 @@ public class ExpiryReminderTask implements Runnable {
         long now = System.currentTimeMillis();
         long leadTime = plugin.getConfig().getInt("expiry-reminder.lead-time", 600) * 1000L;
         Model model = ModelManager.getCurrentModel();
+        boolean english = TimeUtils.isEnglishLocale();
         List<String> messages = new ArrayList<>();
 
         long deadline = now + leadTime;
         for (BanEntry ban : plugin.getDatabaseManager().getBansExpiringBefore(deadline)) {
             long endTime = ban.getTime();
             if (endTime != Long.MAX_VALUE && endTime - now <= leadTime && claim("封禁", ban.getTarget(), endTime)) {
-                messages.add(model.getExpiryReminder("封禁", ban.getTarget(), TimeUtils.getRemainingTime(endTime)));
+                messages.add(model.getExpiryReminder(english ? "ban" : "封禁", ban.getTarget(),
+                        TimeUtils.formatRemaining(endTime, english)));
             }
         }
         for (MuteEntry mute : plugin.getDatabaseManager().getMutesExpiringBefore(deadline)) {
             long endTime = mute.getTime();
             if (endTime != Long.MAX_VALUE && endTime - now <= leadTime && claim("禁言", mute.getTarget(), endTime)) {
-                messages.add(model.getExpiryReminder("禁言", mute.getTarget(), TimeUtils.getRemainingTime(endTime)));
+                messages.add(model.getExpiryReminder(english ? "mute" : "禁言", mute.getTarget(),
+                        TimeUtils.formatRemaining(endTime, english)));
             }
         }
         if (messages.isEmpty()) {

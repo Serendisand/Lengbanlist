@@ -56,14 +56,6 @@ public class CustomModel implements Model {
         return msg(key, Collections.<String, String>emptyMap());
     }
 
-    private String banDays(int days) {
-        String forever = raw("days-forever");
-        String suffix = raw("days-suffix");
-        return days == Integer.MAX_VALUE
-                ? (forever == null ? "永久" : forever)
-                : days + (suffix == null ? " 天" : suffix);
-    }
-
     private String msg(String key, Map<String, String> placeholders) {
         String template = raw("messages." + key);
         if (template == null || template.isEmpty()) {
@@ -240,8 +232,8 @@ public class CustomModel implements Model {
     }
 
     @Override
-    public String addBan(String player, int days, String reason) {
-        return msg("add-ban", placeholders("player", player, "days", banDays(days), "reason", reason));
+    public String addBan(String player, String duration, String reason) {
+        return msg("add-ban", placeholders("player", player, "days", duration, "reason", reason));
     }
 
     @Override
@@ -260,8 +252,8 @@ public class CustomModel implements Model {
     }
 
     @Override
-    public String addBanIp(String ip, int days, String reason) {
-        return msg("add-ban-ip", placeholders("ip", ip, "days", banDays(days), "reason", reason));
+    public String addBanIp(String ip, String duration, String reason) {
+        return msg("add-ban-ip", placeholders("ip", ip, "days", duration, "reason", reason));
     }
 
     @Override

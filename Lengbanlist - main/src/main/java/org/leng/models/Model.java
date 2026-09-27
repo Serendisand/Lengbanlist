@@ -6,10 +6,6 @@ import java.util.List;
 
 public interface Model {
 
-    static String formatBanDays(int days) {
-        return days == Integer.MAX_VALUE ? "永久" : days + " 天";
-    }
-
     String getName();
 
     void showHelp(CommandSender sender);
@@ -18,7 +14,7 @@ public interface Model {
 
     String reloadConfig();
 
-    String addBan(String player, int days, String reason);
+    String addBan(String player, String duration, String reason);
 
     String removeBan(String player);
 
@@ -26,7 +22,7 @@ public interface Model {
 
     String removeMute(String player);
 
-    String addBanIp(String ip, int days, String reason);
+    String addBanIp(String ip, String duration, String reason);
 
     String removeBanIp(String ip);
 
