@@ -107,18 +107,23 @@
 ### 4.1 制品划分
 
 ```
-lengbanlist-parent                 (pom, packaging=pom)
-├── lengbanlist-api                纯契约，零第三方依赖（仅 spigot-api provided）
-├── lengbanlist-core               主插件，实现 API，shade JDBC
-└── extensions/
-    ├── ext-vanish, ext-staffchat, ext-tp, ext-broadcast        第一批：无表无横切
-    ├── ext-freeze, ext-report, ext-appeal, ext-chestui,
-    │   ext-chatfilter, ext-alts, ext-ipassoc, ext-vpn,
-    │   ext-getip, ext-placeholderapi                            第二批：有表但自洽
-    └── ext-models, ext-sync, ext-webpanel, ext-immunity,
-        ext-escalation, ext-rollback, ext-export, ext-auditchain,
-        ext-expiryreminder, ext-offlinewarn, ext-theme           第三批：横切/基础设施
+仓库一：Serendisand/Lengbanlist（核心与契约，发布节奏独立）
+lengbanlist-parent                     (pom, packaging=pom)
+├── lengbanlist-api                    纯契约，零第三方依赖（仅 spigot-api provided）
+└── Lengbanlist - main                 主插件（artifactId: Lengbanlist），实现契约，shade JDBC
+
+仓库二：Serendisand/Lengbanlist-Extensions（18 个模块 + 市场索引，已创建）
+lengbanlist-extensions-parent          (pom, packaging=pom)
+├── vanish, staffchat, broadcast                          第一批：无表无横切
+├── freeze, chestui, report, appeal, chatfilter,
+│   altdetect, vpndetect, getip, placeholderapi           第二批：有表但自洽
+├── models, sync, webpanel, audittools,
+│   punishpolicy, punishnotify                            第三批：横切 / 基础设施
+└── index.json                                            市场索引（CI 发布时回写 sha256）
 ```
+
+> 模块目录名 = 扩展 id（`vanish/`、`audittools/`），不带 `ext-` 前缀；完整清单、规模与
+> 保留的权限节点见 `docs/extension-catalog.md`。`/lban tp` 决定留在核心，不单独成模块。
 
 ### 4.2 三种扩展形态（关键设计洞察）
 
