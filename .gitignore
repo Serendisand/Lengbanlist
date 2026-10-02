@@ -5,3 +5,15 @@ dependency-reduced-pom.xml
 # ---------- IDE ----------
 .idea/
 *.iml
+
+# ---------- 内部工作文档（不入库，仅本地留存） ----------
+# 这三份是开发过程用的规划/审计材料，含大量内部决策与权衡记录，
+# 不适合放进对外仓库。文件仍在本地，工作照常。
+/docs/feature-audit.html
+/docs/plugin-ecosystem-plan.md
+/docs/extension-catalog.md
+
+# ---------- 临时脚本与提交信息草稿 ----------
+*.cjs
+msg-*.tmp
+

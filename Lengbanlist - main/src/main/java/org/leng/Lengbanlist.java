@@ -590,6 +590,11 @@ void shutdownStorage() {
         return getConfig().getBoolean("update-check.enabled", true);
     }
 
+    /** 命令注册表。{@code /lban} 用它分派扩展提供的子命令（见 {@code CommandSpec.parent}）。 */
+    public CommandRegistry getCommandRegistry() {
+        return commandRegistry;
+    }
+
     public void sendFeatureDisabled(CommandSender sender) {
         Utils.sendMessage(sender, prefix() + "§c该功能已被管理员禁用。");
     }

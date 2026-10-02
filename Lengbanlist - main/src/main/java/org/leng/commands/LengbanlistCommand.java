@@ -602,13 +602,26 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 String[] rollbackArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
                 return new StaffCommands.Rollback(plugin).onCommand(sender, null, "lban rollback", rollbackArgs);
             default:
+                // 扩展提供的子命令。放在所有内置分支之后：核心自己的子命令优先级更高，
+                // 扩展无法顶替它们。详见 CommandSpec.parent。
+                if (plugin.getCommandRegistry() != null
+                        && plugin.getCommandRegistry().dispatchSubcommand(
+                                CommandRegistry.SUBCOMMAND_PARENT, args[0], sender, label, args)) {
+                    return true;
+                }
 
                 Utils.sendMessage(sender, plugin.prefix() + "§c未知子命令喵: §f" + args[0] + "§c，输入 §f/lban help §c看看能用什么喵。");
                 StringBuilder available = new StringBuilder("§6§l可用子命令： §b");
-                for (String s : new String[]{"toggle", "a", "list", "reload", "add", "remove", "help", "open",
+                java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>(java.util.Arrays.asList(
+                        "toggle", "a", "list", "reload", "add", "remove", "help", "open",
                         "getip", "model", "models", "mute", "unmute", "list-mute", "warn", "unwarn",
                         "report", "admin", "check", "info", "tp", "history", "audit", "webhook", "handle", "alts", "sync", "rollback",
-                        "vanish", "freeze", "unfreeze"}) {
+                        "vanish", "freeze", "unfreeze"));
+                // 并入扩展提供的子命令，避免功能迁出后这张列表变成过期的谎话
+                if (plugin.getCommandRegistry() != null) {
+                    names.addAll(plugin.getCommandRegistry().subcommandNames());
+                }
+                for (String s : names) {
                     available.append(s).append(" ");
                 }
                 Utils.sendMessage(sender, available.toString());

@@ -3,6 +3,7 @@ package org.leng.commands;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
 import org.bukkit.command.CommandMap;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.plugin.PluginManager;
@@ -14,6 +15,7 @@ import org.leng.extension.ExtensionRegistry;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -24,6 +26,9 @@ public class CommandRegistry {
     private final Lengbanlist plugin;
     private final ExtensionRegistry extensions;
     private final Map<String, FeatureCommand> registered = new LinkedHashMap<>();
+
+    /** 扩展提供的子命令，键为子命令名（小写）。它们不进 Bukkit 命令表，由父命令分派。 */
+    private final Map<String, Spec> subcommands = new LinkedHashMap<>();
 
     /** 独立使用时自建一个只含内置提供者的注册表（测试与单模块复用）。 */
     public CommandRegistry(Lengbanlist plugin) {
@@ -46,12 +51,18 @@ public class CommandRegistry {
     }
 
     public void refresh() {
+        // 子命令不进命令表，因此必须在 CommandMap 判空之前收集——
+        // 否则反射取不到 CommandMap 的服务器上，扩展子命令会静默失效。
+        refreshSubcommands();
         CommandMap commandMap = commandMap();
         if (commandMap == null) {
             return;
         }
         boolean changed = false;
         for (Spec spec : specs()) {
+            if (spec.isSubcommand()) {
+                continue;   // 交给 /lban 分派，不占用独立的命令名
+            }
             try {
                 FeatureCommand existing = registered.get(spec.name());
                 if (!extensions.isFeatureActive(spec.feature())) {
@@ -87,6 +98,7 @@ public class CommandRegistry {
     }
 
     public void unregisterAll() {
+        subcommands.clear();
         CommandMap commandMap = commandMap();
         if (commandMap == null) {
             return;
@@ -96,6 +108,59 @@ public class CommandRegistry {
         }
         registered.clear();
         syncClientCommands();
+    }
+
+    /** 父命令名：目前只有 /lban。 */
+    public static final String SUBCOMMAND_PARENT = "lban";
+
+    /**
+     * 重新收集扩展提供的 {@code /lban} 子命令。
+     *
+     * <p>门控在这里做：功能未生效的子命令根本不会进表，于是 {@code /lban <它>}
+     * 会落到"未知子命令"分支，与顶层命令未注册时的表现一致。
+     */
+    void refreshSubcommands() {
+        subcommands.clear();
+        for (Spec spec : specs()) {
+            if (!spec.isSubcommand() || !spec.parent().equalsIgnoreCase(SUBCOMMAND_PARENT)) {
+                continue;
+            }
+            if (!extensions.isFeatureActive(spec.feature())) {
+                continue;
+            }
+            subcommands.put(spec.name().toLowerCase(Locale.ROOT), spec);
+        }
+    }
+
+    /** 当前生效的扩展子命令名快照（小写）。 */
+    public List<String> subcommandNames() {
+        return new ArrayList<>(subcommands.keySet());
+    }
+
+    /**
+     * 分派一条由扩展提供的子命令。
+     *
+     * <p><b>必须在核心自己的子命令分支全部落空之后才调用</b>：这样即使扩展注册了与
+     * 内置同名的子命令，也不可能把它顶替掉。
+     *
+     * @param label 父命令的 label（如 {@code lban}），会拼成 {@code "lban <sub>"} 传给执行器
+     * @return 是否已认领；{@code false} 表示没有扩展提供这个子命令
+     */
+    public boolean dispatchSubcommand(String parent, String sub, CommandSender sender,
+                                      String label, String[] args) {
+        if (parent == null || sub == null || !parent.equalsIgnoreCase(SUBCOMMAND_PARENT)) {
+            return false;
+        }
+        Spec spec = subcommands.get(sub.toLowerCase(Locale.ROOT));
+        if (spec == null) {
+            return false;
+        }
+        if (!spec.permission().isEmpty() && !sender.hasPermission(spec.permission())) {
+            plugin.sendFeatureDisabled(sender);
+            return true;
+        }
+        String[] tail = args != null && args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
+        return spec.executor().onCommand(sender, null, label + " " + sub, tail);
     }
 
     private void unregister(CommandMap commandMap, Command command) {
@@ -138,6 +203,13 @@ public class CommandRegistry {
     }
 
     private CommandMap commandMap() {
+        if (Bukkit.getServer() == null) {
+            // 只有测试环境（未初始化 Bukkit）会走到这里，生产里服务端一定非空。
+            // 注意不能只对 getPluginManager() 的返回值判空：服务端为空时
+            // getPluginManager() 自身就会抛 NPE，那样根本来不及判空。
+            // 这里转成"取不到命令表"的既有路径。
+            return null;
+        }
         PluginManager pluginManager = Bukkit.getPluginManager();
         Field field = findField(pluginManager.getClass(), "commandMap");
         if (field == null) {
@@ -179,10 +251,14 @@ public class CommandRegistry {
     }
 
     record Spec(String feature, String name, String permission, String usage, String description,
-                CommandExecutor executor) {
+                CommandExecutor executor, String parent) {
 
         TabCompleter tabCompleter() {
             return executor instanceof TabCompleter ? (TabCompleter) executor : null;
+        }
+
+        boolean isSubcommand() {
+            return parent != null && !parent.isEmpty();
         }
     }
 
@@ -191,7 +267,8 @@ public class CommandRegistry {
         List<Spec> specs = new ArrayList<>();
         for (CommandSpec commandSpec : extensions.commandSpecs()) {
             specs.add(new Spec(commandSpec.feature(), commandSpec.name(), commandSpec.permission(),
-                    commandSpec.usage(), commandSpec.description(), commandSpec.executor()));
+                    commandSpec.usage(), commandSpec.description(), commandSpec.executor(),
+                    commandSpec.parent()));
         }
         return specs;
     }
