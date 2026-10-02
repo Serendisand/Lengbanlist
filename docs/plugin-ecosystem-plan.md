@@ -175,7 +175,7 @@ public interface ExtensionContext {
 | `CommandVisibilityHook` | 全部 | 替代 `Utils.canUse` + `HELP_FEATURES` 的分散判断 |
 | `PunishmentMutationListener` | sync, audit-chain, webhook | 处罚变更后的后置动作 |
 
-**Phase 0 的核心动作**：先把这 4 个 Hook 建好，把核心内的内联逻辑改为经 Hook 调用，功能**仍留在核心 jar 内**。此时行为必须零变化，由现有 12 个测试 + 新增 Hook 顺序测试证明。之后搬迁才是纯机械动作。
+**Phase 0 的核心动作**：先把这 4 个 Hook 建好，把核心内的内联逻辑改为经 Hook 调用，功能**仍留在核心 jar 内**。此时行为必须零变化，由现有 309 个测试 + 新增 Hook 顺序测试证明。之后搬迁才是纯机械动作。
 
 ### 4.5 向后兼容
 
@@ -466,40 +466,47 @@ sha256 不匹配 · 下载中断 · 缺依赖扩展 · API 版本不满足 · �
 | 1 | 官方扩展包形态：多 jar 还是一个 bundle jar？ | **多 jar** | 多 jar 可单独删除/单独升级，契合"自定义生态"；bundle 打包简单但失去粒度 |
 | 2 | 每个扩展各自上报 bStats？ | **各自用自己的 id** | 能追踪生态健康度；但需扩展作者配合，且增加遥测面 |
 | 3 | `freezes`/`reports`/`appeals` 表所有权 | **移交扩展 + 一次性迁移脚本** | 核心不再持有扩展表，边界干净；代价是要写并测试数据迁移 |
-| 4 | API 发布渠道 | **GitHub Packages** | 已有 GitHub Actions CI，改造成本最低；Maven Central 门槛高，JitPack 对多模块支持一般 |
+| 4 | API 发布渠道 | **JitPack**（原推荐 GitHub Packages，实现前改为 JitPack） | 消费 GitHub Packages 需要**每个消费者**配置带 `read:packages` 的 token，对"让第三方写扩展"是实质障碍；JitPack 零配置即可依赖公开仓库的 tag，官方与第三方一视同仁。代价是依赖 JitPack 服务、首次构建较慢。Maven Central 门槛过高 |
 | 5 | ~~是否保留 `LengbanlistAPI` 旧门面~~ | **已定：直接删除** | 用户决定。它内部从未被使用、无测试覆盖；代价是对已有第三方集成是破坏性变更，需在发布说明中写明 |
 
 ---
 
 ## 9. 仓库与分发拓扑
 
-**结论：官方内容不拆仓库；必须新建 1 个市场仓库，Phase 5 再建议加 1 个模板仓库。**
+**结论（已定）：核心与扩展分两个仓库；18 个官方扩展集中在 `Lengbanlist-Extensions` 做多模块；市场索引与该仓库同址。**
 
-| 仓库 | 内容 | 是否新建 |
+| 仓库 | 内容 | 状态 |
 | --- | --- | --- |
-| `Serendisand/Lengbanlist`（现有） | 核心 + `lengbanlist-api` + **全部官方扩展模块**（monorepo） | 否 |
-| `Serendisand/Lengbanlist-Extensions` | 市场索引 `index.json` + 官方扩展 jar 的 Releases 托管 + 收录 PR 入口 | **是（必须）** |
-| `Serendisand/Lengbanlist-Ext-Template` | 第三方扩展脚手架（GitHub Template Repository） | 建议（Phase 5） |
+| `Serendisand/Lengbanlist`（现有） | 核心 + `lengbanlist-api` 契约模块 | 已有 |
+| `Serendisand/Lengbanlist-Extensions` | **18 个官方扩展的多模块工程** + 市场索引 `index.json` + 各扩展 jar 的 Releases | ✅ 已创建 |
+| `Serendisand/Lengbanlist-Ext-Template` | 第三方扩展脚手架（GitHub Template Repository） | Phase 5 再建 |
 | 第三方作者自己的仓库 | 各自的扩展 | 与我们无关 |
 
-**为什么不把官方扩展拆成 N 个仓库**
+**为什么核心与扩展分仓库**：核心的发布节奏（安全修复、数据库兼容）不应被扩展拖累，反之亦然；核心仓库保持"只含处罚闭环 + 契约"的边界，任何人打开它都能立刻看懂这是什么。
 
-官方扩展与核心共享 `lengbanlist-api` 的版本契约。放在同一仓库才能保证：一次 CI 就能全量验证所有扩展对当前 API 编译通过；改 API 时可在同一个 PR 内同步修正所有受影响扩展。拆成 20 个仓库后，"改一次 API → 开 20 个 PR → 等 20 条 CI"会变成不可维护的负担，而这正是生态最容易死掉的地方。
+**为什么官方扩展集中在一个仓库做多模块，而不是每个扩展一个仓库**（用户决定）
 
-**为什么市场索引要单独一个仓库**
+- 官方扩展与核心共享 `lengbanlist-api` 的版本契约：一次 CI 就能全量验证 18 个扩展对当前 API 编译通过；改 API 时可在同一个 PR 内同步修正全部受影响扩展。拆成 18 个仓库后，"改一次 API → 开 18 个 PR → 等 18 条 CI"会变成不可维护的负担
+- 发布流水线、CI 模板、sha256 生成只需维护一份
+- 代价：无法在仓库根展示各扩展的 bStats 徽章，徽章放进各模块子目录的 `README.md`（如 `vanish/README.md`）
 
-- 与现有 `Serendisand/Lengbanlist-Models`（云端模型）完全同构，用户与贡献者心智一致
-- 索引变更（收录新扩展）与核心代码变更解耦，第三方可通过 PR 自助登记
-- 官方扩展 jar 按扩展独立 tag（如 `freeze-v1.2.0`）发布到该仓库 Releases，使各扩展版本互不牵连
+**为什么市场索引与扩展代码同仓库**：CI 在发布某个扩展时，可在同一次运行里更新 `index.json` 并回写 sha256，索引与产物天然不会脱节。
 
-**需要你协助的事项（我无法代做）**
+**发布与索引机制**
 
-1. **创建 `Serendisand/Lengbanlist-Extensions` 仓库** —— 我没有创建 GitHub 仓库的能力
-2. **确认官方扩展 jar 的托管位置**：推荐放上述新仓库的 Releases（而非核心仓库的 Releases）
-3. **索引若需跨仓库汇总**（CI 从各扩展仓库读取 release 信息生成 `index.json`），需要一个具备 `repo` 读权限的 token 作为 secret；若只在本仓库内操作，用默认 `GITHUB_TOKEN` 即可
-4. **确认仓库名后**，我把默认索引地址写进配置（`extensions.index-url` 的默认值）
+- 每个模块独立版本（版本号写在各自 pom；父工程只做依赖与插件管理）
+- 打 tag `<扩展id>-v<版本>`（如 `vanish-v1.0.0`）触发 CI：只构建该模块 → 上传 jar 到 Release → 计算 sha256 → 更新 `index.json` 并提交
+- `index.json` 指向本仓库的 Release 资产，因此**不需要跨仓库 token**，默认 `GITHUB_TOKEN` 即可
 
-**在你创建仓库之前我能先做的**：把 `index.json` schema、`MirrorChain`/`DownloadService`、安装器与 `/lban ext` 全部按"索引地址可配置"实现，默认值留空并在未配置时给出明确提示。这样不会被仓库创建阻塞。
+**已确认**
+
+- ✅ `Serendisand/Lengbanlist-Extensions` 已由用户创建
+- `lengbanlist-api` 需发布到 GitHub Packages，供扩展仓库在 CI 中解析（见待决问题 4）
+
+**剩余待你协助**
+
+1. **`Serendisand/Lengbanlist-Ext-Template`** —— 需要，但属于 Phase 5（面向第三方作者），现在不急
+2. **bStats 数字 ID** —— 你为 18 个扩展各建一个页面后把 ID 给我，我接进各扩展并加 README 徽章
 
 ---
 
