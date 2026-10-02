@@ -38,7 +38,7 @@
 ### 2.1 工程基础
 
 - 仓库 24,336 行：Java 20,851 行 / 103 文件 + Web 前端 3,485 行
-- 单模块 Maven：`Lengbanlist - main/pom.xml`，`org.leng:Lengbanlist:2.1.3`，Java 17，Spigot API 1.17.1（provided）
+- 多模块 Maven：仓库根 `pom.xml` 为父工程（`org.leng:Lengbanlist-Parent`），下辖 `lengbanlist-api`（契约）与 `Lengbanlist`（核心）；版本 **2.1.6**；Java 17；Spigot API 1.17.1（provided）
 - shade 插件把 SQLite / MySQL / MariaDB / PostgreSQL 四个 JDBC 驱动全部打进主 jar
 - **回归安全网（已实测确认）**：12 个测试类 / **284 个测试方法**，在 JDK 17 上全绿——`Tests run: 284, Failures: 0, Errors: 0, Skipped: 2`，`BUILD SUCCESS`，耗时 1 分 54 秒
 - ⚠️ **必须用 JDK 17 构建**：`maven.compiler.source/target=17`，但本机默认 `java` 是 **JDK 26**，会让 Mockito 5.14.2 / Byte Buddy 无法 mock 而报 **164 个错误**（不是代码问题）。构建前需设 `JAVA_HOME=C:\Program Files\Java\jdk-17`（本机另有 `jdk-21.0.10` 可用）
@@ -373,7 +373,7 @@ download:
 | 0.9 | `features.*` → `extensions.yml` 迁移 + 语义改为"已安装 且 开启" | 兼容与正确性 | 待做 |
 | 0.10 | **统一下载层**：把 `models-cloud.mirrors` 与 `update-check.mirrors` 合并为一套镜像链 + 一个下载服务（见 4.9） | 统一下载，市场复用 | 待做 |
 
-**Phase 0 完成时功能与 2.1.3 完全一致，只是内部可插拔。**
+**Phase 0 完成时功能与 2.1.6 完全一致，只是内部可插拔。**
 
 ### Phase 1 — 拆低耦合扩展
 
@@ -429,7 +429,7 @@ sha256 不匹配 · 下载中断 · 缺依赖扩展 · API 版本不满足 · �
 ## 7. 验收标准
 
 1. 核心 jar 约 8,000 行，且不含任何外置功能的类
-2. 全新安装"核心 + 官方扩展包"，功能与 2.1.3 等价
+2. 全新安装"核心 + 官方扩展包"，功能与 2.1.6 等价
 3. 旧 `config.yml` 的 39 个 `features.*` 开关升级后语义不变
 4. 单独删除任一扩展 jar，服务器正常启动，无异常栈
 5. `/lban ext install freeze` 能从 GitHub 安装并通过 sha256 校验
