@@ -162,7 +162,7 @@ public interface ExtensionContext {
 
 - 只含接口 + 不可变数据对象（`BanEntry` / `BanIpEntry` / `MuteEntry` / `WarnEntry` / `ReportEntry` / `AppealEntry` / `FreezeEntry` / `AuditEntry` / `PlayerIdentity` / `SyncEvent` 从 `org.leng.object` 迁入）
 - **零第三方依赖**（受 SPIGOT-6502 约束）；JSON 若需要，暴露核心的 Gson 实例而不是让扩展自带
-- 旧 `LengbanlistAPI` 门面保留为 `@Deprecated` 委托，已集成用户不崩
+- 旧 `LengbanlistAPI` 门面**直接删除**（用户决定）：它对外是"API"，对内从未被使用，全仓只有两处 `register`/`unregister` 调用，也没有任何测试覆盖。删除后核心不再持有 `org.leng.api` 包，**此前的 split package 问题一并消失**。这是对外破坏性变更，必须在发布说明与 README 中写明；它的替代品是 0.2b 定义的服务接口。
 
 ### 4.4 横切 Hook 设计
 
@@ -467,7 +467,7 @@ sha256 不匹配 · 下载中断 · 缺依赖扩展 · API 版本不满足 · �
 | 2 | 每个扩展各自上报 bStats？ | **各自用自己的 id** | 能追踪生态健康度；但需扩展作者配合，且增加遥测面 |
 | 3 | `freezes`/`reports`/`appeals` 表所有权 | **移交扩展 + 一次性迁移脚本** | 核心不再持有扩展表，边界干净；代价是要写并测试数据迁移 |
 | 4 | API 发布渠道 | **GitHub Packages** | 已有 GitHub Actions CI，改造成本最低；Maven Central 门槛高，JitPack 对多模块支持一般 |
-| 5 | 是否保留 `LengbanlistAPI` 旧门面 | **保留为 `@Deprecated` 委托** | 不破坏已集成用户；代价是短期双份入口 |
+| 5 | ~~是否保留 `LengbanlistAPI` 旧门面~~ | **已定：直接删除** | 用户决定。它内部从未被使用、无测试覆盖；代价是对已有第三方集成是破坏性变更，需在发布说明中写明 |
 
 ---
 

@@ -273,8 +273,6 @@ public void onEnable() {
         });
     });
 
-    org.leng.api.LengbanlistAPI.register(Lengbanlist.this);
-
     getServer().getPluginManager().registerEvents(new PlayerJoinListener(Lengbanlist.this), Lengbanlist.this);
     chatListener = new ChatListener(Lengbanlist.this);
     getServer().getPluginManager().registerEvents(chatListener, Lengbanlist.this);
@@ -401,8 +399,6 @@ public void onDisable() {
     if (vanishManager != null) {
         vanishManager.restoreAll();
     }
-
-    org.leng.api.LengbanlistAPI.unregister();
 
     if (eulaAgreed) {
         shutdownStorage();
