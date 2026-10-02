@@ -73,25 +73,33 @@ features:
   webhook-events: true # Webhook 事件推送（配合 webhook 配置段）
   reload: true         # 允许 Web 面板重载配置
 
-# ---------- 更新检查（网络环境不佳时可自行增删镜像应对加速站批量失效） ----------
-update-check:
-  enabled: true          # 是否开启更新检查
+# ---------- 统一下载 / 镜像源 ----------
+# 所有对外下载（插件更新检查、云端模型、后续的扩展市场）共用这里的连接参数。
+# 镜像链按用途分开配置；某个用途留空即使用内置默认链。
+download:
   connect-timeout: 8000  # 连接超时（毫秒），国内网络建议不低于 5000
   read-timeout: 10000    # 读取超时（毫秒）
-  user-agent: "Lengbanlist-UpdateChecker"  # 请求 User-Agent
+  user-agent: "Lengbanlist"  # 请求 User-Agent
   ssl-verify: true       # 是否校验 SSL 证书；仅当服务器网络存在证书劫持导致 PKIX 报错时才设为 false（有安全风险，不推荐）
-  # 镜像列表（按顺序依次尝试，第一个成功即停止；加速站可能批量失效，失效时请自行更换）
-  # type 支持：github（直连）/ github-proxy（加速代理）/ jsdelivr（CDN，较稳定）/ gitee（需先在 gitee 镜像仓库）
   mirrors:
-    - name: gh-proxy
-      type: github-proxy
-      url: "https://gh-proxy.com/https://api.github.com/repos/Serendisand/Lengbanlist/releases/latest"
-    - name: jsDelivr
-      type: jsdelivr
-      url: "https://data.jsdelivr.com/v1/packages/gh/Serendisand/Lengbanlist"
-    - name: GitHub直连
-      type: github
-      url: "https://api.github.com/repos/Serendisand/Lengbanlist/releases/latest"
+    # 插件更新检查（按顺序尝试，第一个成功即停止；加速站可能批量失效，失效时请自行更换）
+    # type 支持：github（直连）/ github-proxy（加速代理）/ jsdelivr（CDN，较稳定）/ gitee（需先在 gitee 建镜像仓库）
+    update:
+      - name: gh-proxy
+        type: github-proxy
+        url: "https://gh-proxy.com/https://api.github.com/repos/Serendisand/Lengbanlist/releases/latest"
+      - name: jsDelivr
+        type: jsdelivr
+        url: "https://data.jsdelivr.com/v1/packages/gh/Serendisand/Lengbanlist"
+      - name: GitHub直连
+        type: github
+        url: "https://api.github.com/repos/Serendisand/Lengbanlist/releases/latest"
+    # 云端模型索引；留空使用内置默认链（raw.githubusercontent -> gh-proxy -> mirror.ghproxy）
+    models: []
+
+# ---------- 更新检查 ----------
+update-check:
+  enabled: true          # 是否开启更新检查（连接参数与镜像见上面的 download 段）
 
 # ---------- 冻结（freeze） ----------
 # 被冻结的玩家无法移动/破坏/放置/交互/丢弃物品/使用命令/传送，只能由管理员手动解冻。

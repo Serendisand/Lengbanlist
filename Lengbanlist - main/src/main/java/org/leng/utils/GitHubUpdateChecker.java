@@ -179,8 +179,14 @@ public class GitHubUpdateChecker {
 
     private static List<Mirror> loadMirrors() {
         List<Mirror> mirrors = new ArrayList<>();
+        // 统一配置（download.mirrors.update）优先；未配置时回退到既有的 update-check.mirrors
+        for (MirrorSpec spec : DownloadSettings.mirrors(Lengbanlist.getInstance().getConfig(), "update")) {
+            mirrors.add(new Mirror(spec.name(), spec.type().configName(), spec.url()));
+        }
         try {
-            Object raw = Lengbanlist.getInstance().getConfig().get("update-check.mirrors");
+            Object raw = mirrors.isEmpty()
+                    ? Lengbanlist.getInstance().getConfig().get("update-check.mirrors")
+                    : null;
             if (raw instanceof List) {
                 for (Object item : (List<?>) raw) {
                     if (!(item instanceof Map)) {
@@ -200,12 +206,6 @@ public class GitHubUpdateChecker {
                 }
             }
         } catch (Exception ignored) {
-        }
-        // 统一配置（download.overrides.update / download.mirrors）优先于内置默认
-        if (mirrors.isEmpty()) {
-            for (MirrorSpec spec : DownloadSettings.mirrors(Lengbanlist.getInstance().getConfig(), "update")) {
-                mirrors.add(new Mirror(spec.name(), spec.type().configName(), spec.url()));
-            }
         }
         if (mirrors.isEmpty()) {
             mirrors.add(new Mirror("gh-proxy", "github-proxy", "https://gh-proxy.com/https://api.github.com/repos/Serendisand/Lengbanlist/releases/latest"));

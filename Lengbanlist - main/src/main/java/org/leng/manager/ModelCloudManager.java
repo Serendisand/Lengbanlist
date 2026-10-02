@@ -117,14 +117,16 @@ public class ModelCloudManager {
     }
 
     public List<String> mirrors() {
-        List<String> list = plugin.getConfig().getStringList("models-cloud.mirrors");
-        if (list != null && !list.isEmpty()) {
-            return list.stream().filter(ModelCloudManager::isAllowedUrl).toList();
-        }
+        // 统一配置（download.mirrors.models）优先；未配置时回退到既有的
+        // models-cloud.mirrors，再回退到内置默认链。
         List<String> unified = DownloadSettings.mirrors(plugin.getConfig(), "models")
                 .stream().map(MirrorSpec::url).toList();
         if (!unified.isEmpty()) {
-            return unified;
+            return unified.stream().filter(ModelCloudManager::isAllowedUrl).toList();
+        }
+        List<String> list = plugin.getConfig().getStringList("models-cloud.mirrors");
+        if (list != null && !list.isEmpty()) {
+            return list.stream().filter(ModelCloudManager::isAllowedUrl).toList();
         }
         String baseRaw = "https://raw.githubusercontent.com/" + repo() + "/" + branch() + "/index.json";
         return List.of(

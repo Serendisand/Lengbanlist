@@ -334,17 +334,37 @@ download:
   read-timeout: 10000
   user-agent: "Lengbanlist"
   ssl-verify: true          # 仅证书劫持环境才设 false
-  mirrors:                  # 共用镜像链，所有用途默认走这里
-    - name: gh-proxy
-      type: github-proxy
-    - name: jsDelivr
-      type: jsdelivr
-    - name: GitHub直连
-      type: github
-  overrides: {}             # 按用途覆盖，键：models / extensions / update
+  mirrors:                  # 按用途分开；留空即使用该用途的内置默认链
+    update:                 # 插件更新检查
+      - name: gh-proxy
+        type: github-proxy
+        url: "https://gh-proxy.com/https://api.github.com/repos/Serendisand/Lengbanlist/releases/latest"
+    models: []              # 云端模型索引
+    extensions: []          # 扩展市场（Phase 4 使用）
 ```
 
-**迁移**：`models-cloud.mirrors` / `update-check.mirrors` 存在时优先读取，写入 `download.overrides.<用途>` 并打印一次迁移日志（与 `StorageMigrationManager` 的既有做法一致）。
+> **为什么镜像链按用途分开，而不是一份共用列表**（实现时才确认的约束）：同一条逻辑资源在不同镜像类型下的**入口地址形态不同**——更新检查是 `api.github.com/repos/<repo>/releases/latest` 或 jsDelivr 的包地址，模型索引是 `raw.githubusercontent.com/<repo>/<branch>/index.json`。一份 URL 列表无法同时服务两个用途。真正可共用的只有**连接参数**（超时 / User-Agent / SSL）与**回退机制**，这两者已完全统一；`MirrorType` 的类型改写能力留待需要时再补。
+
+**迁移**：`download.mirrors.<用途>` 优先；未配置时回退到既有的 `models-cloud.mirrors` / `update-check.mirrors`，再回退到各用途的内置默认链。既有配置文件无需改动即可继续工作。
+
+**实现进度（已完成）**
+
+- 新增 `org.leng.download`：`MirrorType` / `MirrorSpec` / `DownloadSettings` / `MirrorChain` / `DownloadService`
+- `ModelCloudManager` 与 `GitHubUpdateChecker` 均已接入，两者自建的镜像逻辑已删除
+- 新增 25 个测试（`MirrorChainTest` 12 / `DownloadServiceTest` 13），总计 284 → 309
+- **顺带修掉一个真实缺陷**：`ModelInfo.sha256` 此前从索引解析出来后从未被使用，模型下载只校验内容含 `"name:"`；现在索引提供 sha256 即强制校验，不匹配拒绝安装
+
+**尚未迁移：`AutoUpdateManager`（需先给 `DownloadService` 补三项能力）**
+
+它的下载实现比当前 `DownloadService` **更严格**，直接迁移会降级安全性：
+
+| 现有保护 | 当前 DownloadService | 迁移前提 |
+| --- | --- | --- |
+| 校验 JAR 文件头（zip magic），非 JAR 立即拒绝 | 无 | 增加**内容校验钩子**（首块 / 整体） |
+| 下载体积上限 | 无 | 增加**体积上限** |
+| 拿不到官方 sha256 时**拒绝安装**（fail-closed） | 未提供校验值即放行 | 增加**必须校验**模式 |
+
+这三项能力**扩展安装器（Phase 4）同样必需**——安装第三方 jar 比更新自身更需要它们。因此先补 `DownloadService`，再迁 `AutoUpdateManager`，顺序不能颠倒。
 
 **验收**
 
@@ -371,7 +391,7 @@ download:
 | 0.7 | `Utils.canUse` / `CustomModel.filterDisabledFeatures` / `CommandRegistry.HELP_FEATURES` 统一走注册表 | 消除三处分散门控 | 待做 |
 | 0.8 | 修复审计发现的 8 项开关缺陷（含 `unban-ip` 键、Web 侧未接门控） | 避免缺陷被继承 | 待做 |
 | 0.9 | `features.*` → `extensions.yml` 迁移 + 语义改为"已安装 且 开启" | 兼容与正确性 | 待做 |
-| 0.10 | **统一下载层**：把 `models-cloud.mirrors` 与 `update-check.mirrors` 合并为一套镜像链 + 一个下载服务（见 4.9） | 统一下载，市场复用 | 待做 |
+| 0.10 | **统一下载层**：新增 `org.leng.download`（`MirrorChain` + `DownloadService`），`ModelCloudManager` 与 `GitHubUpdateChecker` 已接入，`config.yml` 新增 `download:` 段（见 4.9） | 统一下载，市场复用 | ✅ 已完成（`AutoUpdateManager` 待 `DownloadService` 补齐校验钩子 / 体积上限 / 必须校验后再迁） |
 
 **Phase 0 完成时功能与 2.1.6 完全一致，只是内部可插拔。**
 

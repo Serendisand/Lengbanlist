@@ -47,7 +47,7 @@ public record DownloadSettings(int connectTimeoutMs, int readTimeoutMs, String u
     }
 
     /**
-     * 读取统一镜像列表：先看 {@code download.overrides.<purpose>}，再看 {@code download.mirrors}。
+     * 读取统一镜像列表 {@code download.mirrors.<purpose>}。
      *
      * <p>两种写法都接受，便于把既有的两种配置形态迁移进来：
      * <ul>
@@ -55,20 +55,17 @@ public record DownloadSettings(int connectTimeoutMs, int readTimeoutMs, String u
      *   <li>映射：{@code - {name: gh-proxy, type: github-proxy, url: "..."}}</li>
      * </ul>
      *
-     * @param purpose 用途名（models / extensions / update），对应 overrides 下的键
+     * @param purpose 用途名（models / extensions / update）
      * @return 解析后的镜像列表；未配置时返回空列表，由调用方决定自己的默认链
      */
     public static List<MirrorSpec> mirrors(FileConfiguration config, String purpose) {
         if (config == null) {
             return List.of();
         }
-        List<?> raw = null;
-        if (purpose != null && !purpose.isBlank()) {
-            raw = config.getList("download.overrides." + purpose);
+        if (purpose == null || purpose.isBlank()) {
+            return List.of();
         }
-        if (raw == null || raw.isEmpty()) {
-            raw = config.getList("download.mirrors");
-        }
+        List<?> raw = config.getList("download.mirrors." + purpose);
         if (raw == null || raw.isEmpty()) {
             return List.of();
         }
