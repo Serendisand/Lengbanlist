@@ -182,16 +182,18 @@ public class SchedulerUtils {
         }
     }
 
-    public static void runAsyncDelayed(Lengbanlist plugin, Runnable task, long delayMs) {
+    public static SchedulerTask runAsyncDelayed(Lengbanlist plugin, Runnable task, long delayMs) {
         if (folia) {
             try {
-                asyncRunDelayed.invoke(asyncScheduler, plugin, (Consumer<Object>) t -> task.run(), delayMs, TimeUnit.MILLISECONDS);
+                Object result = asyncRunDelayed.invoke(asyncScheduler, plugin, (Consumer<Object>) t -> task.run(), delayMs, TimeUnit.MILLISECONDS);
+                return new SchedulerTask(result);
             } catch (Exception e) {
                 plugin.getLogger().warning("Folia async runDelayed failed: " + e.getMessage());
+                return new SchedulerTask((Object) null);
             }
-        } else {
-            Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, task, delayMs / 50);
         }
+        BukkitTask bt = Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, task, delayMs / 50);
+        return new SchedulerTask(bt);
     }
 
     public static SchedulerTask runTaskTimerAsynchronously(Lengbanlist plugin, Runnable task, long delayTicks, long periodTicks) {
@@ -211,6 +213,7 @@ public class SchedulerUtils {
     public static class SchedulerTask {
         private final Object foliaTask;
         private final BukkitTask bukkitTask;
+        private volatile boolean cancelled;
 
         SchedulerTask(Object foliaTask) {
             this.foliaTask = foliaTask;
@@ -223,6 +226,7 @@ public class SchedulerUtils {
         }
 
         public void cancel() {
+            cancelled = true;
             if (foliaTask != null && scheduledTaskCancel != null) {
                 try {
                     scheduledTaskCancel.invoke(foliaTask);
@@ -231,6 +235,17 @@ public class SchedulerUtils {
             if (bukkitTask != null) {
                 bukkitTask.cancel();
             }
+        }
+
+        /**
+         * 是否已取消。Folia 的任务句柄没有查询接口，因此那条路径返回本地记录的标志位；
+         * Bukkit 路径直接问 BukkitTask。
+         */
+        public boolean isCancelled() {
+            if (bukkitTask != null) {
+                return bukkitTask.isCancelled();
+            }
+            return cancelled;
         }
     }
 }

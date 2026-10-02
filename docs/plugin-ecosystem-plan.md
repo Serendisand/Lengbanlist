@@ -138,28 +138,34 @@ lengbanlist-extensions-parent          (pom, packaging=pom)
 ### 4.3 API 契约
 
 ```java
-// 扩展入口：核心通过 Bukkit 插件发现 + instanceof + ServicesManager 探知
+// 已实现（Phase 0.2b / 0.3）。这里只列真正落地的方法，不写"计划中"的签名——
+// 服务接口与 Hook 接口推迟到 0.4/0.6，与真正的消费方一起定义。
 public interface LengbanlistExtension {
-    String id();              // "freeze"，与 config.yml 的 features.freeze 对应
-    String name();
+    String id();              // "vanish"：extensions.yml 的开关键 + 市场 index.json 的 id
+    String name();            // 展示名，默认取 id
     String version();
-    String requiredApi();     // semver range，如 "[2.0,3.0)"
-    void onEnable(ExtensionContext ctx) throws Exception;
-    void onDisable();
+    String requiredApi();     // semver 范围，如 "[2.0,3.0)"；空 = 不校验
+    void onEnable(ExtensionContext context) throws Exception;
+    default void onDisable() {}
+}
+
+// 核心注册进 ServicesManager，是外部扩展触达核心的唯一入口
+public interface LengbanlistCore {
+    String apiVersion();
+    ExtensionContext enable(LengbanlistExtension extension) throws ExtensionLoadException;
+    void disable(String extensionId);
+    boolean isEnabled(String extensionId);
+    Set<String> enabledExtensionIds();
 }
 
 public interface ExtensionContext {
-    CommandRegistrar commands();   // 取代 CommandRegistry 的硬编码 specs()
-    EventBus         events();     // 订阅核心处罚/审计/缓存事件
-    HookRegistry     hooks();      // 注册横切 hook
-    DataStore        data();       // 受管连接池 + 扩展自有表迁移
+    String extensionId();
+    CommandRegistrar commands();   // 命令注册，随扩展启用/停用自动装卸
+    ExtensionConfig  config();     // 私有配置：外部扩展落自己的插件目录，内置落核心 extensions/
     Scheduler        scheduler();  // Folia 安全，替代 Bukkit.getScheduler()
-    Messages         messages();   // 文案渲染（models 扩展可替换实现）
-    ExtensionConfig  config();     // 扩展私有配置文件
-    CacheInvalidator caches();     // sync 扩展用
-    AuditSink        audit();      // 写审计日志
-    Services         services();   // ban/warn/mute/query/identity 服务
-    Logger           logger();
+    Logger           logger();     // 自带 [扩展名] 前缀
+    // 以下随消费方落地，不做超前设计：
+    // EventBus(0.6) / HookRegistry(0.6) / DataStore(0.4) / Messages / CacheInvalidator / AuditSink / Services
 }
 ```
 
@@ -388,12 +394,12 @@ download:
 | --- | --- | --- | --- |
 | 0.1 | 仓库根新增父工程 `pom.xml`；`Lengbanlist - main` 成为核心模块；CI 与发布工作流改为从根构建 | 制品分离 | ✅ 已完成 `c855442` |
 | 0.2a | 新建 `lengbanlist-api`：迁入 `org.leng.object.*`（10 个数据对象）与 `org.leng.api.events.*`（8 个事件），**包名不变** | 编译期契约 | ✅ 已完成 `c855442` |
-| 0.2b | 在 `lengbanlist-api` 新增 `LengbanlistExtension` / `ExtensionContext` / 服务接口 / Hook 接口 | 扩展契约 | 待做 |
-| 0.3 | 核心新增 `ExtensionRegistry`，取代 `CommandRegistry.specs()` 的硬编码列表 | 扩展注册 | 待做 |
+| 0.2b | 契约模块新增 `LengbanlistExtension` / `LengbanlistCore` / `ExtensionContext` / `CommandSpec` / `CommandRegistrar` / `ExtensionConfig` / `Scheduler` / `Cancellable` / `ApiVersion`。**服务接口与 Hook 接口推迟到 0.4/0.6**，与真正的消费方一起定义，不做超前设计 | 扩展契约 | ✅ 已完成 |
+| 0.3 | 核心新增 `ExtensionRegistry` + `CoreService`（注册进 ServicesManager）+ `ExtensionContextImpl`；命令表改为注册表驱动，内置功能经 `BuiltinExtensions` 注册为提供者 | 扩展注册 | ✅ 已完成 |
 | 0.4 | 核心新增 `ExtensionContext` 实现 + `DataStore` + `Scheduler`/`Messages`/`Config` 门面 | 扩展运行时 | 待做 |
 | 0.5 | 核心 18 个 manager 改为**按需构造**（依赖注册表而非无条件 `new`） | 薄核心 | 待做 |
 | 0.6 | 建立 4 条 Hook 链，把 immunity/escalation/models 的内联逻辑改为经 Hook 调用（功能仍留核心） | 解横切耦合 | 待做 |
-| 0.7 | `Utils.canUse` / `CustomModel.filterDisabledFeatures` / `CommandRegistry.HELP_FEATURES` 统一走注册表 | 消除三处分散门控 | 待做 |
+| 0.7 | `Utils.canUse` / `CustomModel.filterDisabledFeatures` / `CommandRegistry.HELP_FEATURES` 统一走注册表 | 消除三处分散门控 | 🟡 部分完成：`HELP_FEATURES` 的 20 条命令条目已改为从 `BuiltinExtensions.declarations()` 派生（消除重复维护），`CommandRegistry` 与 `FeatureCommand` 已走统一门控；`Utils.canUse` 与 `CustomModel` 待做 |
 | 0.8 | 修复审计发现的 8 项开关缺陷（含 `unban-ip` 键、Web 侧未接门控） | 避免缺陷被继承 | 待做 |
 | 0.9 | `features.*` → `extensions.yml` 迁移 + 语义改为"已安装 且 开启" | 兼容与正确性 | 待做 |
 | 0.10 | **统一下载层**：新增 `org.leng.download`（`MirrorChain` + `DownloadService`），`ModelCloudManager` 与 `GitHubUpdateChecker` 已接入，`config.yml` 新增 `download:` 段（见 4.9） | 统一下载，市场复用 | ✅ 已完成（`AutoUpdateManager` 待 `DownloadService` 补齐校验钩子 / 体积上限 / 必须校验后再迁） |

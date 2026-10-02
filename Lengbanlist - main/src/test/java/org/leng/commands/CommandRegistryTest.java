@@ -31,6 +31,10 @@ class CommandRegistryTest {
 
     @BeforeEach
     void setUp() {
+        // 真实运行里 JavaPlugin.getLogger() 不会是 null；这里要给出真实值，
+        // 否则扩展注册表在出错路径上会因为拿不到 logger 而再次抛 NPE，掩盖真正的失败原因。
+        lenient().when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getGlobal());
+        lenient().when(plugin.getPluginVersion()).thenReturn("2.1.6");
         lenient().when(plugin.getAltsCommand()).thenReturn(mock(GuiCommands.Alts.class));
         registry = new CommandRegistry(plugin);
     }

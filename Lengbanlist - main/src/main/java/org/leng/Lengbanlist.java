@@ -8,6 +8,9 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.leng.commands.*;
+import org.leng.extension.BuiltinExtensions;
+import org.leng.extension.CoreService;
+import org.leng.extension.ExtensionRegistry;
 import org.leng.listeners.*;
 import org.leng.manager.*;
 import org.leng.models.Model;
@@ -43,6 +46,8 @@ public class Lengbanlist extends JavaPlugin {
     private ModelCloudManager modelCloudManager;
     private GuiCommands.Alts altsCommand;
     private CommandRegistry commandRegistry;
+    private ExtensionRegistry extensionRegistry;
+    private CoreService coreService;
     private boolean isBroadcast;
     private FileConfiguration broadcastFC;
     private FileConfiguration chatConfig;
@@ -292,8 +297,17 @@ public void onEnable() {
         lban.setTabCompleter(lbanCmd);
     }
     altsCommand = new GuiCommands.Alts(this);
-    commandRegistry = new CommandRegistry(this);
-    refreshFeatureCommands();
+
+        // 扩展注册表先建好并装入内置提供者，命令表随后从它派生。
+        extensionRegistry = new ExtensionRegistry(this);
+        extensionRegistry.setOnChanged(this::refreshFeatureCommands);
+        BuiltinExtensions.registerAll(this, extensionRegistry);
+        coreService = new CoreService(this, extensionRegistry);
+        getServer().getServicesManager().register(org.leng.api.LengbanlistCore.class, coreService,
+                this, org.bukkit.plugin.ServicePriority.Normal);
+
+        commandRegistry = new CommandRegistry(this, extensionRegistry);
+        refreshFeatureCommands();
 
     getServer().getConsoleSender().sendMessage(consoleText("ready",
             "version", getPluginVersion(),
@@ -388,6 +402,13 @@ public void onDisable() {
     if (historyCleanupTask != null) historyCleanupTask.cancel();
     if (expiryReminderTask != null) expiryReminderTask.cancel();
     if (webhookNotifier != null) webhookNotifier.stop();
+    // 先摘服务，避免其他插件拿着失效的门面继续调用
+    getServer().getServicesManager().unregisterAll(this);
+    if (extensionRegistry != null) {
+        // 停服期间不再触发命令刷新，否则会在注销过程中反复重建命令
+        extensionRegistry.setOnChanged(null);
+        extensionRegistry.unregisterAll();
+    }
     if (commandRegistry != null) {
         commandRegistry.unregisterAll();
     }
@@ -492,6 +513,18 @@ void shutdownStorage() {
 
     public boolean isBroadcastEnabled() {
         return isBroadcast;
+    }
+
+    /**
+     * 扩展注册表。门控与命令表都以它为准。
+     *
+     * <p>{@link #isFeatureEnabled(String)} 只回答"配置里的开关是不是 true"，
+     * 不回答"这个功能现在能不能用"——后者必须问
+     * {@code getExtensionRegistry().isFeatureActive(feature)}，
+     * 否则未安装的扩展会被当成已启用。
+     */
+    public ExtensionRegistry getExtensionRegistry() {
+        return extensionRegistry;
     }
 
     public boolean isFeatureEnabled(String feature) {

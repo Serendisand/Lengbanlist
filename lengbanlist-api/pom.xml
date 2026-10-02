@@ -42,5 +42,14 @@
                 </exclusion>
             </exclusions>
         </dependency>
+
+        <!-- 契约模块自己的单元测试。版本范围判断这类纯逻辑必须在这里就被钉住，
+             否则等到扩展启用失败才发现，代价大得多。 -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.11.3</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>

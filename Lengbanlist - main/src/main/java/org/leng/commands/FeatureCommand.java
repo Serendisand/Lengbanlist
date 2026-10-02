@@ -6,6 +6,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.leng.Lengbanlist;
+import org.leng.extension.ExtensionRegistry;
 
 import java.util.Collections;
 import java.util.List;
@@ -13,15 +14,17 @@ import java.util.List;
 public class FeatureCommand extends Command {
 
     private final Lengbanlist plugin;
+    private final ExtensionRegistry extensions;
     private final String feature;
     private final CommandExecutor executor;
     private final TabCompleter tabCompleter;
 
-    public FeatureCommand(Lengbanlist plugin, String name, String feature, String permission,
-                          String description, String usage, List<String> aliases,
+    public FeatureCommand(Lengbanlist plugin, ExtensionRegistry extensions, String name, String feature,
+                          String permission, String description, String usage, List<String> aliases,
                           CommandExecutor executor, TabCompleter tabCompleter) {
         super(name, description, usage, aliases);
         this.plugin = plugin;
+        this.extensions = extensions;
         this.feature = feature;
         this.executor = executor;
         this.tabCompleter = tabCompleter;
@@ -40,7 +43,7 @@ public class FeatureCommand extends Command {
         if (!testPermission(sender)) {
             return true;
         }
-        if (!plugin.isFeatureEnabled(feature)) {
+        if (!extensions.isFeatureActive(feature)) {
             plugin.sendFeatureDisabled(sender);
             return true;
         }
@@ -58,7 +61,7 @@ public class FeatureCommand extends Command {
     }
 
     private List<String> complete(CommandSender sender, String alias, String[] args) {
-        if (tabCompleter == null || !plugin.isEnabled() || !plugin.isFeatureEnabled(feature)
+        if (tabCompleter == null || !plugin.isEnabled() || !extensions.isFeatureActive(feature)
                 || !testPermissionSilent(sender)) {
             return Collections.emptyList();
         }
