@@ -7,13 +7,13 @@ import net.md_5.bungee.api.chat.ComponentBuilder;
 import net.md_5.bungee.api.chat.HoverEvent;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.leng.Lengbanlist;
+import org.leng.download.DownloadService;
+import org.leng.download.DownloadSettings;
+import org.leng.download.MirrorChain;
+import org.leng.download.MirrorType;
+import org.leng.download.MirrorSpec;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
 import java.io.IOException;
-import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -164,24 +164,17 @@ public class GitHubUpdateChecker {
         return getLocalFileName(newVersion);
     }
 
-    private static int getConnectTimeout() {
-        return Lengbanlist.getInstance().getConfig().getInt("update-check.connect-timeout", 8000);
-    }
-
-    private static int getReadTimeout() {
-        return Lengbanlist.getInstance().getConfig().getInt("update-check.read-timeout", 10000);
+    /** 统一从 download.* 读取，缺失时回退到既有的 update-check.* 键。 */
+    private static DownloadSettings settings() {
+        return DownloadSettings.from(Lengbanlist.getInstance().getConfig(), "Lengbanlist-UpdateChecker");
     }
 
     public static String getUserAgent() {
-        String ua = Lengbanlist.getInstance().getConfig().getString("update-check.user-agent", "");
-        if (ua == null || ua.trim().isEmpty()) {
-            return "Lengbanlist-UpdateChecker";
-        }
-        return ua;
+        return settings().userAgent();
     }
 
-    private static boolean isSslVerify() {
-        return Lengbanlist.getInstance().getConfig().getBoolean("update-check.ssl-verify", true);
+    public static boolean isSslVerifyEnabled() {
+        return settings().sslVerify();
     }
 
     private static List<Mirror> loadMirrors() {
@@ -207,6 +200,12 @@ public class GitHubUpdateChecker {
                 }
             }
         } catch (Exception ignored) {
+        }
+        // 统一配置（download.overrides.update / download.mirrors）优先于内置默认
+        if (mirrors.isEmpty()) {
+            for (MirrorSpec spec : DownloadSettings.mirrors(Lengbanlist.getInstance().getConfig(), "update")) {
+                mirrors.add(new Mirror(spec.name(), spec.type().configName(), spec.url()));
+            }
         }
         if (mirrors.isEmpty()) {
             mirrors.add(new Mirror("gh-proxy", "github-proxy", "https://gh-proxy.com/https://api.github.com/repos/Serendisand/Lengbanlist/releases/latest"));
@@ -234,9 +233,14 @@ public class GitHubUpdateChecker {
                 return cachedInfo;
             }
             List<Mirror> mirrors = loadMirrors();
+            MirrorChain chain = new MirrorChain(toSpecs(mirrors));
             Exception lastException = null;
             for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
                 for (Mirror mirror : mirrors) {
+                    String host = MirrorSpec.hostOf(mirror.url);
+                    if (host != null && chain.unreachableHosts().contains(host)) {
+                        continue;
+                    }
                     if (!isPluginRunning()) {
                         throw new Exception("插件已停用，取消更新检查");
                     }
@@ -248,6 +252,10 @@ public class GitHubUpdateChecker {
                         return info;
                     } catch (Exception e) {
                         lastException = e;
+                        if (chain.noteFailure(mirror.url, e)) {
+                            Lengbanlist.getInstance().getLogger().info("更新检查：镜像源 " + host
+                                    + " 本次不可达，后续轮次将跳过它。");
+                        }
                         Lengbanlist.getInstance().getLogger().fine("更新检查失败：" + mirror.name
                                 + "（第" + attempt + "轮）— " + e.getMessage());
                     }
@@ -258,6 +266,14 @@ public class GitHubUpdateChecker {
             }
             throw new Exception("所有更新源均不可用（共 " + mirrors.size() + " 个镜像 × " + MAX_RETRIES + " 轮）", lastException);
         }
+    }
+
+    private static List<MirrorSpec> toSpecs(List<Mirror> mirrors) {
+        List<MirrorSpec> specs = new ArrayList<>(mirrors.size());
+        for (Mirror mirror : mirrors) {
+            specs.add(new MirrorSpec(mirror.name, MirrorType.fromConfig(mirror.type), mirror.url));
+        }
+        return specs;
     }
 
     private static UpdateInfo fetchFromMirror(Mirror mirror) throws Exception {
@@ -321,14 +337,12 @@ public class GitHubUpdateChecker {
     }
 
     private static String doFetch(String url) throws Exception {
-        if (!isSslVerify()) {
+        DownloadSettings current = settings();
+        if (!current.sslVerify()) {
             logSslWarningIfNeeded();
         }
-        try (org.leng.utils.HttpHelper http = new org.leng.utils.HttpHelper(
-                java.time.Duration.ofMillis(getConnectTimeout()),
-                java.time.Duration.ofMillis(getReadTimeout()),
-                !isSslVerify())) {
-            return http.get(url, getUserAgent(), "application/json");
+        try {
+            return new DownloadService(current).get(url, "application/json");
         } catch (java.io.IOException e) {
             throw new java.io.IOException("连接失败: " + url + "（" + e.getMessage() + "）", e);
         } catch (InterruptedException e) {
@@ -337,17 +351,7 @@ public class GitHubUpdateChecker {
         }
     }
 
-    private static final SSLSocketFactory INSECURE_SOCKET_FACTORY = createInsecureSocketFactory();
     private static volatile boolean sslWarningLogged = false;
-
-    public static boolean isSslVerifyEnabled() {
-        return isSslVerify();
-    }
-
-    @Deprecated
-    public static SSLSocketFactory getInsecureSocketFactory() {
-        return INSECURE_SOCKET_FACTORY;
-    }
 
     private static void logSslWarningIfNeeded() {
         if (!sslWarningLogged) {
@@ -356,26 +360,4 @@ public class GitHubUpdateChecker {
         }
     }
 
-    private static SSLSocketFactory createInsecureSocketFactory() {
-        try {
-            SSLContext context = SSLContext.getInstance("TLS");
-            context.init(null, new TrustManager[]{new X509TrustManager() {
-                @Override
-                public void checkClientTrusted(X509Certificate[] chain, String authType) {
-                }
-
-                @Override
-                public void checkServerTrusted(X509Certificate[] chain, String authType) {
-                }
-
-                @Override
-                public X509Certificate[] getAcceptedIssuers() {
-                    return new X509Certificate[0];
-                }
-            }}, null);
-            return context.getSocketFactory();
-        } catch (Exception e) {
-            return null;
-        }
-    }
 }

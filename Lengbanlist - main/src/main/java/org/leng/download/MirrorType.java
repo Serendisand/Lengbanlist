@@ -40,4 +40,15 @@ public enum MirrorType {
             default -> CUSTOM;
         };
     }
+
+    /** 反向映射回配置里的 type 字符串，供沿用字符串判别的既有消费方使用。 */
+    public String configName() {
+        return switch (this) {
+            case GITHUB -> "github";
+            case GITHUB_PROXY -> "github-proxy";
+            case JSDELIVR -> "jsdelivr";
+            case GITEE -> "gitee";
+            case CUSTOM -> "github";
+        };
+    }
 }
