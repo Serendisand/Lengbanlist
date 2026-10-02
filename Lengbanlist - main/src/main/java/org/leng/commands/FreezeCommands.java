@@ -62,7 +62,7 @@ public final class FreezeCommands {
                 Utils.sendMessage(sender, plugin.prefix() + "§c玩家 §f" + targetName + " §c不在线，无法冻结。");
                 return true;
             }
-            if (!plugin.getImmunityManager().canPunish(sender, target.getName())) {
+            if (!plugin.getPunishmentGate().canPunish(sender, target.getName())) {
                 Utils.sendMessage(sender, model == null
                         ? plugin.prefix() + "§c目标权限等级不低于你，无法冻结。"
                         : model.getImmunityDenied(target.getName()));

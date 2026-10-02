@@ -63,7 +63,7 @@ public final class WarnCommands {
             boolean isIp = target.contains(".");
 
 
-            if (!isIp && !plugin.getImmunityManager().canPunish(sender, target)) {
+            if (!isIp && !plugin.getPunishmentGate().canPunish(sender, target)) {
                 Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(target));
                 return false;
             }

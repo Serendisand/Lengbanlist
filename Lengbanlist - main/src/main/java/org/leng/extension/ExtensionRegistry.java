@@ -81,7 +81,7 @@ public final class ExtensionRegistry {
         // 扩展主类通常同时是 Bukkit 插件（设计上如此），据此决定配置目录与日志前缀；
         // 内置提供者没有自己的插件，落在核心数据目录下的 extensions/ 里。
         Plugin owner = extension instanceof Plugin bukkitPlugin ? bukkitPlugin : null;
-        ExtensionContextImpl context = new ExtensionContextImpl(plugin, id, new Registrar(reg), owner);
+        ExtensionContextImpl context = new ExtensionContextImpl(plugin, id, new Registrar(reg), reg.hooks, owner);
         reg.context = context;
         try {
             extension.onEnable(context);
@@ -92,6 +92,13 @@ public final class ExtensionRegistry {
 
         for (CommandSpec spec : reg.commands) {
             byFeature.putIfAbsent(spec.feature(), reg);
+        }
+        // 只提供钩子、没有命令的功能（如免疫系统）也要登记功能键归属，
+        // 否则 isFeatureActive 会把它当"未知功能"而只看向开关。
+        for (String feature : extension.features()) {
+            if (feature != null && !feature.isBlank()) {
+                byFeature.putIfAbsent(feature, reg);
+            }
         }
         notifyChanged();
         return context;
@@ -104,6 +111,7 @@ public final class ExtensionRegistry {
             return;
         }
         reg.enabled = false;
+        reg.hooks.clear();
         byFeature.values().removeIf(r -> r == reg);
         try {
             reg.extension.onDisable();
@@ -158,6 +166,17 @@ public final class ExtensionRegistry {
     }
 
     /**
+     * 取某个功能键归属扩展注册的钩子。
+     *
+     * <p>没有归属扩展、或该扩展没注册这种钩子时返回 {@code null}——
+     * 调用方据此回落到默认行为，这正是"扩展缺席不等于功能失效"的实现方式。
+     */
+    public <T> T hook(String feature, Class<T> type) {
+        Registration reg = byFeature.get(feature);
+        return reg == null ? null : reg.hooks.get(type);
+    }
+
+    /**
      * 统一门控：功能是否生效 = 归属提供者已启用 <b>且</b> {@code features.<key>} 开关为 true。
      *
      * <p>对内置提供者而言"已启用"恒为真，因此行为与改造前完全一致；
@@ -179,6 +198,7 @@ public final class ExtensionRegistry {
     private static final class Registration {
         private final LengbanlistExtension extension;
         private final List<CommandSpec> commands = new ArrayList<>();
+        private final HookRegistryImpl hooks = new HookRegistryImpl();
         private volatile boolean enabled = true;
         private ExtensionContextImpl context;
 

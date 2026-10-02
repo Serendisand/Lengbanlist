@@ -20,6 +20,13 @@ public interface ExtensionContext {
     /** 注册命令。扩展注册的命令会随该扩展启用/停用自动注册与注销。 */
     CommandRegistrar commands();
 
+    /**
+     * 注册钩子，把自己挂进核心的决策点（处罚放行、时长策略等）。
+     *
+     * <p>钩子同样随扩展启用/停用自动装卸；摘掉后核心回落到默认行为。
+     */
+    HookRegistry hooks();
+
     /** 该扩展私有的配置文件，位于 {@code plugins/<扩展名>/config.yml}。 */
     ExtensionConfig config();
 

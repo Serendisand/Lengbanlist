@@ -75,7 +75,8 @@ public final class BuiltinExtensions {
             Map.entry("mute", "禁言"),
             Map.entry("getip", "IP 归属地"),
             Map.entry("staffchat", "管理员频道"),
-            Map.entry("alts", "小号查询"));
+            Map.entry("alts", "小号查询"),
+            Map.entry("immunity", "权重免疫"));
 
     private static final List<Declaration> DECLARATIONS = List.of(
             d("ban", "ban", "lengbanlist.ban",
@@ -159,6 +160,21 @@ public final class BuiltinExtensions {
             }
         }
     }
+    /**
+     * 注册<b>只提供钩子、没有命令</b>的内置功能。
+     *
+     * <p>免疫系统就是这一类：它不注册任何命令，只在处罚决策点插一条策略。
+     * 把它登记为提供者，是为了让 {@code isFeatureActive("immunity")} 能正确回答
+     * "已安装 且 开启"，而不是回落到"未知功能只看开关"。
+     */
+    public static void registerHooks(Lengbanlist plugin, ExtensionRegistry registry) {
+        try {
+            registry.register(new HookProvider<>("immunity", org.leng.api.PunishmentDecisionHook.class,
+                    plugin.getImmunityManager()));
+        } catch (Exception e) {
+            plugin.getLogger().warning("注册内置钩子 immunity 失败: " + e);
+        }
+    }
 
     /** 核心 jar 内的功能提供者：没有自己的 Plugin，配置落在核心数据目录下。 */
     private static final class BuiltinProvider implements LengbanlistExtension {
@@ -189,6 +205,45 @@ public final class BuiltinExtensions {
         @Override
         public void onEnable(ExtensionContext context) {
             context.commands().register(commands.toArray(new CommandSpec[0]));
+        }
+    }
+
+    /** 无命令、只挂一条钩子的内置提供者。 */
+    private static final class HookProvider<T> implements LengbanlistExtension {
+
+        private final String id;
+        private final Class<T> hookType;
+        private final T hook;
+
+        private HookProvider(String id, Class<T> hookType, T hook) {
+            this.id = id;
+            this.hookType = hookType;
+            this.hook = hook;
+        }
+
+        @Override
+        public String id() {
+            return id;
+        }
+
+        @Override
+        public String name() {
+            return displayName(id);
+        }
+
+        @Override
+        public String version() {
+            return "";
+        }
+
+        @Override
+        public java.util.Set<String> features() {
+            return java.util.Set.of(id);
+        }
+
+        @Override
+        public void onEnable(ExtensionContext context) {
+            context.hooks().register(hookType, hook);
         }
     }
 }

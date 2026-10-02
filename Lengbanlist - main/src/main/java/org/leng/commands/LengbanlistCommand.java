@@ -495,7 +495,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     return true;
                 }
                 String handleTarget = handleReport.getTarget();
-                if (!plugin.getImmunityManager().canPunish(sender, handleTarget)) {
+                if (!plugin.getPunishmentGate().canPunish(sender, handleTarget)) {
                     Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(handleTarget));
                     return true;
                 }

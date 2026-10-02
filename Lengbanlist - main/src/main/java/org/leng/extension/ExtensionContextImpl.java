@@ -32,16 +32,19 @@ final class ExtensionContextImpl implements ExtensionContext {
     private final Lengbanlist plugin;
     private final String extensionId;
     private final CommandRegistrar commands;
+    private final HookRegistryImpl hooks;
     private final Plugin owner;
     private final Scheduler scheduler;
     private final Logger logger;
 
     private volatile ExtensionConfigImpl config;
 
-    ExtensionContextImpl(Lengbanlist plugin, String extensionId, CommandRegistrar commands, Plugin owner) {
+    ExtensionContextImpl(Lengbanlist plugin, String extensionId, CommandRegistrar commands,
+                          HookRegistryImpl hooks, Plugin owner) {
         this.plugin = plugin;
         this.extensionId = extensionId;
         this.commands = commands;
+        this.hooks = hooks;
         this.owner = owner;
         this.scheduler = new SchedulerAdapter(plugin);
         this.logger = owner != null
@@ -57,6 +60,11 @@ final class ExtensionContextImpl implements ExtensionContext {
     @Override
     public CommandRegistrar commands() {
         return commands;
+    }
+
+    @Override
+    public org.leng.api.HookRegistry hooks() {
+        return hooks;
     }
 
     @Override

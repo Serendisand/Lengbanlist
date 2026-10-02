@@ -4,11 +4,26 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
+import org.leng.api.PunishmentDecisionHook;
 
 import java.util.OptionalInt;
 import java.util.UUID;
 
-public class ImmunityManager {
+/**
+ * 权重免疫<b>策略</b>：实现 {@link PunishmentDecisionHook}，由核心作为内置提供者
+ * 注册到 {@code immunity} 功能键上。
+ *
+ * <p>职责边界（Phase 0.6 拆分后）：本类只回答"权重是多少"——权重从
+ * LuckPerms 组权重、{@code lengbanlist.weight.N} 权限、配置默认值三处依次取。
+ * "谁能罚谁"的判断与"策略缺席一律放行"的兜底都在
+ * {@link org.leng.extension.PunishmentGate}，因此本类不再自行检查
+ * {@code features.immunity}——是否启用由闸门统一决定。
+ *
+ * <p>Phase 3 会把这个类整体搬到 {@code Lengbanlist-Extensions} 的
+ * {@code punishpolicy} 模块；届时它只需在原位置注册同一个钩子，核心代码零改动。
+ */
+public class ImmunityManager implements PunishmentDecisionHook {
+
     private final Lengbanlist plugin;
     private Boolean luckPermsPresent;
 
@@ -16,31 +31,35 @@ public class ImmunityManager {
         this.plugin = plugin;
     }
 
-    public boolean canPunish(CommandSender staff, String targetName) {
-        if (!plugin.isFeatureEnabled("immunity")) {
-            return true;
+    @Override
+    public int operatorWeight(CommandSender staff) {
+        if (!(staff instanceof Player)) {
+            return Integer.MAX_VALUE;
         }
-        return getStaffWeight(staff) > getTargetWeight(targetName);
+        Player player = (Player) staff;
+        if (player.isOp()) {
+            return Integer.MAX_VALUE;
+        }
+        return resolveWeight(player);
     }
 
-    public boolean canPunish(int operatorWeight, String targetName) {
-        if (!plugin.isFeatureEnabled("immunity")) {
-            return true;
-        }
-        return operatorWeight > getTargetWeight(targetName);
+    @Override
+    public int webOperatorWeight() {
+        return plugin.getConfig().getInt("web.operator-weight", Integer.MAX_VALUE);
     }
 
-    public boolean canPunishTarget(int operatorWeight, String target) {
-        if (!plugin.isFeatureEnabled("immunity")) {
-            return true;
+    @Override
+    public int playerWeight(String targetName) {
+        Player target = plugin.getServer().getPlayer(targetName);
+        if (target == null) {
+            // 离线玩家不享受免疫
+            return Integer.MIN_VALUE;
         }
-        if (target != null && target.contains(".")) {
-            return operatorWeight > getIpTargetWeight(target);
-        }
-        return operatorWeight > getTargetWeight(target);
+        return resolveWeight(target);
     }
 
-    private int getIpTargetWeight(String ip) {
+    @Override
+    public int ipWeight(String ip) {
         int highest = Integer.MIN_VALUE;
         for (Player online : plugin.getServer().getOnlinePlayers()) {
             if (online.getAddress() == null || online.getAddress().getAddress() == null) {
@@ -56,29 +75,6 @@ public class ImmunityManager {
             }
         }
         return highest;
-    }
-
-    public int getWebOperatorWeight() {
-        return plugin.getConfig().getInt("web.operator-weight", Integer.MAX_VALUE);
-    }
-
-    public int getStaffWeight(CommandSender staff) {
-        if (!(staff instanceof Player)) {
-            return Integer.MAX_VALUE;
-        }
-        Player player = (Player) staff;
-        if (player.isOp()) {
-            return Integer.MAX_VALUE;
-        }
-        return resolveWeight(player);
-    }
-
-    public int getTargetWeight(String targetName) {
-        Player target = plugin.getServer().getPlayer(targetName);
-        if (target == null) {
-            return Integer.MIN_VALUE;
-        }
-        return resolveWeight(target);
     }
 
     private int resolveWeight(Player player) {

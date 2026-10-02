@@ -177,16 +177,29 @@ public interface ExtensionContext {
 
 ### 4.4 横切 Hook 设计
 
-核心在关键决策点暴露**有序 hook 链**，默认实现保持当前行为：
+核心在关键决策点暴露 hook，**策略缺席时回落到默认行为**——这是让"扩展被删掉"永远等于"功能回到默认"的关键。
 
-| Hook | 注册方 | 作用 |
-| --- | --- | --- |
-| `PunishmentDecisionHook` | immunity, escalation | 能否处罚 / 时长如何计算 |
-| `MessageRenderHook` | models | 文案替换 |
-| `CommandVisibilityHook` | 全部 | 替代 `Utils.canUse` + `HELP_FEATURES` 的分散判断 |
-| `PunishmentMutationListener` | sync, audit-chain, webhook | 处罚变更后的后置动作 |
+| Hook | 状态 | 注册方 | 缺席时的默认行为 |
+| --- | --- | --- | --- |
+| `PunishmentDecisionHook` | ✅ 已实现（0.6a） | immunity | **一律放行**（没装免疫 = 谁都能罚） |
+| `DurationPolicyHook` | 0.6b | escalation | 用调用方请求的时长，不做升级 |
+| 文案（models） | 0.6c，见下（改期到 0.4） | models | 回落到内置文案 |
+| `PunishmentMutationListener` | Phase 3 | sync / audit-chain / webhook | 无后置动作 |
 
-**Phase 0 的核心动作**：先把这 4 个 Hook 建好，把核心内的内联逻辑改为经 Hook 调用，功能**仍留在核心 jar 内**。此时行为必须零变化，由现有 309 个测试 + 新增 Hook 顺序测试证明。之后搬迁才是纯机械动作。
+**已实现（0.6a）的形状**
+
+- 钩子按**扩展**隔离存放（`HookRegistryImpl`）；核心按 **功能键 → 归属扩展 → 该扩展的钩子** 三级查找。扩展停用时只丢掉自己那一份，不存在"钩子还在但实现已失效"的中间态。
+- `isFeatureActive` 与钩子查找是**两件事**：前者回答"装了且开着吗"，后者回答"策略是什么"；`PunishmentGate` 把两者合起来，并负责第三件事——缺席时怎么办。
+- **一处必须保留的行为差异**：`canPunish` 按玩家权重、`canPunishTarget` 对含 `.` 的目标按 IP 权重。改造前就是两个方法，合并会改变线上行为；因此 IP 判定留在核心闸门里，钩子只提供两种权重。
+- 只提供钩子、没有命令的功能（immunity 就是）通过 `LengbanlistExtension.features()` 声明功能键，否则 `isFeatureActive` 会把它当"未知功能"而只看向开关。
+
+**0.6c 文案（models）为什么不能照搬 hook —— 改期到 0.4**
+
+文案不是"一个决策点"，而是约 40 个调用点、`Model` 上的上百个**强类型方法**（`getImmunityDenied(target)`、`onEscalatedBan(...)`、`addWarn(target, reason)` …）。把它们改成通用的 `render(key, args)` 会同时丢掉类型安全并触及全部 40 个调用点，收益为零。
+
+正确的形状是**服务**而不是每次调用的钩子：models 扩展提供一个 `Model` 实现，核心通过 `Messages` 门面取它，取不到时回落到内置文案（`ConsoleText` 已有这套兜底）。这属于 **0.4**（`Messages` 门面）的范畴，故在此说明并改期。
+
+**Phase 0 的核心动作**：把横切逻辑改为经 Hook 调用，功能**仍留在核心 jar 内**。此时行为必须零变化，由既有测试 + 新增 Hook 测试证明。之后搬迁才是纯机械动作。
 
 ### 4.5 向后兼容
 
@@ -398,7 +411,7 @@ download:
 | 0.3 | 核心新增 `ExtensionRegistry` + `CoreService`（注册进 ServicesManager）+ `ExtensionContextImpl`；命令表改为注册表驱动，内置功能经 `BuiltinExtensions` 注册为提供者 | 扩展注册 | ✅ 已完成 |
 | 0.4 | 核心新增 `ExtensionContext` 实现 + `DataStore` + `Scheduler`/`Messages`/`Config` 门面 | 扩展运行时 | 待做 |
 | 0.5 | 核心 18 个 manager 改为**按需构造**（依赖注册表而非无条件 `new`） | 薄核心 | 待做 |
-| 0.6 | 建立 4 条 Hook 链，把 immunity/escalation/models 的内联逻辑改为经 Hook 调用（功能仍留核心） | 解横切耦合 | 待做 |
+| 0.6 | 建立 Hook 链，把横切逻辑改为经 Hook 调用（功能仍留核心） | 解横切耦合 | 🟡 **0.6a 已完成**：`HookRegistry` + `PunishmentDecisionHook`，免疫的 14 处判断（19 个调用）改走 `PunishmentGate`。待做：**0.6b** 时长策略 escalation（6 处）、**0.6c** 文案 models（约 40 处，设计见 4.4） |
 | 0.7 | `Utils.canUse` / `CustomModel.filterDisabledFeatures` / `CommandRegistry.HELP_FEATURES` 统一走注册表 | 消除三处分散门控 | 🟡 部分完成：`HELP_FEATURES` 的 20 条命令条目已改为从 `BuiltinExtensions.declarations()` 派生（消除重复维护），`CommandRegistry` 与 `FeatureCommand` 已走统一门控；`Utils.canUse` 与 `CustomModel` 待做 |
 | 0.8 | 修复审计发现的 8 项开关缺陷（含 `unban-ip` 键、Web 侧未接门控） | 避免缺陷被继承 | 待做 |
 | 0.9 | `features.*` → `extensions.yml` 迁移 + 语义改为"已安装 且 开启" | 兼容与正确性 | 待做 |

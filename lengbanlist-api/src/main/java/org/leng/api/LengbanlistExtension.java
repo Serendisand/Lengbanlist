@@ -55,4 +55,15 @@ public interface LengbanlistExtension {
     /** 核心停用该扩展时调用。应当释放自己的资源（取消任务、保存配置）。 */
     default void onDisable() {
     }
+
+    /**
+     * 本扩展负责的功能键。
+     *
+     * <p>命令里声明的功能键会自动并入，这里只需列出<b>没有命令的功能</b>——
+     * 例如只提供钩子的免疫系统、只写审计的哈希链。核心据此判断
+     * "这个功能是否已安装"，也是 {@code extensions.yml} 与市场索引的对账依据。
+     */
+    default java.util.Set<String> features() {
+        return java.util.Set.of();
+    }
 }

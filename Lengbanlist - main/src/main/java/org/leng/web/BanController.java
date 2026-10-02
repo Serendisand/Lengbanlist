@@ -66,7 +66,7 @@ public class BanController extends WebController {
             AtomicReference<BanManager.BanMutationResult> mutationResult =
                     new AtomicReference<>(BanManager.BanMutationResult.DATABASE_ERROR);
             boolean completed = runSync(exchange, () -> {
-                if (!plugin.getImmunityManager().canPunishTarget(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
+                if (!plugin.getPunishmentGate().canPunishTarget(plugin.getPunishmentGate().webOperatorWeight(), target)) {
                     permissionDenied.set(true);
                     return;
                 }

@@ -40,7 +40,7 @@ public class WarnController extends WebController {
 
             AtomicReference<String> outcome = new AtomicReference<>("ok");
             boolean completed = runSync(exchange, () -> {
-                if (!plugin.getImmunityManager().canPunish(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
+                if (!plugin.getPunishmentGate().canPunish(plugin.getPunishmentGate().webOperatorWeight(), target)) {
                     outcome.set("403");
                     return;
                 }

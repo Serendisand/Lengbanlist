@@ -68,7 +68,7 @@ public final class BanCommands {
             String reason = resolvePresetReason(rawReason);
 
 
-            if (!plugin.getImmunityManager().canPunish(sender, target)) {
+            if (!plugin.getPunishmentGate().canPunish(sender, target)) {
                 Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(target));
                 return false;
             }
@@ -215,7 +215,7 @@ public final class BanCommands {
                 return false;
             }
 
-            if (!plugin.getImmunityManager().canPunishTarget(plugin.getImmunityManager().getStaffWeight(sender), args[0])) {
+            if (!plugin.getPunishmentGate().canPunishTarget(plugin.getPunishmentGate().staffWeight(sender), args[0])) {
                 Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(args[0]));
                 return false;
             }
@@ -415,7 +415,7 @@ public final class BanCommands {
             boolean isIp = banManager.isValidIpOrCidr(target);
 
 
-            if (!isIp && !plugin.getImmunityManager().canPunish(sender, target)) {
+            if (!isIp && !plugin.getPunishmentGate().canPunish(sender, target)) {
                 Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(target));
                 return true;
             }
@@ -592,7 +592,7 @@ public final class BanCommands {
                 return true;
             }
 
-            if (!plugin.getImmunityManager().canPunish(sender, target.getName())) {
+            if (!plugin.getPunishmentGate().canPunish(sender, target.getName())) {
                 Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(target.getName()));
                 return true;
             }

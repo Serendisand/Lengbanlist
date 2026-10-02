@@ -52,7 +52,7 @@ public class MuteController extends WebController {
 
             AtomicReference<String> outcome = new AtomicReference<>("ok");
             boolean completed = runSync(exchange, () -> {
-                if (!plugin.getImmunityManager().canPunish(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
+                if (!plugin.getPunishmentGate().canPunish(plugin.getPunishmentGate().webOperatorWeight(), target)) {
                     outcome.set("403");
                     return;
                 }
@@ -100,7 +100,7 @@ public class MuteController extends WebController {
 
             AtomicReference<Boolean> permissionDenied = new AtomicReference<>(false);
             boolean completed = runSync(exchange, () -> {
-                if (!plugin.getImmunityManager().canPunishTarget(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
+                if (!plugin.getPunishmentGate().canPunishTarget(plugin.getPunishmentGate().webOperatorWeight(), target)) {
                     permissionDenied.set(true);
                     return;
                 }

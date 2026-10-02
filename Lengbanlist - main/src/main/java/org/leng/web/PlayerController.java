@@ -147,7 +147,7 @@ public class PlayerController extends WebController {
                     outcome.set("404");
                     return;
                 }
-                if (!plugin.getImmunityManager().canPunish(plugin.getImmunityManager().getWebOperatorWeight(), target)) {
+                if (!plugin.getPunishmentGate().canPunish(plugin.getPunishmentGate().webOperatorWeight(), target)) {
                     outcome.set("403");
                     return;
                 }

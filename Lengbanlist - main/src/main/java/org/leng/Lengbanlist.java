@@ -11,6 +11,7 @@ import org.leng.commands.*;
 import org.leng.extension.BuiltinExtensions;
 import org.leng.extension.CoreService;
 import org.leng.extension.ExtensionRegistry;
+import org.leng.extension.PunishmentGate;
 import org.leng.listeners.*;
 import org.leng.manager.*;
 import org.leng.models.Model;
@@ -48,6 +49,7 @@ public class Lengbanlist extends JavaPlugin {
     private CommandRegistry commandRegistry;
     private ExtensionRegistry extensionRegistry;
     private CoreService coreService;
+    private PunishmentGate punishmentGate;
     private boolean isBroadcast;
     private FileConfiguration broadcastFC;
     private FileConfiguration chatConfig;
@@ -129,6 +131,7 @@ public void onLoad() {
     syncManager = new SyncManager(this);
     warnManager = new WarnManager(this);
     immunityManager = new ImmunityManager(this);
+    punishmentGate = new PunishmentGate(this);
     escalationManager = new EscalationManager(this);
     guiSessionManager = new GuiSessionManager();
     guiCommand = new GuiCommands.Gui(this);
@@ -273,8 +276,10 @@ public void onEnable() {
                 return;
             }
             hitokoto = fetchedHitokoto;
-            getServer().getConsoleSender().sendMessage(prefix()
-                    + ModelManager.getInstance().getCurrentModelName() + consoleText("tip", "tip", hitokoto));
+            // 只输出模型文案，不再前置模型名：模型自己的措辞（如"堂主悄悄告诉你"）
+            // 已经带了口吻，再挂一个 "Hutao" 是重复；而且这是全插件唯一一条
+            // 在 prefix() 之后又拼模型名的控制台消息，与 consoleMessage() 的约定不一致。
+            consoleMessage("tip", hitokoto);
         });
     });
 
@@ -302,6 +307,7 @@ public void onEnable() {
         extensionRegistry = new ExtensionRegistry(this);
         extensionRegistry.setOnChanged(this::refreshFeatureCommands);
         BuiltinExtensions.registerAll(this, extensionRegistry);
+        BuiltinExtensions.registerHooks(this, extensionRegistry);
         coreService = new CoreService(this, extensionRegistry);
         getServer().getServicesManager().register(org.leng.api.LengbanlistCore.class, coreService,
                 this, org.bukkit.plugin.ServicePriority.Normal);
@@ -525,6 +531,14 @@ void shutdownStorage() {
      */
     public ExtensionRegistry getExtensionRegistry() {
         return extensionRegistry;
+    }
+
+    /**
+     * 处罚放行闸门。命令与 Web 面板都必须经它判断"能不能罚"，
+     * 不要直接调用权重实现——闸门才负责"策略缺席时一律放行"的兜底。
+     */
+    public PunishmentGate getPunishmentGate() {
+        return punishmentGate;
     }
 
     public boolean isFeatureEnabled(String feature) {

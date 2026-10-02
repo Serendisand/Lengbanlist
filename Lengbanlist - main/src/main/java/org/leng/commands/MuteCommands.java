@@ -48,7 +48,7 @@ public final class MuteCommands {
             String timeArg = args[1];
             String rawReason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
             String reason = resolvePresetReason(rawReason);
-            if (IpMatcher.normalizeIpOrCidr(target) == null && !plugin.getImmunityManager().canPunish(sender, target)) {
+            if (IpMatcher.normalizeIpOrCidr(target) == null && !plugin.getPunishmentGate().canPunish(sender, target)) {
                 Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(target));
                 return true;
             }
