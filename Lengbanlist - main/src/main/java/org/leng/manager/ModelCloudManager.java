@@ -5,12 +5,17 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.leng.Lengbanlist;
+import org.leng.download.DownloadService;
+import org.leng.download.DownloadSettings;
+import org.leng.download.MirrorChain;
+import org.leng.download.MirrorSpec;
 import org.leng.utils.HttpHelper;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -25,18 +30,19 @@ public class ModelCloudManager {
     private static final String DEFAULT_REPO = "Serendisand/Lengbanlist-Models";
     private static final String DEFAULT_BRANCH = "main";
     private static final long INDEX_CACHE_TTL_MS = 24L * 60 * 60 * 1000;
-    private static final int HTTP_TIMEOUT_MS = 5000;
+    private static final String USER_AGENT = "Lengbanlist-ModelCloud/1.0";
     private static final DateTimeFormatter MONTH_FMT = DateTimeFormatter.ofPattern("yyyy-MM");
-    private static final java.util.regex.Pattern HTTP_STATUS_FAILURE = java.util.regex.Pattern.compile("^HTTP (\\d{3})");
 
     private final Lengbanlist plugin;
+    private final DownloadService downloads;
     private final AtomicReference<ModelIndex> cachedIndex = new AtomicReference<>();
     private volatile long cacheLoadedAt = 0;
-    private volatile boolean primaryUnreachable;
-    private volatile boolean primaryFailureLogged;
+    /** 当前任务的镜像链。每个任务重建，因此失败记忆是"按任务"的。 */
+    private volatile MirrorChain chain;
 
     public ModelCloudManager(Lengbanlist plugin) {
         this.plugin = plugin;
+        this.downloads = new DownloadService(DownloadSettings.from(plugin.getConfig(), USER_AGENT));
     }
 
     public record ModelInfo(String id, String name, String version, String author, String url, String sha256) {
@@ -89,14 +95,6 @@ public class ModelCloudManager {
     private static final java.util.regex.Pattern ID_PATTERN =
             java.util.regex.Pattern.compile("[a-z0-9-]{1,32}");
 
-    private static final String HTTPS_PREFIX = "https://";
-
-    private static boolean isAllowedUrl(String url) {
-        return url != null && (url.startsWith(HTTPS_PREFIX)
-                || url.startsWith("http://127.0.0.1")
-                || url.startsWith("http://localhost"));
-    }
-
     public static boolean isValidModelId(String id) {
         return id != null && ID_PATTERN.matcher(id).matches();
     }
@@ -120,102 +118,58 @@ public class ModelCloudManager {
 
     public List<String> mirrors() {
         List<String> list = plugin.getConfig().getStringList("models-cloud.mirrors");
-        if (list == null || list.isEmpty()) {
-
-            String baseRaw = "https://raw.githubusercontent.com/" + repo() + "/" + branch() + "/index.json";
-            list = List.of(
-                    baseRaw,
-                    "https://gh-proxy.com/" + baseRaw,
-                    "https://mirror.ghproxy.com/" + baseRaw
-            );
-        } else {
-
-            list = list.stream().filter(ModelCloudManager::isAllowedUrl).toList();
+        if (list != null && !list.isEmpty()) {
+            return list.stream().filter(ModelCloudManager::isAllowedUrl).toList();
         }
-        return list;
+        List<String> unified = DownloadSettings.mirrors(plugin.getConfig(), "models")
+                .stream().map(MirrorSpec::url).toList();
+        if (!unified.isEmpty()) {
+            return unified;
+        }
+        String baseRaw = "https://raw.githubusercontent.com/" + repo() + "/" + branch() + "/index.json";
+        return List.of(
+                baseRaw,
+                "https://gh-proxy.com/" + baseRaw,
+                "https://mirror.ghproxy.com/" + baseRaw
+        );
     }
 
-    void resetSourceMemory() {
-        primaryUnreachable = false;
-        primaryFailureLogged = false;
+    /** 开始一个新任务：按当前配置重建镜像链，清空上一任务的失败记忆。 */
+    private MirrorChain beginTask() {
+        MirrorChain fresh = new MirrorChain(toSpecs(mirrors()));
+        this.chain = fresh;
+        return fresh;
     }
 
-    private List<String> activeMirrors() {
-        return withoutPrimary(mirrors());
+    /** 取当前任务的镜像链；尚未开始任务时立刻开始一个。 */
+    private MirrorChain chain() {
+        MirrorChain current = chain;
+        return current != null ? current : beginTask();
     }
 
-    private List<String> withoutPrimary(List<String> urls) {
-        if (!primaryUnreachable) {
-            return urls;
+    private static List<MirrorSpec> toSpecs(List<String> urls) {
+        List<MirrorSpec> specs = new ArrayList<>(urls.size());
+        for (String url : urls) {
+            if (isAllowedUrl(url)) {
+                specs.add(MirrorSpec.custom(url));
+            }
         }
-        List<String> filtered = urls.stream().filter(url -> !isPrimaryHost(url)).toList();
-        return filtered.isEmpty() ? urls : filtered;
+        return specs;
     }
 
-    private String primaryHost() {
-        List<String> all = mirrors();
-        if (all.isEmpty()) {
-            return "";
-        }
-        try {
-            String host = java.net.URI.create(all.get(0)).getHost();
-            return host == null ? "" : host;
-        } catch (Exception e) {
-            return "";
-        }
-    }
-
-    private boolean isPrimaryHost(String url) {
-        String host = primaryHost();
-        if (host.isEmpty() || url == null || url.isEmpty()) {
-            return false;
-        }
-        try {
-            return host.equalsIgnoreCase(java.net.URI.create(url).getHost());
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    private void noteSourceFailure(String url, Exception error) {
-        if (primaryUnreachable || !isPrimaryHost(url) || !isUnreachableFailure(error)) {
-            return;
-        }
-        primaryUnreachable = true;
-        if (!primaryFailureLogged) {
-            primaryFailureLogged = true;
-            plugin.getLogger().info("[ModelCloud] 主源 " + primaryHost() + " 本次任务不可达（" + error.getMessage()
-                    + "），后续下载直接走镜像；下次任务仍会先试主源。");
-        }
+    private static boolean isAllowedUrl(String url) {
+        return DownloadService.isAllowedUrl(url);
     }
 
     static boolean isUnreachableFailure(Exception error) {
-        if (error instanceof InterruptedException) {
-            return true;
-        }
-        if (!(error instanceof IOException)) {
-            return false;
-        }
-        String message = error.getMessage();
-        if (message == null) {
-            return true;
-        }
-        java.util.regex.Matcher matcher = HTTP_STATUS_FAILURE.matcher(message);
-        if (!matcher.find()) {
-            return true;
-        }
-        try {
-            return Integer.parseInt(matcher.group(1)) >= 500;
-        } catch (NumberFormatException e) {
-            return false;
-        }
+        return MirrorChain.isUnreachableFailure(error);
     }
 
     public Optional<ModelIndex> fetchIndex() {
-        resetSourceMemory();
-        for (String url : activeMirrors()) {
-            try (HttpHelper http = new HttpHelper(HTTP_TIMEOUT_MS, HTTP_TIMEOUT_MS)) {
-                String body = http.get(url, "Lengbanlist-ModelCloud/1.0", "application/json");
+        MirrorChain task = beginTask();
+        for (String url : task.filterUnreachable(mirrors())) {
+            try {
+                String body = downloads.get(url, "application/json");
                 JsonObject obj = JsonParser.parseString(body).getAsJsonObject();
                 ModelIndex index = ModelIndex.fromJson(obj);
                 cachedIndex.set(index);
@@ -223,7 +177,10 @@ public class ModelCloudManager {
                 writeIndexCache(body);
                 return Optional.of(index);
             } catch (IOException | InterruptedException e) {
-                noteSourceFailure(url, e);
+                if (task.noteFailure(url, e)) {
+                    plugin.getLogger().info("[ModelCloud] 镜像源 " + MirrorSpec.hostOf(url)
+                            + " 本次任务不可达（" + e.getMessage() + "），后续请求将跳过它；下次任务仍会先试它。");
+                }
                 plugin.getLogger().log(Level.WARNING, "[ModelCloud] 镜像拉取失败: " + url + " — " + e.getMessage());
                 if (e instanceof InterruptedException) {
                     Thread.currentThread().interrupt();
@@ -506,7 +463,7 @@ public class ModelCloudManager {
         if (!isValidModelId(id)) {
             return InstallResult.NOT_FOUND;
         }
-        resetSourceMemory();
+        beginTask();
         String lower = id.toLowerCase();
         if (isPinned(lower)) {
             return InstallResult.PINNED_SKIPPED;
@@ -525,7 +482,7 @@ public class ModelCloudManager {
     }
 
     public int syncAll() {
-        resetSourceMemory();
+        beginTask();
         Optional<ModelIndex> idx = getIndex();
         if (idx.isEmpty()) {
             return 0;
@@ -566,20 +523,32 @@ public class ModelCloudManager {
             plugin.getLogger().warning("[ModelCloud] 模型 " + id + " 的写入路径越界,已拒绝");
             return InstallResult.FAILED;
         }
-        for (String url : withoutPrimary(modelDownloadCandidates(info))) {
+        MirrorChain task = chain();
+        Path staged = target.resolveSibling(id + ".yml.staged");
+        for (String url : task.filterUnreachable(modelDownloadCandidates(info))) {
 
             if (!isAllowedUrl(url)) {
                 continue;
             }
-            try (HttpHelper http = new HttpHelper(HTTP_TIMEOUT_MS, HTTP_TIMEOUT_MS)) {
-                String body = http.get(url, "Lengbanlist-ModelCloud/1.0", "text/yaml");
+            try {
+                // 先落到 staged：索引给了 sha256 就校验，通过后才改名到正式文件，
+                // 避免半截内容或被篡改的模型进入 models/。
+                DownloadService.DownloadResult result =
+                        downloads.downloadToFile(url, staged, info.sha256(), "text/yaml");
 
+                if (!result.ok()) {
+                    plugin.getLogger().warning("[ModelCloud] 模型 " + id
+                            + " 校验未通过,拒绝安装 (" + url + "): " + result.error());
+                    continue;
+                }
+
+                String body = Files.readString(staged, StandardCharsets.UTF_8);
                 if (!body.contains("name:")) {
                     plugin.getLogger().warning("[ModelCloud] 模型 " + id + " 下载内容缺少 name 字段,拒绝安装 (" + url + ")");
                     return InstallResult.FAILED;
                 }
                 Files.createDirectories(target.getParent());
-                Files.writeString(target, body, StandardCharsets.UTF_8);
+                Files.move(staged, target, StandardCopyOption.REPLACE_EXISTING);
                 if (info.version() != null && !info.version().isEmpty()) {
                     setMetaValue(id, META_PREFIX_VERSION, info.version());
                 }
@@ -587,13 +556,21 @@ public class ModelCloudManager {
                 recordInstall(id);
                 return InstallResult.INSTALLED;
             } catch (IOException | InterruptedException e) {
-                noteSourceFailure(url, e);
+                if (task.noteFailure(url, e)) {
+                    plugin.getLogger().info("[ModelCloud] 镜像源 " + MirrorSpec.hostOf(url)
+                            + " 本次任务不可达（" + e.getMessage() + "），后续请求将跳过它。");
+                }
                 plugin.getLogger().log(Level.FINE, "[ModelCloud] 下载候选失败: " + url + " — " + e.getMessage());
                 if (e instanceof InterruptedException) {
                     Thread.currentThread().interrupt();
                     return InstallResult.FAILED;
                 }
             }
+        }
+        try {
+            Files.deleteIfExists(staged);
+        } catch (IOException ignored) {
+            // 清理失败不影响返回值
         }
         plugin.getLogger().warning("[ModelCloud] 模型下载失败: " + id + "（所有镜像均不可用）");
         return InstallResult.FAILED;
