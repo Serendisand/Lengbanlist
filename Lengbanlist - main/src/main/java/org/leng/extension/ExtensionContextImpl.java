@@ -36,6 +36,9 @@ final class ExtensionContextImpl implements ExtensionContext {
     private final Plugin owner;
     private final Scheduler scheduler;
     private final Logger logger;
+    private final org.leng.api.Messages messages;
+    private final org.leng.api.DataStore data;
+    private final org.leng.api.Services services;
 
     private volatile ExtensionConfigImpl config;
 
@@ -47,9 +50,27 @@ final class ExtensionContextImpl implements ExtensionContext {
         this.hooks = hooks;
         this.owner = owner;
         this.scheduler = new SchedulerAdapter(plugin);
+        this.messages = new ExtensionFacades.MessagesImpl();
+        this.data = new ExtensionFacades.DataStoreImpl(plugin, extensionId);
+        this.services = new ExtensionFacades.ServicesImpl(plugin);
         this.logger = owner != null
                 ? new PrefixedLogger(plugin.getLogger(), owner.getName())
                 : new PrefixedLogger(plugin.getLogger(), extensionId);
+    }
+
+    @Override
+    public org.leng.api.Messages messages() {
+        return messages;
+    }
+
+    @Override
+    public org.leng.api.DataStore data() {
+        return data;
+    }
+
+    @Override
+    public org.leng.api.Services services() {
+        return services;
     }
 
     @Override

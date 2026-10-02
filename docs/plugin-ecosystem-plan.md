@@ -175,6 +175,20 @@ public interface ExtensionContext {
 - **零第三方依赖**（受 SPIGOT-6502 约束）；JSON 若需要，暴露核心的 Gson 实例而不是让扩展自带
 - 旧 `LengbanlistAPI` 门面**直接删除**（用户决定）：它对外是"API"，对内从未被使用，全仓只有两处 `register`/`unregister` 调用，也没有任何测试覆盖。删除后核心不再持有 `org.leng.api` 包，**此前的 split package 问题一并消失**。这是对外破坏性变更，必须在发布说明与 README 中写明；它的替代品是 0.2b 定义的服务接口。
 
+### 4.3b 扩展可用的核心能力（0.4 落地）
+
+`ExtensionContext` 新增三个门面，全部是**薄委托**——只把调用转给已有 manager，
+不复制任何业务逻辑，因此扩展看到的行为与命令层永远一致。
+
+| 门面 | 内容 | 关键决定 |
+| --- | --- | --- |
+| `messages()` | `current()` / `currentName()` | **直接暴露 `Model` 接口**（已移入契约模块），不做 `render(key, args)`。理由是 `Model` 上有上百个强类型方法，参数语义各不相同，压成通用渲染会同时丢掉类型安全与可读性，收益只是少一个类型 |
+| `data()` | `connection()` / `tablePrefix()` / `isNetworkDatabase()` | 连接是**从核心池借出**，扩展必须自行关闭（try-with-resources）。扩展**不得自建连接池**：既浪费连接数，也会在单机 SQLite 场景与核心抢同一个文件锁。表名前缀 `ext_<id>_`（连字符转下划线）用于与核心表、其它扩展隔离 |
+| `services()` | `bans()` / `mutes()` / `warnings()` | 写处罚**必须走这里**，不要直接写核心表——核心在写入时会一并处理缓存失效、审计留痕、跨服广播与在服玩家踢出。刻意不暴露内部的 `BanMutationResult`，写操作统一返回 `boolean`，避免把核心内部类型泄进契约 |
+
+`Model` 移入契约模块时**包名保持不变**（`org.leng.models`），因此全仓零 import 改动；
+`CustomModel` 仍留在核心实现它。
+
 ### 4.4 横切 Hook 设计
 
 核心在关键决策点暴露 hook，**策略缺席时回落到默认行为**——这是让"扩展被删掉"永远等于"功能回到默认"的关键。
@@ -409,8 +423,8 @@ download:
 | 0.2a | 新建 `lengbanlist-api`：迁入 `org.leng.object.*`（10 个数据对象）与 `org.leng.api.events.*`（8 个事件），**包名不变** | 编译期契约 | ✅ 已完成 `c855442` |
 | 0.2b | 契约模块新增 `LengbanlistExtension` / `LengbanlistCore` / `ExtensionContext` / `CommandSpec` / `CommandRegistrar` / `ExtensionConfig` / `Scheduler` / `Cancellable` / `ApiVersion`。**服务接口与 Hook 接口推迟到 0.4/0.6**，与真正的消费方一起定义，不做超前设计 | 扩展契约 | ✅ 已完成 |
 | 0.3 | 核心新增 `ExtensionRegistry` + `CoreService`（注册进 ServicesManager）+ `ExtensionContextImpl`；命令表改为注册表驱动，内置功能经 `BuiltinExtensions` 注册为提供者 | 扩展注册 | ✅ 已完成 |
-| 0.4 | 核心新增 `ExtensionContext` 实现 + `DataStore` + `Scheduler`/`Messages`/`Config` 门面 | 扩展运行时 | 待做 |
-| 0.5 | 核心 18 个 manager 改为**按需构造**（依赖注册表而非无条件 `new`） | 薄核心 | 待做 |
+| 0.4 | 核心新增 `ExtensionContext` 实现 + `DataStore` + `Scheduler`/`Messages`/`Config` 门面 | 扩展运行时 | ✅ 已完成（`Model` 移入契约模块、`Messages`/`DataStore`/`Services` 三个门面 + 薄委托实现）。文案外部化见 0.11/0.6c |
+| 0.5 | 核心 18 个 manager 改为**按需构造**（依赖注册表而非无条件 `new`） | 薄核心 | 待做（纯优化，不在扩展落地的关键路径上） |
 | 0.6 | 建立 Hook 链，把横切逻辑改为经 Hook 调用（功能仍留核心） | 解横切耦合 | ✅ **0.6a**（免疫，19 个调用 → `PunishmentGate`）与 **0.6b**（时长，6 个调用 → `DurationPolicy`）完成；**0.6c 文案并入 0.4**（原因见 4.4） |
 | 0.7 | `Utils.canUse` / `CustomModel.filterDisabledFeatures` / `CommandRegistry.HELP_FEATURES` 统一走注册表 | 消除三处分散门控 | ✅ 已完成：三处都改为经 `Lengbanlist.isFeatureActive`（新增的空安全包装，注册表未建立时退回只看开关）或注册表 |
 | 0.8 | 修复审计发现的 8 项开关缺陷 | 避免缺陷被继承 | ✅ 完成 7 项；1 项判定为**非缺陷**：`StatsController` 是面板仪表盘，聚合封禁/禁言/警告等多来源数据，没有对应的单一功能键，而面板本身已由 `web.enabled` 把关 |

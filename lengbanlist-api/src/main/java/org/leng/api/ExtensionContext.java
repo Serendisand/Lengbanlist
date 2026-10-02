@@ -27,6 +27,21 @@ public interface ExtensionContext {
      */
     HookRegistry hooks();
 
+    /**
+     * 文案门面：取当前模型，让提示语带上服务器选定的人设口吻。
+     * 取不到模型时 {@link Messages#current()} 返回 {@code null}，调用方需自行兜底。
+     */
+    Messages messages();
+
+    /**
+     * 数据门面：复用核心已建好的连接池读写扩展自己的表。
+     * <b>不要在扩展里自建连接池</b>，理由见 {@link DataStore}。
+     */
+    DataStore data();
+
+    /** 核心开放的读写服务（封禁 / 禁言 / 警告）。写处罚请走这里，不要直接写核心表。 */
+    Services services();
+
     /** 该扩展私有的配置文件，位于 {@code plugins/<扩展名>/config.yml}。 */
     ExtensionConfig config();
 
