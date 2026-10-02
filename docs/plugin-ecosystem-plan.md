@@ -112,7 +112,7 @@ lengbanlist-parent                     (pom, packaging=pom)
 ├── lengbanlist-api                    纯契约，零第三方依赖（仅 spigot-api provided）
 └── Lengbanlist - main                 主插件（artifactId: Lengbanlist），实现契约，shade JDBC
 
-仓库二：Serendisand/Lengbanlist-Extensions（18 个模块 + 市场索引，已创建）
+仓库二：Serendisand/Lengbanlist-Extensions（10 个模块 + 市场索引，已创建）
 lengbanlist-extensions-parent          (pom, packaging=pom)
 ├── vanish, staffchat, broadcast                          第一批：无表无横切
 ├── freeze, chestui, report, appeal, chatfilter,
@@ -525,12 +525,15 @@ sha256 不匹配 · 下载中断 · 缺依赖扩展 · API 版本不满足 · �
 
 ## 9. 仓库与分发拓扑
 
-**结论（已定）：核心与扩展分两个仓库；18 个官方扩展集中在 `Lengbanlist-Extensions` 做多模块；市场索引与该仓库同址。**
+**结论（已定）：核心与扩展分两个仓库；官方扩展集中在 `Lengbanlist-Extensions` 做多模块；市场索引与该仓库同址。**
+
+> 扩展数量经整合由 18 个降为 **10 个**（按同一领域/同一生命周期合并，理由见 `docs/extension-catalog.md` 第二节）。
+> 合并的动机是维护成本：初版有 8 个模块不足 300 行，却各自要一个 bStats 页面、一份 README、一次发版。
 
 | 仓库 | 内容 | 状态 |
 | --- | --- | --- |
 | `Serendisand/Lengbanlist`（现有） | 核心 + `lengbanlist-api` 契约模块 | 已有 |
-| `Serendisand/Lengbanlist-Extensions` | **18 个官方扩展的多模块工程** + 市场索引 `index.json` + 各扩展 jar 的 Releases | ✅ 已创建 |
+| `Serendisand/Lengbanlist-Extensions` | **10 个官方扩展的多模块工程** + 市场索引 `index.json` + 各扩展 jar 的 Releases | ✅ 已创建 |
 | `Serendisand/Lengbanlist-Ext-Template` | 第三方扩展脚手架（GitHub Template Repository） | Phase 5 再建 |
 | 第三方作者自己的仓库 | 各自的扩展 | 与我们无关 |
 
@@ -538,7 +541,7 @@ sha256 不匹配 · 下载中断 · 缺依赖扩展 · API 版本不满足 · �
 
 **为什么官方扩展集中在一个仓库做多模块，而不是每个扩展一个仓库**（用户决定）
 
-- 官方扩展与核心共享 `lengbanlist-api` 的版本契约：一次 CI 就能全量验证 18 个扩展对当前 API 编译通过；改 API 时可在同一个 PR 内同步修正全部受影响扩展。拆成 18 个仓库后，"改一次 API → 开 18 个 PR → 等 18 条 CI"会变成不可维护的负担
+- 官方扩展与核心共享 `lengbanlist-api` 的版本契约：一次 CI 就能全量验证全部扩展对当前 API 编译通过；改 API 时可在同一个 PR 内同步修正全部受影响扩展。拆成多个仓库后，"改一次 API → 开 N 个 PR → 等 N 条 CI"会变成不可维护的负担
 - 发布流水线、CI 模板、sha256 生成只需维护一份
 - 代价：无法在仓库根展示各扩展的 bStats 徽章，徽章放进各模块子目录的 `README.md`（如 `vanish/README.md`）
 
@@ -558,7 +561,7 @@ sha256 不匹配 · 下载中断 · 缺依赖扩展 · API 版本不满足 · �
 **剩余待你协助**
 
 1. **`Serendisand/Lengbanlist-Ext-Template`** —— 需要，但属于 Phase 5（面向第三方作者），现在不急
-2. **bStats 数字 ID** —— 你为 18 个扩展各建一个页面后把 ID 给我，我接进各扩展并加 README 徽章
+2. **bStats 数字 ID** —— 你为 10 个扩展各建一个页面后把 ID 给我，我接进各扩展并加 README 徽章
 
 ---
 
