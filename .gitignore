@@ -17,3 +17,5 @@ dependency-reduced-pom.xml
 *.cjs
 msg-*.tmp
 
+# ---------- 交接文档（不入库） ----------
+/HANDOFF.md
