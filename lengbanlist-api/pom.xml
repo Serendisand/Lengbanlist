@@ -25,11 +25,16 @@
            运行时由核心的 classloader 提供（靠扩展 plugin.yml 的 depend: [Lengbanlist]）。
     </description>
 
+    <!-- 发布到 GitHub Packages -->
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Lengbanlist Apache Maven Packages</name>
+            <url>https://maven.pkg.github.com/serendisand/Lengbanlist</url>
+        </repository>
+    </distributionManagement>
+
     <dependencies>
-        <!-- 只取 Bukkit API 本身，显式排除它的全部传递依赖（含 gson 2.8.0）。
-             契约模块必须零第三方依赖：Spigot 上插件无法从传递依赖加载库（SPIGOT-6502），
-             且本模块只用到 org.bukkit.event 与 org.bukkit.configuration.serialization，
-             这些类不把 gson 类型暴露在签名上，编译期不需要它。 -->
         <dependency>
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-api</artifactId>
@@ -43,8 +48,6 @@
             </exclusions>
         </dependency>
 
-        <!-- 契约模块自己的单元测试。版本范围判断这类纯逻辑必须在这里就被钉住，
-             否则等到扩展启用失败才发现，代价大得多。 -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
