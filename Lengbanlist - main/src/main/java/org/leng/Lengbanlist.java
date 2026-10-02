@@ -133,7 +133,6 @@ public void onLoad() {
     }
 
     banManager = new BanManager(this);
-    syncManager = new SyncManager(this);
     warnManager = new WarnManager(this);
     immunityManager = new ImmunityManager(this);
     punishmentGate = new PunishmentGate(this);
@@ -141,17 +140,6 @@ public void onLoad() {
     escalationManager = new EscalationManager(this);
     guiSessionManager = new GuiSessionManager();
     guiCommand = new GuiCommands.Gui(this);
-    modelCloudManager = new ModelCloudManager(this);
-    webhookNotifier = new WebhookNotifier(this);
-    auditManager = new AuditManager(this);
-    reportManager = new ReportManager(this);
-    appealManager = new AppealManager(this);
-    ipAssociationManager = new IpAssociationManager(this);
-    themeManager = new ThemeManager(this);
-    vanishManager = new VanishManager(this);
-    freezeManager = new FreezeManager(this);
-    wizardManager = new WizardManager(this);
-    broadCastManager = new BroadCastManager(this);
     webServer = new WebServer(this);
     isBroadcast = getConfig().getBoolean("opensendtime");
 
@@ -342,7 +330,7 @@ public void onEnable() {
 
     if (getConfig().getBoolean("web.enabled", false)) {
         if (webServer.start()) {
-            themeManager.refreshBingBackgroundAsync();
+            getThemeManager().refreshBingBackgroundAsync();
         }
     }
 
@@ -354,8 +342,8 @@ public void onEnable() {
     startHistoryCleanupTask();
     startIdentityBackfillTask();
 
-    if (syncManager != null && isFeatureActive("sync")) {
-        syncManager.startAutoSync();
+    if (isFeatureActive("sync")) {
+        getSyncManager().startAutoSync();
     }
 
     if (isFeatureEnabled("expiry-reminder")) {
@@ -462,7 +450,7 @@ void shutdownStorage() {
         long interval = Math.max(getConfig().getInt("sendtime") * 1200L, 1200L);
         long delay = 200L;
         broadcastTask = SchedulerUtils.runTaskTimer(this,
-                broadCastManager, delay, interval);
+                getBroadCastManager(), delay, interval);
     }
 
     private void startIdentityBackfillTask() {
@@ -637,6 +625,13 @@ void shutdownStorage() {
     }
 
     public SyncManager getSyncManager() {
+        if (syncManager == null) {
+            synchronized (this) {
+                if (syncManager == null) {
+                    syncManager = new SyncManager(this);
+                }
+            }
+        }
         return syncManager;
     }
 
@@ -669,6 +664,13 @@ void shutdownStorage() {
     }
 
     public ModelCloudManager getModelCloudManager() {
+        if (modelCloudManager == null) {
+            synchronized (this) {
+                if (modelCloudManager == null) {
+                    modelCloudManager = new ModelCloudManager(this);
+                }
+            }
+        }
         return modelCloudManager;
     }
 
@@ -677,22 +679,57 @@ void shutdownStorage() {
     }
 
     public AuditManager getAuditManager() {
+        if (auditManager == null) {
+            synchronized (this) {
+                if (auditManager == null) {
+                    auditManager = new AuditManager(this);
+                }
+            }
+        }
         return auditManager;
     }
 
     public WebhookNotifier getWebhookNotifier() {
+        if (webhookNotifier == null) {
+            synchronized (this) {
+                if (webhookNotifier == null) {
+                    webhookNotifier = new WebhookNotifier(this);
+                }
+            }
+        }
         return webhookNotifier;
     }
 
     public ReportManager getReportManager() {
+        if (reportManager == null) {
+            synchronized (this) {
+                if (reportManager == null) {
+                    reportManager = new ReportManager(this);
+                }
+            }
+        }
         return reportManager;
     }
 
     public AppealManager getAppealManager() {
+        if (appealManager == null) {
+            synchronized (this) {
+                if (appealManager == null) {
+                    appealManager = new AppealManager(this);
+                }
+            }
+        }
         return appealManager;
     }
 
     public IpAssociationManager getIpAssociationManager() {
+        if (ipAssociationManager == null) {
+            synchronized (this) {
+                if (ipAssociationManager == null) {
+                    ipAssociationManager = new IpAssociationManager(this);
+                }
+            }
+        }
         return ipAssociationManager;
     }
 
@@ -717,22 +754,57 @@ void shutdownStorage() {
     }
 
     public ThemeManager getThemeManager() {
+        if (themeManager == null) {
+            synchronized (this) {
+                if (themeManager == null) {
+                    themeManager = new ThemeManager(this);
+                }
+            }
+        }
         return themeManager;
     }
 
     public VanishManager getVanishManager() {
+        if (vanishManager == null) {
+            synchronized (this) {
+                if (vanishManager == null) {
+                    vanishManager = new VanishManager(this);
+                }
+            }
+        }
         return vanishManager;
     }
 
     public FreezeManager getFreezeManager() {
+        if (freezeManager == null) {
+            synchronized (this) {
+                if (freezeManager == null) {
+                    freezeManager = new FreezeManager(this);
+                }
+            }
+        }
         return freezeManager;
     }
 
     public WizardManager getWizardManager() {
+        if (wizardManager == null) {
+            synchronized (this) {
+                if (wizardManager == null) {
+                    wizardManager = new WizardManager(this);
+                }
+            }
+        }
         return wizardManager;
     }
 
     public BroadCastManager getBroadCastManager() {
+        if (broadCastManager == null) {
+            synchronized (this) {
+                if (broadCastManager == null) {
+                    broadCastManager = new BroadCastManager(this);
+                }
+            }
+        }
         return broadCastManager;
     }
 

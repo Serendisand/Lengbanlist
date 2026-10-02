@@ -424,7 +424,7 @@ download:
 | 0.2b | 契约模块新增 `LengbanlistExtension` / `LengbanlistCore` / `ExtensionContext` / `CommandSpec` / `CommandRegistrar` / `ExtensionConfig` / `Scheduler` / `Cancellable` / `ApiVersion`。**服务接口与 Hook 接口推迟到 0.4/0.6**，与真正的消费方一起定义，不做超前设计 | 扩展契约 | ✅ 已完成 |
 | 0.3 | 核心新增 `ExtensionRegistry` + `CoreService`（注册进 ServicesManager）+ `ExtensionContextImpl`；命令表改为注册表驱动，内置功能经 `BuiltinExtensions` 注册为提供者 | 扩展注册 | ✅ 已完成 |
 | 0.4 | 核心新增 `ExtensionContext` 实现 + `DataStore` + `Scheduler`/`Messages`/`Config` 门面 | 扩展运行时 | ✅ 已完成（`Model` 移入契约模块、`Messages`/`DataStore`/`Services` 三个门面 + 薄委托实现）。文案外部化见 0.11/0.6c |
-| 0.5 | 核心 18 个 manager 改为**按需构造**（依赖注册表而非无条件 `new`） | 薄核心 | 待做（纯优化，不在扩展落地的关键路径上） |
+| 0.5 | 核心 18 个 manager 改为**按需构造**（依赖注册表而非无条件 `new`） | 薄核心 | ✅ 已完成：12 个可选功能的 manager 改为惰性双检锁构造；常开的 `databaseManager`/`muteManager`/`ban`/`warn`/`immunity`/`escalation` 保持立即构造（惰性无收益，且 `muteManager` 的构造是 DB 校验的一环） |
 | 0.6 | 建立 Hook 链，把横切逻辑改为经 Hook 调用（功能仍留核心） | 解横切耦合 | ✅ **0.6a**（免疫，19 个调用 → `PunishmentGate`）与 **0.6b**（时长，6 个调用 → `DurationPolicy`）完成；**0.6c 文案并入 0.4**（原因见 4.4） |
 | 0.7 | `Utils.canUse` / `CustomModel.filterDisabledFeatures` / `CommandRegistry.HELP_FEATURES` 统一走注册表 | 消除三处分散门控 | ✅ 已完成：三处都改为经 `Lengbanlist.isFeatureActive`（新增的空安全包装，注册表未建立时退回只看开关）或注册表 |
 | 0.8 | 修复审计发现的 8 项开关缺陷 | 避免缺陷被继承 | ✅ 完成 7 项；1 项判定为**非缺陷**：`StatsController` 是面板仪表盘，聚合封禁/禁言/警告等多来源数据，没有对应的单一功能键，而面板本身已由 `web.enabled` 把关 |
