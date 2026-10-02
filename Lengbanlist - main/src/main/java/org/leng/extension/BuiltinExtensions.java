@@ -76,7 +76,30 @@ public final class BuiltinExtensions {
             Map.entry("getip", "IP 归属地"),
             Map.entry("staffchat", "管理员频道"),
             Map.entry("alts", "小号查询"),
-            Map.entry("immunity", "权重免疫"));
+            Map.entry("immunity", "权重免疫"),
+            // 以下功能没有自己的命令或钩子，行为分散在核心各处（GUI 按钮、监听器、
+            // 定时任务、Web 端点）。登记它们是为了让 isFeatureActive 能回答
+            // "已安装 且 开启"，而不是回落到"未知功能只看开关"。
+            Map.entry("vanish", "管理员隐身"),
+            Map.entry("freeze", "冻结玩家"),
+            Map.entry("appeal", "封禁申诉"),
+            Map.entry("model", "角色模型"),
+            Map.entry("tp", "传送"),
+            Map.entry("chest-ui", "箱子 GUI"),
+            Map.entry("broadcast", "封禁广播"),
+            Map.entry("mute-command-block", "禁言期指令屏蔽"),
+            Map.entry("ip-association", "IP 关联检测"),
+            Map.entry("vpn-detection", "VPN 检测"),
+            Map.entry("expiry-reminder", "封禁到期提醒"),
+            Map.entry("offline-warn", "离线警告"),
+            Map.entry("audit", "审计日志"),
+            Map.entry("audit-chain", "审计哈希链"),
+            Map.entry("export", "审计导出"),
+            Map.entry("sync", "跨服数据同步"),
+            Map.entry("rollback", "操作回滚"),
+            Map.entry("auto-update", "自动更新"),
+            Map.entry("webhook-events", "Webhook 推送"),
+            Map.entry("reload", "配置重载"));
 
     private static final List<Declaration> DECLARATIONS = List.of(
             d("ban", "ban", "lengbanlist.ban",
@@ -180,6 +203,65 @@ public final class BuiltinExtensions {
             registry.register(new HookProvider<>(feature, type, hook));
         } catch (Exception e) {
             plugin.getLogger().warning("注册内置钩子 " + feature + " 失败: " + e);
+        }
+    }
+
+    /**
+     * 把剩余的功能键登记为"只声明功能、不带任何注册项"的提供者。
+     *
+     * <p>这些功能的行为分散在核心各处（GUI 按钮、监听器、定时任务、Web 端点），
+     * 但它们的开关必须是"已安装 且 开启"这条语义的一部分——否则
+     * {@link ExtensionRegistry#isFeatureActive(String)} 会把这些键当作未知功能
+     * 而只看向开关，Phase 3 把它们搬出去之后就会静默失效。
+     *
+     * <p>已经有命令或钩子提供者的功能键会按扩展 id 跳过。
+     */
+    public static void registerFeatures(Lengbanlist plugin, ExtensionRegistry registry) {
+        for (Map.Entry<String, String> entry : DISPLAY_NAMES.entrySet()) {
+            String feature = entry.getKey();
+            if (registry.isRegistered(feature)) {
+                continue;
+            }
+            try {
+                registry.register(new FeatureOnlyProvider(feature));
+            } catch (Exception e) {
+                plugin.getLogger().warning("注册内置功能键 " + feature + " 失败: " + e);
+            }
+        }
+    }
+
+    /** 只声明功能键的提供者：没有任何命令或钩子。 */
+    private static final class FeatureOnlyProvider implements LengbanlistExtension {
+
+        private final String id;
+
+        private FeatureOnlyProvider(String id) {
+            this.id = id;
+        }
+
+        @Override
+        public String id() {
+            return id;
+        }
+
+        @Override
+        public String name() {
+            return displayName(id);
+        }
+
+        @Override
+        public String version() {
+            return "";
+        }
+
+        @Override
+        public java.util.Set<String> features() {
+            return java.util.Set.of(id);
+        }
+
+        @Override
+        public void onEnable(ExtensionContext context) {
+            // 无需注册任何东西：功能键本身就是要登记的全部内容
         }
     }
 

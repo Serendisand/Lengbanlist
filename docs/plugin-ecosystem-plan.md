@@ -414,7 +414,8 @@ download:
 | 0.6 | 建立 Hook 链，把横切逻辑改为经 Hook 调用（功能仍留核心） | 解横切耦合 | ✅ **0.6a**（免疫，19 个调用 → `PunishmentGate`）与 **0.6b**（时长，6 个调用 → `DurationPolicy`）完成；**0.6c 文案并入 0.4**（原因见 4.4） |
 | 0.7 | `Utils.canUse` / `CustomModel.filterDisabledFeatures` / `CommandRegistry.HELP_FEATURES` 统一走注册表 | 消除三处分散门控 | ✅ 已完成：三处都改为经 `Lengbanlist.isFeatureActive`（新增的空安全包装，注册表未建立时退回只看开关）或注册表 |
 | 0.8 | 修复审计发现的 8 项开关缺陷 | 避免缺陷被继承 | ✅ 完成 7 项；1 项判定为**非缺陷**：`StatsController` 是面板仪表盘，聚合封禁/禁言/警告等多来源数据，没有对应的单一功能键，而面板本身已由 `web.enabled` 把关 |
-| 0.9 | `features.*` → `extensions.yml` 迁移 + 语义改为"已安装 且 开启" | 兼容与正确性 | 待做（需先把全部 39 个功能登记为提供者，目前 19 个） |
+| 0.9 | `features.*` → `extensions.yml` 迁移 + 语义改为"已安装 且 开启" | 兼容与正确性 | ✅ 已完成：全部 39 个功能键登记为提供者；`extensions.yml` 首次启动自动迁移 `features.*` 的现有选择，读取时新文件优先、缺失键回退旧键；`/lban reload` 一并重载 |
+| 0.11 | **文案外部化**：`ConsoleText` 里没有 yml 对应键的 9 项（`eula-required` / `eula-hint` / `db-init-failed` / `model-detected` / `model-detect-save-failed` / `preset-*` / `storage-*`）补进 `_base.yml` 的 `console:` 段；`ErrorLog` 等 11 处硬编码原因串改为可覆写文案 | 可维护性 | 待做（见第 10 节） |
 | 0.9 | `features.*` → `extensions.yml` 迁移 + 语义改为"已安装 且 开启" | 兼容与正确性 | 待做 |
 | 0.10 | **统一下载层**：新增 `org.leng.download`（`MirrorChain` + `DownloadService`），`ModelCloudManager` 与 `GitHubUpdateChecker` 已接入，`config.yml` 新增 `download:` 段（见 4.9） | 统一下载，市场复用 | ✅ 已完成（`AutoUpdateManager` 待 `DownloadService` 补齐校验钩子 / 体积上限 / 必须校验后再迁） |
 
@@ -544,6 +545,62 @@ sha256 不匹配 · 下载中断 · 缺依赖扩展 · API 版本不满足 · �
 
 1. **`Serendisand/Lengbanlist-Ext-Template`** —— 需要，但属于 Phase 5（面向第三方作者），现在不急
 2. **bStats 数字 ID** —— 你为 18 个扩展各建一个页面后把 ID 给我，我接进各扩展并加 README 徽章
+
+---
+
+## 10. 已知遗留：散落的硬编码文案
+
+**实测：核心 Java 源码里有 1147 处中文串**，其中相当一部分是用户可见文案。分布（Top 12）：
+
+| 文件 | 处数 | 文件 | 处数 |
+| --- | --- | --- | --- |
+| `QueryCommands` | 78 | `ReportCommands` | 48 |
+| `LengbanlistCommand` | 77 | `ModelsCommand` | 47 |
+| `GuiCommands` | 67 | `BuiltinExtensions` | 40 |
+| `BanCommands` | 61 | `AutoUpdateManager` | 32 |
+| `WebhookNotifier` | 49 | `MuteCommands` | 27 |
+| `RollbackManager` | 48 | `DatabaseManager` | 22 |
+
+### 10.1 两套并行文案系统
+
+| 系统 | 位置 | 可被模型覆写 |
+| --- | --- | --- |
+| **模型文案** | `models/*.yml` 的 `messages:` / `console:`，含外部仓库 `Lengbanlist-Models` | 是 |
+| **`ConsoleText` 枚举** | `org.leng.utils.ConsoleText`，中英双份写在枚举常量上 | 机制上可以（`console.<key>`），但出厂没给 yml 条目 |
+
+`consoleText(key)` 的取值顺序是「模型优先，`ConsoleText` 兜底」：
+
+```java
+String template = model.getConsole(key);
+if (template == null || template.isEmpty()) return ConsoleText.builtIn(key, placeholders);
+```
+
+`_base.yml` 的 `console:` 段只有 7 个键（`ready`/`loading`/`tip`/`placeholder-hook`/`auto-update`/`shutdown`/`farewell`），
+而 `ConsoleText` 有 16 项。**其余 9 项没有 yml 对应键**，所以用户"在语言文件里找不到"：
+
+`eula-required`、`eula-hint`、`db-init-failed`、`model-detected`、`model-detect-save-failed`、
+`preset-base`、`preset-builtin`、`storage-migrated`、`storage-migrate-failed`
+
+### 10.2 合并语义（决定了外部模型要不要逐个改）
+
+`CustomModel.raw(path)` 是**逐键回退**，不是整段替换：
+
+```java
+String value = config.getString(path);
+if ((value == null || value.isEmpty()) && base != null) value = base.getString(path);
+```
+
+因此**功能上外部 25 个模型不必逐个加新键**——没被覆写的键会自动沿用 `_base.yml`。
+但外部仓库的 25 个模型目前都把 `console:` 段写满了 7 个键（当作自己的一亩三分地），
+所以新增键若要维持**风格一致**，需要在 `Lengbanlist-Models/models/*/*.yml` 里各写一份
+人设化的文案。这是**外部仓库的内容任务**，与代码改动分开进行。
+
+### 10.3 处理路径
+
+- **0.11**（小）：把上面 9 项补进 `_base.yml`，并把 `ErrorLog` 的 11 处硬编码原因串改为可覆写文案
+- **0.4 / 0.6c**（大）：`Messages` 门面 + 把命令层的用户可见文案从 Java 字面量迁到模型键。
+  这是 1147 处的主要来源，与 models 扩展的拆分是同一件事的两面
+- **外部仓库**：模型文案按人设补齐（内容任务，非代码）
 
 ---
 
