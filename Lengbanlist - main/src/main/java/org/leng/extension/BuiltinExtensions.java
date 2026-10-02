@@ -168,11 +168,18 @@ public final class BuiltinExtensions {
      * "已安装 且 开启"，而不是回落到"未知功能只看开关"。
      */
     public static void registerHooks(Lengbanlist plugin, ExtensionRegistry registry) {
+        registerHook(plugin, registry, "immunity",
+                org.leng.api.PunishmentDecisionHook.class, plugin.getImmunityManager());
+        registerHook(plugin, registry, "escalation",
+                org.leng.api.DurationPolicyHook.class, plugin.getEscalationManager());
+    }
+
+    private static <T> void registerHook(Lengbanlist plugin, ExtensionRegistry registry,
+                                         String feature, Class<T> type, T hook) {
         try {
-            registry.register(new HookProvider<>("immunity", org.leng.api.PunishmentDecisionHook.class,
-                    plugin.getImmunityManager()));
+            registry.register(new HookProvider<>(feature, type, hook));
         } catch (Exception e) {
-            plugin.getLogger().warning("注册内置钩子 immunity 失败: " + e);
+            plugin.getLogger().warning("注册内置钩子 " + feature + " 失败: " + e);
         }
     }
 

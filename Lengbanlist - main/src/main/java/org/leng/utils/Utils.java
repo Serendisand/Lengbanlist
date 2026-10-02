@@ -71,7 +71,7 @@ public class Utils {
         if (plugin == null || player == null) {
             return false;
         }
-        if (feature != null && !plugin.isFeatureEnabled(feature)) {
+        if (feature != null && !plugin.isFeatureActive(feature)) {
             return false;
         }
         return permission == null || player.hasPermission(permission);

@@ -27,7 +27,7 @@ public class AuditController extends WebController {
             WebResponse.handleOptions(exchange);
             return;
         }
-        if (!requireAuth(exchange)) return;
+        if (!requireAuth(exchange) || !requireFeature(exchange, "audit")) return;
 
         Map<String, String> params = parseQuery(exchange);
         int limit;

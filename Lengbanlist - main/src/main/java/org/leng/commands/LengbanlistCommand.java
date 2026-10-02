@@ -12,7 +12,7 @@ import org.leng.object.BanIpEntry;
 import org.leng.object.AuditEntry;
 import org.leng.object.MuteEntry;
 import org.leng.object.ReportEntry;
-import org.leng.manager.EscalationManager.EscalationResult;
+import org.leng.api.DurationPolicyHook;
 import org.leng.manager.BanManager;
 import org.leng.manager.BanMutationFeedback;
 import org.leng.manager.ModelManager;
@@ -56,6 +56,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
                 }
+                if (!plugin.isFeatureActive("broadcast")) {
+                    plugin.sendFeatureDisabled(sender);
+                    return true;
+                }
                 boolean enabled = !plugin.isBroadcastEnabled();
                 plugin.setBroadcastEnabled(enabled);
                 Utils.sendMessage(sender, currentModel.toggleBroadcast(enabled));
@@ -64,6 +68,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
             case "a":
                 if (!sender.hasPermission("lengbanlist.broadcast")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                    return true;
+                }
+                if (!plugin.isFeatureActive("broadcast")) {
+                    plugin.sendFeatureDisabled(sender);
                     return true;
                 }
                 plugin.getBroadCastManager().broadcastNow(sender);
@@ -82,6 +90,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
             case "reload":
                 if (!sender.hasPermission("lengbanlist.reload")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                    return true;
+                }
+                if (!plugin.isFeatureActive("reload")) {
+                    plugin.sendFeatureDisabled(sender);
                     return true;
                 }
                 plugin.reloadConfig();
@@ -248,6 +260,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
             case "models":
                 if (!sender.hasPermission("lengbanlist.model")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                    return true;
+                }
+                if (!plugin.isFeatureActive("model")) {
+                    plugin.sendFeatureDisabled(sender);
                     return true;
                 }
                 return new ModelsCommand(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
@@ -436,6 +452,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                         Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                         return true;
                     }
+                    if (!plugin.isFeatureActive("export")) {
+                        plugin.sendFeatureDisabled(sender);
+                        return true;
+                    }
                     plugin.getAuditManager().verifyAudit(sender);
                     break;
                 }
@@ -502,14 +522,14 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 boolean handleAuto = args[2].equalsIgnoreCase("auto");
                 try {
                     long handleEndTime;
-                    EscalationResult handleEscalationResult = null;
+                    DurationPolicyHook.Decision handleEscalationResult = null;
                     if (args[2].equalsIgnoreCase("forever")) {
                         handleEndTime = Long.MAX_VALUE;
                     } else if (handleAuto) {
                         handleEscalationResult = handleTarget.contains(".")
-                                ? plugin.getEscalationManager().resolveIpBan(handleTarget)
-                                : plugin.getEscalationManager().resolveBan(handleTarget);
-                        handleEndTime = TimeUtils.calculateEndTime(handleEscalationResult.durationMillis);
+                                ? plugin.getDurationPolicy().autoIpBan(handleTarget)
+                                : plugin.getDurationPolicy().autoBan(handleTarget);
+                        handleEndTime = TimeUtils.calculateEndTime(handleEscalationResult.durationMillis());
                     } else {
                         long handleDuration = TimeUtils.parseDurationToMillis(args[2]);
                         if (handleDuration <= 0) {
@@ -525,10 +545,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                         BanMutationFeedback.sendFailure(sender, handleResult, handleTarget, handleTarget.contains("."));
                         break;
                     }
-                    if (handleEscalationResult != null && handleEscalationResult.offenseCount > 0) {
+                    if (handleEscalationResult != null && handleEscalationResult.offenseCount() > 0) {
                         Utils.sendMessage(sender, currentModel.onEscalatedBan(handleTarget,
-                                handleEscalationResult.offenseCount,
-                                TimeUtils.formatDuration(handleEscalationResult.durationMillis, TimeUtils.isEnglishLocale())));
+                                handleEscalationResult.offenseCount(),
+                                TimeUtils.formatDuration(handleEscalationResult.durationMillis(), TimeUtils.isEnglishLocale())));
                     }
                     String handleDurationText = handleEndTime == Long.MAX_VALUE
                             ? (TimeUtils.isEnglishLocale() ? "permanently" : "永久")

@@ -113,7 +113,7 @@ public class BanController extends WebController {
             String staff = authManager.resolveActor(extractToken(exchange));
             boolean isIp = target.contains(".") && org.leng.utils.IpMatcher.isValidIpOrCidrOrWildcard(target);
 
-            if (!requireFeature(exchange, isIp ? "unban-ip" : "unban")) return;
+            if (!requireFeature(exchange, "unban")) return;
 
             AtomicReference<BanManager.BanMutationResult> result = new AtomicReference<>();
             boolean completed = runSync(exchange, () -> {

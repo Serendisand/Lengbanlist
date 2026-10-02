@@ -9,7 +9,7 @@ import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.manager.BanManager;
 import org.leng.manager.BanMutationFeedback;
-import org.leng.manager.EscalationManager.EscalationResult;
+import org.leng.api.DurationPolicyHook;
 import org.leng.object.BanEntry;
 import org.leng.utils.TimeUtils;
 import org.leng.utils.Utils;
@@ -80,12 +80,12 @@ public final class BanCommands {
 
             long banDuration;
             boolean isAuto = false;
-            EscalationResult escalationResult = null;
+            DurationPolicyHook.Decision escalationResult = null;
 
             if (timeArg.equalsIgnoreCase("auto")) {
                 isAuto = true;
-                escalationResult = plugin.getEscalationManager().resolveBan(target);
-                banDuration = escalationResult.durationMillis;
+                escalationResult = plugin.getDurationPolicy().autoBan(target);
+                banDuration = escalationResult.durationMillis();
             } else {
                 banDuration = TimeUtils.parseDurationToMillis(timeArg);
                 if (banDuration <= 0) {
@@ -111,9 +111,9 @@ public final class BanCommands {
                 return true;
             }
 
-            if (escalationResult != null && escalationResult.offenseCount > 0) {
+            if (escalationResult != null && escalationResult.offenseCount() > 0) {
                 Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(
-                        target, escalationResult.offenseCount, TimeUtils.formatDuration(banDuration, TimeUtils.isEnglishLocale())));
+                        target, escalationResult.offenseCount(), TimeUtils.formatDuration(banDuration, TimeUtils.isEnglishLocale())));
             }
             return true;
         }
@@ -227,11 +227,11 @@ public final class BanCommands {
 
             boolean isAuto = args[1].equalsIgnoreCase("auto");
             long banDuration;
-            EscalationResult escalationResult = null;
+            DurationPolicyHook.Decision escalationResult = null;
 
             if (isAuto) {
-                escalationResult = plugin.getEscalationManager().resolveIpBan(args[0]);
-                banDuration = escalationResult.durationMillis;
+                escalationResult = plugin.getDurationPolicy().autoIpBan(args[0]);
+                banDuration = escalationResult.durationMillis();
             } else {
                 banDuration = TimeUtils.parseDurationToMillis(args[1]);
                 if (banDuration <= 0) {
@@ -253,9 +253,9 @@ public final class BanCommands {
                 return true;
             }
 
-            if (escalationResult != null && escalationResult.offenseCount > 0) {
+            if (escalationResult != null && escalationResult.offenseCount() > 0) {
                 Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(
-                        args[0], escalationResult.offenseCount, TimeUtils.formatDuration(banDuration, TimeUtils.isEnglishLocale())));
+                        args[0], escalationResult.offenseCount(), TimeUtils.formatDuration(banDuration, TimeUtils.isEnglishLocale())));
             }
             return true;
         }
@@ -435,15 +435,15 @@ public final class BanCommands {
 
             long banDuration;
             boolean isAuto = false;
-            EscalationResult escalationResult = null;
+            DurationPolicyHook.Decision escalationResult = null;
 
             if (timeArg.equalsIgnoreCase("forever")) {
                 banDuration = Long.MAX_VALUE;
             } else if (timeArg.equalsIgnoreCase("auto")) {
                 isAuto = true;
-                escalationResult = isIp ? plugin.getEscalationManager().resolveIpBan(target)
-                        : plugin.getEscalationManager().resolveBan(target);
-                banDuration = escalationResult.durationMillis;
+                escalationResult = isIp ? plugin.getDurationPolicy().autoIpBan(target)
+                        : plugin.getDurationPolicy().autoBan(target);
+                banDuration = escalationResult.durationMillis();
             } else {
                 banDuration = TimeUtils.parseDurationToMillis(timeArg);
                 if (banDuration <= 0) {
@@ -497,9 +497,9 @@ public final class BanCommands {
                 durationStr = TimeUtils.formatDuration(banDuration);
             }
 
-            if (escalationResult != null && escalationResult.offenseCount > 0) {
+            if (escalationResult != null && escalationResult.offenseCount() > 0) {
                 Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(
-                        target, escalationResult.offenseCount, TimeUtils.formatDuration(banDuration)));
+                        target, escalationResult.offenseCount(), TimeUtils.formatDuration(banDuration)));
             }
             Utils.sendMessage(sender, plugin.prefix() + "§a成功更新目标 " + target + " 的封禁时间，新的封禁时长为: §e" + durationStr + "§a，理由: §e" + reason);
             plugin.getAuditManager().log("设置封禁时间", Utils.getSenderName(sender), target, durationStr + " - " + reason);

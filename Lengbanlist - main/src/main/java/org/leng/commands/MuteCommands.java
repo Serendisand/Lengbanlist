@@ -56,7 +56,7 @@ public final class MuteCommands {
             if (normalized != null) target = normalized;
             long duration;
             if (timeArg.equalsIgnoreCase("auto")) {
-                duration = plugin.getEscalationManager().resolveMute(target);
+                duration = plugin.getDurationPolicy().autoMute(target).durationMillis();
             } else {
                 duration = org.leng.utils.TimeUtils.parseDurationToMillis(timeArg);
                 if (duration <= 0) {

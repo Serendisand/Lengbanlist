@@ -28,7 +28,7 @@ public class ReportController extends WebController {
             WebResponse.handleOptions(exchange);
             return;
         }
-        if (!requireAuth(exchange)) return;
+        if (!requireAuth(exchange) || !requireFeature(exchange, "admin")) return;
 
         List<ReportEntry> reports = plugin.getReportManager().getPendingReports();
         JsonArray arr = new JsonArray();
@@ -57,7 +57,7 @@ public class ReportController extends WebController {
             WebResponse.sendError(exchange, 405, "仅支持 POST");
             return;
         }
-        if (!requireAuth(exchange)) return;
+        if (!requireAuth(exchange) || !requireFeature(exchange, "admin")) return;
 
         try {
             JsonObject json = JsonParser.parseString(WebResponse.readBody(exchange)).getAsJsonObject();

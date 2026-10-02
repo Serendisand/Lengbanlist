@@ -132,7 +132,7 @@ public class CustomModel implements Model {
         List<String> filtered = new ArrayList<>(lines.size());
         for (String line : lines) {
             String feature = CommandRegistry.featureForUsage(commandUsageOf(line));
-            if (feature != null && !plugin.isFeatureEnabled(feature)) {
+            if (feature != null && !plugin.isFeatureActive(feature)) {
                 continue;
             }
             filtered.add(line);

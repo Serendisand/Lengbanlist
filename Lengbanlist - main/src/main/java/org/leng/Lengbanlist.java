@@ -10,6 +10,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.leng.commands.*;
 import org.leng.extension.BuiltinExtensions;
 import org.leng.extension.CoreService;
+import org.leng.extension.DurationPolicy;
 import org.leng.extension.ExtensionRegistry;
 import org.leng.extension.PunishmentGate;
 import org.leng.listeners.*;
@@ -50,6 +51,7 @@ public class Lengbanlist extends JavaPlugin {
     private ExtensionRegistry extensionRegistry;
     private CoreService coreService;
     private PunishmentGate punishmentGate;
+    private DurationPolicy durationPolicy;
     private boolean isBroadcast;
     private FileConfiguration broadcastFC;
     private FileConfiguration chatConfig;
@@ -132,6 +134,7 @@ public void onLoad() {
     warnManager = new WarnManager(this);
     immunityManager = new ImmunityManager(this);
     punishmentGate = new PunishmentGate(this);
+    durationPolicy = new DurationPolicy(this);
     escalationManager = new EscalationManager(this);
     guiSessionManager = new GuiSessionManager();
     guiCommand = new GuiCommands.Gui(this);
@@ -329,7 +332,7 @@ public void onEnable() {
         SchedulerUtils.runAsync(this, GitHubUpdateChecker::checkUpdate);
     }
 
-    if (isBroadcast) {
+    if (isBroadcast && isFeatureActive("broadcast")) {
         startBroadcastTask();
     }
 
@@ -347,7 +350,7 @@ public void onEnable() {
     startHistoryCleanupTask();
     startIdentityBackfillTask();
 
-    if (syncManager != null) {
+    if (syncManager != null && isFeatureActive("sync")) {
         syncManager.startAutoSync();
     }
 
@@ -386,7 +389,7 @@ public void restartScheduledTasks() {
         broadcastTask.cancel();
         broadcastTask = null;
     }
-    if (isBroadcast) {
+    if (isBroadcast && isFeatureActive("broadcast")) {
         startBroadcastTask();
     }
     if (expiryReminderTask != null) {
@@ -541,6 +544,27 @@ void shutdownStorage() {
         return punishmentGate;
     }
 
+    /**
+     * 自动时长闸门。使用 auto 时长的命令必须经它取时长，
+     * 不要直接调用升级实现——闸门才负责"策略缺席时按警告数兜底"。
+     */
+    public DurationPolicy getDurationPolicy() {
+        return durationPolicy;
+    }
+
+    /**
+     * 统一门控：功能是否生效 = 归属扩展已安装 <b>且</b> {@code features.<key>} 为 true。
+     *
+     * <p>所有判断"这个功能现在能不能用"的地方都必须走这里，而不是
+     * {@link #isFeatureEnabled(String)}——后者只回答"配置里的开关是不是 true"，
+     * 对未安装的扩展会给出误导性的 true。注册表尚未建立时（onLoad 阶段）
+     * 自动退回只看开关。
+     */
+    public boolean isFeatureActive(String feature) {
+        ExtensionRegistry registry = extensionRegistry;
+        return registry == null ? isFeatureEnabled(feature) : registry.isFeatureActive(feature);
+    }
+
     public boolean isFeatureEnabled(String feature) {
         return getConfig().getBoolean("features." + feature, true);
     }
@@ -557,7 +581,7 @@ void shutdownStorage() {
         this.isBroadcast = broadcastEnabled;
         getConfig().set("opensendtime", broadcastEnabled);
         saveConfig();
-        if (isBroadcast) {
+        if (isBroadcast && isFeatureActive("broadcast")) {
             if (broadcastTask != null) {
                 broadcastTask.cancel();
                 broadcastTask = null;

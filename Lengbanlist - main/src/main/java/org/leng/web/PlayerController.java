@@ -179,7 +179,7 @@ public class PlayerController extends WebController {
             WebResponse.handleOptions(exchange);
             return;
         }
-        if (!requireAuth(exchange)) return;
+        if (!requireAuth(exchange) || !requireFeature(exchange, "history")) return;
 
         try {
             Map<String, String> params = parseQuery(exchange);

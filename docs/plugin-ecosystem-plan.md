@@ -411,13 +411,26 @@ download:
 | 0.3 | 核心新增 `ExtensionRegistry` + `CoreService`（注册进 ServicesManager）+ `ExtensionContextImpl`；命令表改为注册表驱动，内置功能经 `BuiltinExtensions` 注册为提供者 | 扩展注册 | ✅ 已完成 |
 | 0.4 | 核心新增 `ExtensionContext` 实现 + `DataStore` + `Scheduler`/`Messages`/`Config` 门面 | 扩展运行时 | 待做 |
 | 0.5 | 核心 18 个 manager 改为**按需构造**（依赖注册表而非无条件 `new`） | 薄核心 | 待做 |
-| 0.6 | 建立 Hook 链，把横切逻辑改为经 Hook 调用（功能仍留核心） | 解横切耦合 | 🟡 **0.6a 已完成**：`HookRegistry` + `PunishmentDecisionHook`，免疫的 14 处判断（19 个调用）改走 `PunishmentGate`。待做：**0.6b** 时长策略 escalation（6 处）、**0.6c** 文案 models（约 40 处，设计见 4.4） |
-| 0.7 | `Utils.canUse` / `CustomModel.filterDisabledFeatures` / `CommandRegistry.HELP_FEATURES` 统一走注册表 | 消除三处分散门控 | 🟡 部分完成：`HELP_FEATURES` 的 20 条命令条目已改为从 `BuiltinExtensions.declarations()` 派生（消除重复维护），`CommandRegistry` 与 `FeatureCommand` 已走统一门控；`Utils.canUse` 与 `CustomModel` 待做 |
-| 0.8 | 修复审计发现的 8 项开关缺陷（含 `unban-ip` 键、Web 侧未接门控） | 避免缺陷被继承 | 待做 |
+| 0.6 | 建立 Hook 链，把横切逻辑改为经 Hook 调用（功能仍留核心） | 解横切耦合 | ✅ **0.6a**（免疫，19 个调用 → `PunishmentGate`）与 **0.6b**（时长，6 个调用 → `DurationPolicy`）完成；**0.6c 文案并入 0.4**（原因见 4.4） |
+| 0.7 | `Utils.canUse` / `CustomModel.filterDisabledFeatures` / `CommandRegistry.HELP_FEATURES` 统一走注册表 | 消除三处分散门控 | ✅ 已完成：三处都改为经 `Lengbanlist.isFeatureActive`（新增的空安全包装，注册表未建立时退回只看开关）或注册表 |
+| 0.8 | 修复审计发现的 8 项开关缺陷 | 避免缺陷被继承 | ✅ 完成 7 项；1 项判定为**非缺陷**：`StatsController` 是面板仪表盘，聚合封禁/禁言/警告等多来源数据，没有对应的单一功能键，而面板本身已由 `web.enabled` 把关 |
+| 0.9 | `features.*` → `extensions.yml` 迁移 + 语义改为"已安装 且 开启" | 兼容与正确性 | 待做（需先把全部 39 个功能登记为提供者，目前 19 个） |
 | 0.9 | `features.*` → `extensions.yml` 迁移 + 语义改为"已安装 且 开启" | 兼容与正确性 | 待做 |
 | 0.10 | **统一下载层**：新增 `org.leng.download`（`MirrorChain` + `DownloadService`），`ModelCloudManager` 与 `GitHubUpdateChecker` 已接入，`config.yml` 新增 `download:` 段（见 4.9） | 统一下载，市场复用 | ✅ 已完成（`AutoUpdateManager` 待 `DownloadService` 补齐校验钩子 / 体积上限 / 必须校验后再迁） |
 
 **Phase 0 完成时功能与 2.1.6 完全一致，只是内部可插拔。**
+
+> ⚠️ **唯一的例外是 0.8**：它的目的就是让开关真正生效，因此当某个功能被**关闭**时，行为**会**变化——那正是被修掉的缺陷。在默认配置（全部开关为 true）下，0.8 的行为与改造前逐条一致。
+>
+> 0.8 引入的行为变化清单（仅在该功能被关闭时触发）：
+> - `features.sync: false` → 不再启动跨服轮询（此前照跑）
+> - `features.mute: false` → 被禁言的玩家可以发言（此前仍被拦截）
+> - `features.broadcast: false` → 不再定时广播，且 `/lban a`、`/lban toggle` 被拒绝（此前照跑）
+> - `features.model: false` → `/lban models` 被拒绝（此前可执行）
+> - `features.reload: false` → `/lban reload` 被拒绝（此前可执行）
+> - `features.export: false` → `/lban audit verify` 被拒绝（此前可执行）
+> - `features.audit / export / admin / history: false` → 对应的 Web 端点被拒绝（此前只校验登录）
+> - IP 解封：Web 端改用真实存在的 `features.unban`（此前查的 `unban-ip` 键不存在，等于恒放行）
 
 ### Phase 1 — 拆低耦合扩展
 

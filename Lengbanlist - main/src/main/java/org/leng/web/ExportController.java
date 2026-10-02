@@ -27,7 +27,7 @@ public class ExportController extends WebController {
     }
 
     private void handleBans(HttpExchange exchange) {
-        if (!requireAuth(exchange)) return;
+        if (!requireAuth(exchange) || !requireFeature(exchange, "export")) return;
         try {
             List<BanEntry> bans = plugin.getBanManager().getBanList();
             StringBuilder sb = new StringBuilder(64 + bans.size() * 64);
@@ -48,7 +48,7 @@ public class ExportController extends WebController {
     }
 
     private void handleIpBans(HttpExchange exchange) {
-        if (!requireAuth(exchange)) return;
+        if (!requireAuth(exchange) || !requireFeature(exchange, "export")) return;
         try {
             List<BanIpEntry> bans = plugin.getBanManager().getBanIpList();
             StringBuilder sb = new StringBuilder(64 + bans.size() * 64);
@@ -69,7 +69,7 @@ public class ExportController extends WebController {
     }
 
     private void handleMutes(HttpExchange exchange) {
-        if (!requireAuth(exchange)) return;
+        if (!requireAuth(exchange) || !requireFeature(exchange, "export")) return;
         try {
             List<MuteEntry> mutes = plugin.getMuteManager().getMuteList();
             StringBuilder sb = new StringBuilder(64 + mutes.size() * 64);
