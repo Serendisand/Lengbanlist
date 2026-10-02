@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lengbanlist · 功能必要性审计</title>
+<style>
+  :root{
+    --ink:#080c11;
+    --panel:#0e151d;
+    --panel-2:#111a24;
+    --line:#1e2c3a;
+    --line-2:#2a3d50;
+    --txt:#c3d3e0;
+    --txt-dim:#7b8fa3;
+    --txt-faint:#4e6172;
+    --A:#3ddbd9;   /* 核心 */
+    --B:#6ee7a8;   /* 必要配套 */
+    --C:#f0b429;   /* 可选 */
+    --D:#f2603c;   /* 外围/越界 */
+    --R:#e854b8;   /* 缺陷 */
+    --mono:"Cascadia Mono","Consolas","JetBrains Mono","SFMono-Regular",ui-monospace,monospace;
+    --cjk:"Microsoft YaHei UI","微软雅黑","PingFang SC","Hiragino Sans GB",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--ink);
+    color:var(--txt);
+    font-family:var(--cjk);
+    font-size:14px;
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+    background-image:
+      radial-gradient(ellipse 900px 500px at 12% -8%, rgba(61,219,217,.07), transparent 60%),
+      radial-gradient(ellipse 700px 420px at 92% 4%, rgba(242,96,60,.06), transparent 62%),
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size:auto,auto,52px 52px,52px 52px;
+    background-attachment:fixed;
+  }
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:9;
+    background:repeating-linear-gradient(0deg,rgba(255,255,255,.014) 0 1px,transparent 1px 3px);
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:56px 26px 96px}
+
+  /* ---------- header ---------- */
+  header{border-bottom:1px solid var(--line-2);padding-bottom:26px;margin-bottom:40px}
+  .kicker{
+    font-family:var(--mono);font-size:11px;letter-spacing:.34em;text-transform:uppercase;
+    color:var(--A);margin-bottom:16px;display:flex;align-items:center;gap:12px;
+  }
+  .kicker::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--A),transparent)}
+  h1{
+    font-family:var(--mono);font-size:clamp(26px,4.4vw,44px);line-height:1.1;margin:0 0 14px;
+    font-weight:600;letter-spacing:-.02em;color:#eaf4fb;
+  }
+  h1 em{font-style:normal;color:var(--A)}
+  .sub{color:var(--txt-dim);max-width:74ch;margin:0 0 28px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+  .stat{background:var(--panel);padding:14px 16px}
+  .stat b{display:block;font-family:var(--mono);font-size:24px;color:#eaf4fb;letter-spacing:-.02em;line-height:1.15}
+  .stat span{font-size:11.5px;color:var(--txt-faint);font-family:var(--mono);letter-spacing:.05em}
+  .stat.a b{color:var(--A)} .stat.d b{color:var(--D)} .stat.r b{color:var(--R)}
+
+  /* ---------- sections ---------- */
+  section{margin-bottom:56px}
+  h2{
+    font-family:var(--mono);font-size:13px;letter-spacing:.24em;text-transform:uppercase;
+    color:var(--txt-dim);margin:0 0 6px;font-weight:600;
+  }
+  h2 .n{color:var(--A);margin-right:10px}
+  .lede{color:var(--txt-dim);font-size:13px;margin:0 0 20px;max-width:80ch}
+  .card{background:var(--panel);border:1px solid var(--line);padding:20px}
+
+  /* ---------- legend / filters ---------- */
+  .legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;align-items:center}
+  .chip{
+    font-family:var(--mono);font-size:11px;letter-spacing:.06em;
+    border:1px solid var(--line-2);background:var(--panel-2);color:var(--txt-dim);
+    padding:6px 11px;cursor:pointer;user-select:none;transition:.16s;display:flex;align-items:center;gap:7px;
+  }
+  .chip:hover{border-color:var(--txt-faint);color:var(--txt)}
+  .chip .dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+  .chip.on{color:#eaf4fb;border-color:currentColor;background:rgba(255,255,255,.045)}
+  .chip.off{opacity:.34}
+  .chip[data-tier="A"]{color:var(--A)} .chip[data-tier="B"]{color:var(--B)}
+  .chip[data-tier="C"]{color:var(--C)} .chip[data-tier="D"]{color:var(--D)}
+  .spacer{flex:1}
+
+  /* ---------- scatter ---------- */
+  .plot{position:relative;background:var(--panel);border:1px solid var(--line);overflow:hidden}
+  svg{display:block;width:100%;height:auto}
+  .qlab{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;fill:var(--txt-faint)}
+  .axis{font-family:var(--mono);font-size:10.5px;fill:var(--txt-faint);letter-spacing:.08em}
+  .node{cursor:pointer;transition:opacity .18s}
+  .node circle{transition:.18s}
+  .node:hover circle{stroke:#fff;stroke-width:1.6}
+  .node.dim{opacity:.1}
+  .nlab{font-family:var(--mono);font-size:10px;fill:#93a8bb;pointer-events:none}
+  #tip{
+    position:absolute;pointer-events:none;opacity:0;transition:opacity .13s;
+    background:#050809;border:1px solid var(--line-2);padding:11px 13px;
+    font-size:12px;max-width:330px;z-index:5;box-shadow:0 14px 40px rgba(0,0,0,.72)
+  }
+  #tip .t{font-family:var(--mono);font-size:12.5px;color:#eaf4fb;margin-bottom:7px;letter-spacing:.02em}
+  #tip .m{font-family:var(--mono);font-size:11px;color:var(--txt-dim);display:flex;justify-content:space-between;gap:16px}
+  #tip .m b{color:var(--txt);font-weight:500}
+  #tip .v{margin-top:8px;padding-top:8px;border-top:1px solid var(--line);color:#9fb3c6;font-size:11.5px;line-height:1.5}
+  #tip .g{margin-top:6px;font-family:var(--mono);font-size:10.5px;color:var(--txt-faint)}
+
+  /* ---------- bars ---------- */
+  .bars{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line)}
+  .bar{background:var(--panel);padding:15px 18px}
+  .bar .top{display:flex;justify-content:space-between;gap:14px;align-items:baseline;margin-bottom:9px}
+  .bar .nm{font-size:13px}
+  .bar .vl{font-family:var(--mono);font-size:12.5px;color:var(--txt-dim);white-space:nowrap}
+  .bar .vl b{color:#eaf4fb;font-weight:600}
+  .track{height:7px;background:#0a1017;border:1px solid var(--line);position:relative;overflow:hidden}
+  .fill{height:100%;width:0;transition:width .9s cubic-bezier(.22,1,.36,1)}
+  .bar .note{font-size:11.5px;color:var(--txt-faint);margin-top:8px}
+
+  /* ---------- table ---------- */
+  .tblwrap{border:1px solid var(--line);overflow-x:auto;background:var(--panel)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:940px}
+  thead th{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--txt-faint);text-align:left;padding:12px 13px;background:var(--panel-2);
+    border-bottom:1px solid var(--line-2);position:sticky;top:0;white-space:nowrap;font-weight:600;
+  }
+  tbody td{padding:11px 13px;border-bottom:1px solid var(--line);vertical-align:top}
+  tbody tr{transition:background .14s}
+  tbody tr:hover{background:rgba(61,219,217,.035)}
+  tbody tr.hide{display:none}
+  .tname{color:#eaf4fb;font-weight:500}
+  .tfile{display:block;font-family:var(--mono);font-size:10.5px;color:var(--txt-faint);margin-top:4px;line-height:1.5}
+  .tag{
+    display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.09em;
+    padding:2px 7px;border:1px solid currentColor;white-space:nowrap;
+  }
+  .tag.A{color:var(--A)} .tag.B{color:var(--B)} .tag.C{color:var(--C)} .tag.D{color:var(--D)}
+  .tag.R{color:var(--R)}
+  .loc{font-family:var(--mono);font-size:12px;color:var(--txt-dim);text-align:right;white-space:nowrap}
+  .loc b{color:#eaf4fb;font-weight:600}
+  .mono{font-family:var(--mono);font-size:11.5px;color:var(--txt-dim)}
+  .verdict{color:#9fb3c6;font-size:12px}
+  .bad{color:var(--R)}
+
+  /* ---------- risk cards ---------- */
+  .risks{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px}
+  .risk{background:var(--panel);border:1px solid var(--line);border-left:2px solid var(--R);padding:17px 19px}
+  .risk h3{margin:0 0 9px;font-size:13.5px;color:#eaf4fb;font-family:var(--mono);letter-spacing:.01em}
+  .risk p{margin:0 0 9px;font-size:12.5px;color:#9fb3c6}
+  .risk .ev{
+    font-family:var(--mono);font-size:11px;color:var(--txt-faint);
+    border-top:1px solid var(--line);padding-top:9px;line-height:1.6;
+  }
+  .risk .ev b{color:var(--C);font-weight:500}
+
+  /* ---------- tier说明 ---------- */
+  .tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+  .tier{background:var(--panel);padding:16px 18px;border-top:2px solid currentColor}
+  .tier.A{color:var(--A)} .tier.B{color:var(--B)} .tier.C{color:var(--C)} .tier.D{color:var(--D)}
+  .tier h4{margin:0 0 7px;font-family:var(--mono);font-size:13px;letter-spacing:.05em}
+  .tier p{margin:0;font-size:12px;color:var(--txt-dim);line-height:1.6}
+
+  footer{border-top:1px solid var(--line-2);padding-top:22px;color:var(--txt-faint);font-size:11.5px;font-family:var(--mono);line-height:1.9}
+
+  .reveal{opacity:0;transform:translateY(14px);animation:rv .7s cubic-bezier(.22,1,.36,1) forwards}
+  @keyframes rv{to{opacity:1;transform:none}}
+  @media(max-width:640px){.wrap{padding:32px 16px 64px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="reveal">
+  <div class="kicker">Feature Necessity Audit · v1.5.x</div>
+  <h1>Lengbanlist 功能<em>必要性</em>审计</h1>
+  <p class="sub">
+    对一个「封禁 / 查询插件」而言，哪些功能是它存在的理由，哪些是必配的闭环，哪些可以安全关掉，
+    哪些已经越出了「封禁管理」的边界却又最贵、最有风险。全部结论基于源码实测，非主观印象。
+  </p>
+  <div class="stats">
+    <div class="stat a"><b>39</b><span>features.* 开关</span></div>
+    <div class="stat"><b>24,336</b><span>仓库总行数</span></div>
+    <div class="stat a"><b>31%</b><span>处罚核心占比</span></div>
+    <div class="stat d"><b>42%</b><span>外围三项占比</span></div>
+    <div class="stat r"><b>8</b><span>开关失效 / 风险项</span></div>
+  </div>
+</header>
+
+<!-- ===================== 1. 分级定义 ===================== -->
+<section class="reveal" style="animation-delay:.06s">
+  <h2><span class="n">01</span>分级口径</h2>
+  <p class="lede">分级只回答一个问题：<b>相对「封禁与处罚管理」这个定位</b>，这个功能该不该存在、该不该默认开。</p>
+  <div class="tiers">
+    <div class="tier A">
+      <h4>A · 核心不可关</h4>
+      <p>关掉插件就不成立。处罚数据的读写、到期与清理、命令与开关机制本身。</p>
+    </div>
+    <div class="tier B">
+      <h4>B · 必要配套</h4>
+      <p>不建议关。构成完整处罚闭环，或被其它模块依赖。</p>
+    </div>
+    <div class="tier C">
+      <h4>C · 可选增强</h4>
+      <p>开关实测有效、无副作用，按服务器需要取舍。</p>
+    </div>
+    <div class="tier D">
+      <h4>D · 外围 / 越界</h4>
+      <p>已不属于封禁管理领域，且成本或风险明显高于收益。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 2. 象限图 ===================== -->
+<section class="reveal" style="animation-delay:.12s">
+  <h2><span class="n">02</span>成本 × 必要性 象限图</h2>
+  <p class="lede">
+    横轴是功能的实现与维护成本（行数，对数刻度），纵轴是必要性评分。圆点面积正比于代码量。
+    <b style="color:var(--D)">右下角</b>是削减价值最高的区域：又贵、又不必要。悬停查看详情。
+  </p>
+  <div class="legend" id="filters">
+    <span class="chip on" data-tier="A"><i class="dot"></i>A 核心</span>
+    <span class="chip on" data-tier="B"><i class="dot"></i>B 必要配套</span>
+    <span class="chip on" data-tier="C"><i class="dot"></i>C 可选</span>
+    <span class="chip on" data-tier="D"><i class="dot"></i>D 外围/越界</span>
+    <span class="spacer"></span>
+    <span class="chip on" id="labToggle">显示全部标签</span>
+  </div>
+  <div class="plot">
+    <svg id="scatter" viewBox="0 0 1040 640" role="img" aria-label="成本与必要性象限散点图"></svg>
+    <div id="tip"></div>
+  </div>
+</section>
+
+<!-- ===================== 3. 代码占比 ===================== -->
+<section class="reveal" style="animation-delay:.18s">
+  <h2><span class="n">03</span>代码量分布</h2>
+  <p class="lede">按功能归属统计行数（Java 20,851 行 / 103 文件 + Web 前端资源 3,485 行 = 24,336 行）。</p>
+  <div class="bars" id="bars"></div>
+</section>
+
+<!-- ===================== 4. 完整清单 ===================== -->
+<section class="reveal" style="animation-delay:.24s">
+  <h2><span class="n">04</span>完整功能清单</h2>
+  <p class="lede">「开关」一列标出 features.* 是否真的能关掉对应的<b>行为</b>——注意有 2 项只能隐藏命令，关不掉后台。</p>
+  <div class="legend" id="tblFilters">
+    <span class="chip on" data-tier="A"><i class="dot"></i>A</span>
+    <span class="chip on" data-tier="B"><i class="dot"></i>B</span>
+    <span class="chip on" data-tier="C"><i class="dot"></i>C</span>
+    <span class="chip on" data-tier="D"><i class="dot"></i>D</span>
+  </div>
+  <div class="tblwrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:30%">功能</th>
+          <th>级</th>
+          <th style="text-align:right">行数</th>
+          <th style="width:15%">开关实效</th>
+          <th style="width:20%">外部依赖</th>
+          <th style="width:22%">结论</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===================== 5. 风险项 ===================== -->
+<section class="reveal" style="animation-delay:.3s">
+  <h2><span class="n">05</span>开关失效与风险项</h2>
+  <p class="lede">这一节不是「功能该不该有」，而是「现在的实现有问题」。全部有源码出处。</p>
+  <div class="risks" id="risks"></div>
+</section>
+
+<footer>
+  数据来源：<span style="color:var(--txt-dim)">Lengbanlist - main/src/main/java · resources/{config,storage,plugin}.yml · docs/</span><br>
+  统计口径：Java 20,851 行（103 文件）+ Web 前端 3,485 行 = 24,336 行；<br>
+  必要性评分是相对「封禁 / 查询插件」定位的判断，不代表功能质量。
+</footer>
+
+</div>
+
+<script>
+/* ============================================================
+   数据：每个功能 = { id, name, tier, necessity, loc, files,
+                      gate, deps, verdict }
+   tier: A 核心 / B 必要配套 / C 可选 / D 外围越界
+   gate: 有效 / 不完整 / 无开关 / 默认关闭 / 默认开启
+   ============================================================ */
+const FEATURES = [
+  {name:"封禁 / 解封 / 改期", tier:"A", necessity:100, loc:1556,
+   files:"BanCommands 624 · BanManager 339 · BanCache 268 · IpMatcher 164 · BanEntry 95 · BanIpEntry 66",
+   gate:"有效", deps:"无",
+   verdict:"产品本体。时长 / forever / auto / IP 段封禁齐备。"},
+  {name:"数据库层（4 种方言）", tier:"A", necessity:100, loc:2509,
+   files:"DatabaseManager 1942 · StorageMigrationManager 282 · DatabaseDialect 197 · SchemaMigrations 88",
+   gate:"无开关", deps:"SQLite / MySQL / MariaDB / PostgreSQL",
+   verdict:"一切功能的前提。初始化失败即拒绝启用，处理正确。"},
+  {name:"到期停用 + 历史清理任务", tier:"A", necessity:98, loc:80,
+   files:"Lengbanlist:456-470 · DatabaseManager.deactivateExpiredBans / cleanupOldData",
+   gate:"无开关", deps:"数据库",
+   verdict:"每 1 小时异步跑一次，扫 9 张表。不跑则封禁永不过期、库无限膨胀，必须保留。"},
+  {name:"命令注册与功能开关机制", tier:"A", necessity:95, loc:347,
+   files:"CommandRegistry 279 · FeatureCommand 68",
+   gate:"无开关", deps:"反射读写 Bukkit CommandMap",
+   verdict:"开关体系本身。注销命令靠反射，服务端版本升级时是脆弱点。"},
+  {name:"查询（check / history）", tier:"A", necessity:92, loc:571,
+   files:"QueryCommands 571",
+   gate:"有效", deps:"无",
+   verdict:"处罚管理的读取闭环。注意 Web 的 /api/history 未接入开关。"},
+  {name:"主命令 /lban", tier:"A", necessity:90, loc:759,
+   files:"LengbanlistCommand 759",
+   gate:"无开关", deps:"无",
+   verdict:"子命令聚合入口。多数子命令运行时二次校验 features.*，设计合理。"},
+  {name:"封禁 / 警告缓存", tier:"A", necessity:90, loc:428,
+   files:"BanCache 268 · WarnCache 160",
+   gate:"无开关", deps:"storage.yml cache TTL",
+   verdict:"storage.yml 写明：无缓存时计分板占位符等于每 tick 打一次数据库。不可关。"},
+  {name:"警告 / 撤销警告", tier:"B", necessity:85, loc:736,
+   files:"WarnCommands 283 · WarnManager 237 · WarnCache 160 · WarnEntry 56",
+   gate:"有效", deps:"依赖 features.ban（LBAC 自动封禁）",
+   verdict:"注意耦合：3 次警告自动封禁的判断挂在 features.ban 上，单关 warn 会留下半截逻辑。"},
+  {name:"禁言 / 解禁 / 列表", tier:"B", necessity:88, loc:642,
+   files:"MuteManager 389 · MuteCommands 221 · MuteEntry 32",
+   gate:"不完整", deps:"mutes 表",
+   verdict:"开关只管命令。禁言拦截在 ChatListener:62-66 先于 chat-filter 判断，且不看 features.mute。"},
+  {name:"审计日志", tier:"B", necessity:82, loc:239,
+   files:"AuditManager 190 · AuditEntry 49",
+   gate:"有效", deps:"audit_log 表",
+   verdict:"管理员追责的唯一依据，且是 rollback / export 的数据源。"},
+  {name:"踢出玩家", tier:"B", necessity:70, loc:60,
+   files:"BanCommands.Kick",
+   gate:"有效", deps:"无",
+   verdict:"基础管理动作，成本极低。注：只有 /kick，没有 /lban kick。"},
+  {name:"重载配置", tier:"B", necessity:65, loc:20,
+   files:"LengbanlistCommand · AdminController",
+   gate:"不完整", deps:"无",
+   verdict:"让 features.* 热生效的路径。/lban reload 本身不检查该开关，只有 Web 端点检查。"},
+  {name:"封禁到期提醒", tier:"B", necessity:60, loc:77,
+   files:"ExpiryReminderTask 77",
+   gate:"有效", deps:"异步 60 秒扫描 bans / mutes",
+   verdict:"77 行换一个完整闭环，性价比很高。"},
+  {name:"离线警告通知", tier:"B", necessity:55, loc:25,
+   files:"WarnManager:33 · PlayerJoinListener:70",
+   gate:"有效", deps:"warnings 表",
+   verdict:"约 25 行，成本极低。"},
+  {name:"箱子 GUI 菜单", tier:"C", necessity:50, loc:925,
+   files:"GuiCommands 607 · WizardManager 250 · GuiSessionManager 40 · GuiCleanupListener 28",
+   gate:"有效", deps:"无",
+   verdict:"925 行做了命令已经能做的一切，是与命令层重复的第二套实现。"},
+  {name:"冻结玩家", tier:"C", necessity:65, loc:601,
+   files:"FreezeManager 201 · FreezeCommands 186 · FreezeListener 185 · FreezeEntry 29",
+   gate:"不完整", deps:"freezes 表 · 可跨服生效",
+   verdict:"17 个事件处理器。onJoin 通知不走 frozen() 判断，关掉开关后进服提示照发。"},
+  {name:"封禁申诉（网页）", tier:"C", necessity:45, loc:502,
+   files:"AppealController 248 · AppealManager 206 · AppealEntry 48",
+   gate:"有效", deps:"appeals 表 · 公开页默认关闭",
+   verdict:"公开申诉页默认 public-enabled:false，安全默认值选择正确。"},
+  {name:"聊天违禁词过滤", tier:"C", necessity:60, loc:131,
+   files:"ChatListener 131 · chatconfig.yml",
+   gate:"有效", deps:"chatconfig.yml 词表",
+   verdict:"效果取决于词表维护，属运营投入而非插件能力。命中可自动禁言。"},
+  {name:"操作回滚", tier:"C", necessity:55, loc:312,
+   files:"RollbackManager 312",
+   gate:"有效", deps:"audit 开启 · 依赖时间范围",
+   verdict:"强依赖审计日志。解封记录不含原时长，恢复时用固定时长（30 天 / 7 天），精度有损。"},
+  {name:"跨服数据同步", tier:"C", necessity:60, loc:287,
+   files:"SyncManager 257 · SyncEvent 30",
+   gate:"不完整", deps:"storage.yml sync 段 · 仅共享数据库",
+   verdict:"多子服刚需。关闭开关只隐藏 /lban sync，后台轮询照跑（默认每 1 秒查库）。"},
+  {name:"举报系统", tier:"C", necessity:60, loc:360,
+   files:"ReportCommands 283 · ReportManager 77",
+   gate:"不完整", deps:"reports 表 · 冷却默认 86400 秒",
+   verdict:"依赖玩家自觉与人工处理。Web 侧 /api/reports 未接入开关。"},
+  {name:"PlaceholderAPI 占位符", tier:"C", necessity:50, loc:206,
+   files:"PlaceholderAPIHook 206",
+   gate:"无开关", deps:"PlaceholderAPI（软依赖）",
+   verdict:"仅在装了 PAPI 时注册。但占位符会被计分板按 tick 轮询，因此强依赖封禁缓存。"},
+  {name:"管理员隐身", tier:"C", necessity:45, loc:179,
+   files:"VanishManager 143 · VanishListener 36",
+   gate:"有效", deps:"无",
+   verdict:"179 行，纯内存，成本低，管理刚需。"},
+  {name:"禁言期指令屏蔽", tier:"C", necessity:45, loc:158,
+   files:"MuteCommandBlockPolicy 112 · MuteCommandBlockListener 46",
+   gate:"有效", deps:"需自配放行白名单",
+   verdict:"不配 allowed-commands 会连 /login 一起挡掉，默认值不够安全。"},
+  {name:"封禁人数广播", tier:"C", necessity:40, loc:186,
+   files:"BroadCastManager 99 · OpJoinListener 87",
+   gate:"不完整", deps:"opensendtime 才是真开关",
+   verdict:"插件最老的卖点，对现代服务器已基本无价值。而且开关关不掉它。"},
+  {name:"权重免疫", tier:"C", necessity:50, loc:143,
+   files:"ImmunityManager 143",
+   gate:"有效", deps:"immunity.default-weight",
+   verdict:"开关真实生效（ImmunityManager:20/27/34）。多管理组分级时才有意义。"},
+  {name:"IP 关联检测", tier:"C", necessity:50, loc:159,
+   files:"IpAssociationManager 159",
+   gate:"有效", deps:"player_ip_history 表",
+   verdict:"该表默认永久保留，是库里唯一无上限增长的表（storage.yml 已注明）。两个公开方法无人调用。"},
+  {name:"小号检测", tier:"C", necessity:55, loc:120,
+   files:"GuiCommands.Alts（含于 607）· IpAssociationManager 159",
+   gate:"有效", deps:"player_ip_history 表",
+   verdict:"依赖 IP 历史积累，新服前期无用。实例与监听器不受开关影响。"},
+  {name:"审计日志导出", tier:"C", necessity:35, loc:115,
+   files:"ExportController 115 · AuditManager:60-118",
+   gate:"不完整", deps:"audit 开启",
+   verdict:"导出保留最多 20 个文件。Web 的 /api/exports/* 与 /lban audit verify 都不检查开关。"},
+  {name:"管理员聊天频道", tier:"C", necessity:35, loc:90,
+   files:"StaffCommands 263（与 rollback / vanish 共享）",
+   gate:"有效", deps:"无",
+   verdict:"功能很小，边缘需求。"},
+  {name:"封禁时长自动升级", tier:"C", necessity:55, loc:70,
+   files:"EscalationManager 70",
+   gate:"有效", deps:"escalation.tiers",
+   verdict:"70 行解决惯犯累加。但 resolveMute 恒走 legacy 分支，禁言侧未接线。"},
+  {name:"传送 /lban tp", tier:"C", necessity:30, loc:40,
+   files:"LengbanlistCommand",
+   gate:"有效", deps:"无",
+   verdict:"与处罚完全无关的便利命令，权限挂在 lengbanlist.admin 上。"},
+  {name:"审计哈希链防篡改", tier:"C", necessity:40, loc:40,
+   files:"AuditManager:41,122 · SchemaMigrations（schema v4）",
+   gate:"有效", deps:"audit_log.prev_hash + schema_meta",
+   verdict:"约 40 行，有合规诉求时才有用。"},
+  {name:"Webhook 事件推送", tier:"C", necessity:40, loc:701,
+   files:"WebhookNotifier 701",
+   gate:"有效（默认关）", deps:"Discord Webhook URL",
+   verdict:"默认关闭是正确默认值。701 行只为单向转发，是单个功能里偏重的一个。"},
+  {name:"更新检查", tier:"C", necessity:35, loc:381,
+   files:"GitHubUpdateChecker 381",
+   gate:"有效", deps:"GitHub API + 3 个镜像站",
+   verdict:"默认开启。镜像站会批量失效，作者已在注释里预告，是长期维护负担。"},
+  {name:"Web 管理面板", tier:"D", necessity:45, loc:5818,
+   files:"web/*.java 2333（17 文件）+ app.js 1377 + app.css 1367 + index.html 461 + appeal.html 280",
+   gate:"默认关闭", deps:"自研 HTTP 服务 · JWT · 自写限流",
+   verdict:"占全仓 24%，是最大的单个子系统，也是唯一新增的监听端口与攻击面。web.enabled 默认 false 是正确选择。"},
+  {name:"角色模型 / 云端模型仓库", tier:"D", necessity:40, loc:1830,
+   files:"ModelCloudManager 623 · CustomModel 428 · ModelManager 316 · ModelsCommand 291 · ModelChoiceListener 86 · Model 86",
+   gate:"不完整", deps:"raw.githubusercontent / gh-proxy / mirror.ghproxy + 作者自建端点",
+   verdict:"1,830 行只为改变提示消息的语气。/lban models 不检查 features.model，仍可触发云端下载与安装统计上报。"},
+  {name:"bStats 统计上报", tier:"D", necessity:10, loc:727,
+   files:"Metrics 727 · Lengbanlist:305",
+   gate:"无插件级开关", deps:"bStats.org",
+   verdict:"727 行内嵌第三方统计，随插件无条件初始化，每 30 分钟上报一次。仅能通过全局 plugins/bStats/config.yml 关闭。"},
+  {name:"面板必应壁纸主题", tier:"D", necessity:15, loc:373,
+   files:"ThemeManager 373",
+   gate:"无独立开关", deps:"www.bing.com",
+   verdict:"纯装饰。即使 web 面板关闭，ThemeManager 仍会建目录并加载配置；联网仅发生在面板启动时。"},
+  {name:"自动下载并安装更新", tier:"D", necessity:30, loc:286,
+   files:"AutoUpdateManager 286 · GitHubUpdateChecker 381（共享）",
+   gate:"默认关闭", deps:"GitHub 直连 / 代理下载",
+   verdict:"会下载并替换插件自身的 jar。默认关闭是正确选择，但功能本身风险高、建议移除或仅保留提示。"},
+  {name:"VPN / 代理检测", tier:"D", necessity:25, loc:80,
+   files:"IpAssociationManager.isVpnIp · PlayerJoinListener:37-48",
+   gate:"默认开启", deps:"第三方 ip-api.com（每玩家进服 1 次，无缓存）",
+   verdict:"把每个进服玩家的 IP 主动发给第三方。免费额度约 45 次/分钟，中等规模服务器会静默失效。全代码仅 1 处引用。"},
+  {name:"IP 归属地查询 /getip", tier:"D", necessity:25, loc:51,
+   files:"IpGeoLookup 51 · QueryCommands",
+   gate:"有效", deps:"第三方 ip-api.com",
+   verdict:"又一处玩家 IP 外发。信息价值低，可改用本地 IP 库或直接去掉。"},
+  {name:"EULA 强制门槛", tier:"D", necessity:20, loc:89,
+   files:"eula.yml 89 行 · Lengbanlist:73-88",
+   gate:"无开关", deps:"无",
+   verdict:"不把 no 改成 yes 就拒绝启用插件。作者有意为之，但对分发与评测是明确摩擦。"},
+  {name:"启动彩蛋（一言）", tier:"D", necessity:5, loc:15,
+   files:"Lengbanlist:659-668",
+   gate:"无开关", deps:"v1.hitokoto.cn",
+   verdict:"每次插件启用都无条件外发一次请求，异常时静默返回固定文案。纯彩蛋，零功能价值。"}
+];
+
+/* ============================================================
+   代码分布
+   ============================================================ */
+const BUCKETS = [
+  {label:"处罚核心（封禁 / 禁言 / 警告 / 查询 / 审计 / 数据库）", loc:7468, color:"var(--A)",
+   note:"31 个文件。定位的真实成本基线，全部应当保留。"},
+  {label:"中间层（GUI / 隐身冻结 / 聊天过滤 / 同步回滚 / 举报申诉 / 广播）", loc:6541, color:"var(--B)",
+   note:"按服务器规模取舍的区间。开关实测有效的部分可安全裁剪。"},
+  {label:"Web 管理面板（Java 2,333 + 前端资源 3,485）", loc:5818, color:"var(--D)",
+   note:"占全仓 24%。默认关闭；不开近似零运行成本，但仍占维护面。"},
+  {label:"网络与遥测（更新检查 / 统计 / 主题 / HTTP / Webhook）", loc:2679, color:"var(--C)",
+   note:"其中 bStats（727 行）与一言彩蛋无插件级开关，无法通过 config.yml 关闭。"},
+  {label:"角色模型与云端文案皮肤", loc:1830, color:"var(--R)",
+   note:"仅改变提示语语气，带云端下发与默认开启的安装统计上报。"}
+];
+const TOTAL = BUCKETS.reduce((s,b)=>s+b.loc,0);
+
+/* ============================================================
+   风险项
+   ============================================================ */
+const RISKS = [
+  {t:"7 个 features 开关关不掉对应行为",
+   p:"以下开关被设为 false 后，功能依然生效：<span class='mono'>broadcast</span>（/lban a 与定时广播只查权限，真开关是 opensendtime）、<span class='mono'>sync</span>（后台轮询无条件启动）、<span class='mono'>mute</span>（聊天拦截先于 chat-filter 判断且不看此开关）、<span class='mono'>model</span>（/lban models 只查权限）、<span class='mono'>reload</span>（/lban reload 不检查）、<span class='mono'>export</span>（audit verify 与 Web 导出不检查）、<span class='mono'>freeze</span>（进服通知不走 frozen()）。",
+   e:"Lengbanlist.java:142/314-316/332-334 · ChatListener.java:62-66 · LengbanlistCommand.java:64-70,82-86,248-253,434-441 · FreezeListener.java:43-51"},
+  {t:"Web 面板 5 个端点完全未接入开关",
+   p:"ExportController、AuditController、ReportController、StatsController 与 PlayerController 的历史接口只校验登录态，不调用 requireFeature。对比 Ban / Mute / Warn / Kick / Appeal / Admin 控制器都做了检查，属于漏接而非设计。",
+   e:"ExportController.java:29-51 · AuditController.java:25-30 · ReportController.java:21-23 · StatsController.java:26-35 · PlayerController.java:176+"},
+  {t:"unban=false 在 Web 对 IP 目标失效",
+   p:"BanController 解封时按目标类型选择开关键，IP 分支用的是 <span class='mono'>unban-ip</span>——config.yml 里并不存在这个键，而 isFeatureEnabled 对缺失键返回 true，于是 IP 解封永远绕过开关。",
+   e:"BanController.java:116 <b>requireFeature(exchange, isIp ? \"unban-ip\" : \"unban\")</b>；Lengbanlist.java:501-503 默认 true"},
+  {t:"遥测无法从插件配置关闭",
+   p:"bStats 在 onEnable 中无条件初始化，没有任何 features.* 或 config.yml 开关，只能改服务器全局的 plugins/bStats/config.yml；每 30 分钟上报一次。启动彩蛋「一言」同样无条件外发一次 HTTP 请求。",
+   e:"Lengbanlist.java:305 <b>new Metrics(this, 33262)</b> · Metrics.java:35-59,244-248 · Lengbanlist.java:261-274 → 661"},
+  {t:"EULA 表述与实际网络行为不符",
+   p:"EULA 写明「本插件不会收集您的隐私信息」「完全基于本地系统 / runs entirely locally」，但 VPN 检测默认开启，每个进服玩家的 IP 都会被发给第三方 ip-api.com，且无缓存。/getip 是第二处同类外发。IP 地址在多数司法辖区属于个人数据。",
+   e:"eula.yml:31-33, 61-62 · IpAssociationManager.java:140-148 · IpGeoLookup"},
+  {t:"所有数据表无条件创建",
+   p:"14 张表在启动时全部建好，与 features.* 无关。因此「关掉某功能」既不会减少数据库结构，也不会释放已有数据；玩家 IP 历史表默认永久保留，是唯一无上限增长的表。",
+   e:"DatabaseManager.java:315-357 <b>14 × CREATE TABLE IF NOT EXISTS</b> · storage.yml:46 <b>ip-history-days: 0</b>"},
+  {t:"开关缺失时默认放行",
+   p:"isFeatureEnabled 对不存在的键返回 true。配置里被删掉、写错或拼错的开关会静默视为「开启」，关闭意图无法表达，也没有任何告警——上文的 unban-ip 就是被这一点放大的。",
+   e:"Lengbanlist.java:501-503 <b>getBoolean(\"features.\"+feature, true)</b>"},
+  {t:"禁用功能仍被实例化，且有死代码",
+   p:"CommandRegistry.specs() 在过滤前就 new 了全部 21 个执行器；GuiCommands.Alts 构造器内注册监听器，却在 onEnable 恒执行。另有 3 处确认无调用点的代码：WebController 的 3 参 runSync、IpAssociationManager 的 hasSuspiciousLogin / getSuspiciousLoginDetails、LengbanlistCommand 的 ipGeoLookup 字段。权限节点 lengbanlist.help 在 Java 中无任何检查。",
+   e:"CommandRegistry.java:34-49,169-211 · GuiCommands.java:454 · WebController.java:94-131 · IpAssociationManager.java:132-138 · plugin.yml:104-106"}
+];
+
+/* ============================================================
+   渲染：象限散点图
+   ============================================================ */
+const SVGNS = "http://www.w3.org/2000/svg";
+const TIER_COLOR = {A:"#3ddbd9", B:"#6ee7a8", C:"#f0b429", D:"#f2603c"};
+const TIER_NAME  = {A:"核心不可关", B:"必要配套", C:"可选增强", D:"外围越界"};
+const activeTiers = new Set(["A","B","C","D"]);
+let showAllLabels = false;
+
+const W=1040, H=640, ML=78, MR=40, MT=48, MB=62;
+const PW = W-ML-MR, PH = H-MT-MB;
+const XMIN = 1.0, XMAX = 3.85;          // log10(loc)
+const COST_CUT = Math.log10(350);        // 成本分界
+const NEC_CUT  = 62;                    // 必要性分界
+
+const sx = loc => ML + (Math.log10(loc)-XMIN)/(XMAX-XMIN)*PW;
+const sy = n   => MT + 22 + (100-n)/100*(PH-44);   // 上下各留 22px，容纳最大圆点
+const sr = loc => Math.max(5, Math.min(19, 4 + Math.sqrt(loc)/5.2));
+
+const svg = document.getElementById("scatter");
+const el = (tag, attrs) => {
+  const n = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  return n;
+};
+
+/* 象限底色 */
+const qx = sx(Math.pow(10, COST_CUT)), qy = sy(NEC_CUT);
+const quads = [
+  {x:ML,      y:MT, w:qx-ML,     h:qy-MT,     lab:"低成本 · 高必要 —— 核心保留",       c:"rgba(61,219,217,.045)"},
+  {x:qx,      y:MT, w:ML+PW-qx,  h:qy-MT,     lab:"高成本 · 高必要 —— 必须承担",       c:"rgba(110,231,168,.05)"},
+  {x:ML,      y:qy, w:qx-ML,     h:MT+PH-qy,  lab:"低成本 · 低必要 —— 无害可留",       c:"rgba(240,180,41,.04)"},
+  {x:qx,      y:qy, w:ML+PW-qx,  h:MT+PH-qy,  lab:"高成本 · 低必要 —— 削减重点",       c:"rgba(242,96,60,.075)"}
+];
+quads.forEach(q=>{
+  svg.appendChild(el("rect",{x:q.x,y:q.y,width:Math.max(0,q.w),height:Math.max(0,q.h),fill:q.c}));
+  const t = el("text",{x:q.x+13,y:q.y+21,class:"qlab"});
+  t.textContent = q.lab; svg.appendChild(t);
+});
+/* 分界线 */
+svg.appendChild(el("line",{x1:qx,y1:MT,x2:qx,y2:MT+PH,stroke:"#2a3d50","stroke-dasharray":"4 5"}));
+svg.appendChild(el("line",{x1:ML,y1:qy,x2:ML+PW,y2:qy,stroke:"#2a3d50","stroke-dasharray":"4 5"}));
+
+/* 坐标轴 */
+svg.appendChild(el("line",{x1:ML,y1:MT+PH,x2:ML+PW,y2:MT+PH,stroke:"#2a3d50"}));
+svg.appendChild(el("line",{x1:ML,y1:MT,x2:ML,y2:MT+PH,stroke:"#2a3d50"}));
+[0,20,40,60,80,100].forEach(n=>{
+  const y = sy(Math.max(n,0.001));
+  svg.appendChild(el("line",{x1:ML-5,y1:y,x2:ML,y2:y,stroke:"#2a3d50"}));
+  const t = el("text",{x:ML-12,y:y+4,class:"axis","text-anchor":"end"});
+  t.textContent = n; svg.appendChild(t);
+});
+[20,50,100,200,400,1000,2000,5290].forEach(loc=>{
+  const x = sx(loc);
+  if (x>ML+PW) return;
+  svg.appendChild(el("line",{x1:x,y1:MT+PH,x2:x,y2:MT+PH+5,stroke:"#2a3d50"}));
+  const t = el("text",{x:x,y:MT+PH+21,class:"axis","text-anchor":"middle"});
+  t.textContent = loc>=1000 ? (loc/1000)+"k" : loc; svg.appendChild(t);
+});
+const ax = el("text",{x:ML+PW,y:H-16,class:"axis","text-anchor":"end"});
+ax.textContent = "实现 / 维护成本（行数，对数刻度）→"; svg.appendChild(ax);
+const ay = el("text",{x:18,y:MT+PH/2,class:"axis","text-anchor":"middle",
+  transform:`rotate(-90 18 ${MT+PH/2})`});
+ay.textContent = "必要性评分 →"; svg.appendChild(ay);
+
+/* ---------- 节点与标签 ---------- */
+const tip = document.getElementById("tip");
+const plot = document.querySelector(".plot");
+
+/* 标签宽度估算：CJK 按 10.2px，其余按 5.6px（字号 10px） */
+const CJK_RE = /[\u2e80-\u9fff\u3000-\u303f\uff00-\uffef]/;
+const textW = s => { let w=0; for (const ch of s) w += CJK_RE.test(ch) ? 10.2 : 5.6; return w; };
+const hits = (a,b) => !(a.x+a.w < b.x || b.x+b.w < a.x || a.y+a.h < b.y || b.y+b.h < a.y);
+
+/* 第一遍：所有节点圆，同时把圆本身登记为占位矩形 */
+const nodes = FEATURES.map(f=>{
+  const cx=sx(f.loc), cy=sy(f.necessity), r=sr(f.loc), col=TIER_COLOR[f.tier];
+  const g = el("g",{class:"node"});
+  g.appendChild(el("circle",{cx,cy,r,fill:col,"fill-opacity":.26,stroke:col,"stroke-width":1.4}));
+  g.appendChild(el("circle",{cx,cy,r:Math.max(1.6,r*0.2),fill:col,"fill-opacity":.85}));
+  svg.appendChild(g);
+  return {f, g, lab:null, r, cx, cy, col};
+});
+
+const boxes = nodes.map(n=>({x:n.cx-n.r-2, y:n.cy-n.r-2, w:n.r*2+4, h:n.r*2+4}));
+const X0 = ML+2, X1 = ML+PW-2, Y0 = MT+2, Y1 = MT+PH-3;
+
+/* 第二遍：按代码量从大到小放标签，先到先占位，逐个尝试 6 个候选方向 */
+[...nodes].sort((a,b)=> b.f.loc - a.f.loc).forEach(n=>{
+  const {f,cx,cy,r} = n, w = textW(f.name), h = 11;
+  const cands = [
+    {x:cx+r+7, y:cy+3.6, anchor:"start"},
+    {x:cx-r-7, y:cy+3.6, anchor:"end"},
+    {x:cx+r+7, y:cy-9.4, anchor:"start"},
+    {x:cx+r+7, y:cy+16.6, anchor:"start"},
+    {x:cx-r-7, y:cy-9.4, anchor:"end"},
+    {x:cx-r-7, y:cy+16.6, anchor:"end"},
+    {x:cx+3,   y:cy+r+12, anchor:"start"},
+    {x:cx+3,   y:cy-r-5,  anchor:"start"},
+    {x:cx-3,   y:cy+r+12, anchor:"end"},
+    {x:cx-3,   y:cy-r-5,  anchor:"end"}
+  ];
+  let pick = null;
+  for (const c of cands){
+    const bx = c.anchor==="start" ? c.x : c.x-w;
+    const box = {x:bx-2, y:c.y-h+2, w:w+4, h:h+2};
+    if (box.x < X0 || box.x+box.w > X1 || box.y < Y0 || box.y+box.h > Y1) continue;
+    if (boxes.some(b=>hits(b,box))) continue;
+    pick = c; boxes.push(box); break;
+  }
+  if (!pick) pick = cands[0];                       // 全冲突时回退到右侧，仍可见
+  const lab = el("text",{x:pick.x, y:pick.y, class:"nlab","text-anchor":pick.anchor});
+  lab.textContent = f.name;
+  svg.appendChild(lab);
+  n.lab = lab;
+});
+
+/* 第三遍：悬停提示 */
+nodes.forEach(n=>{
+  const {f,g,lab,col,r,cx,cy} = n;
+  const show = ()=>{
+    tip.innerHTML =
+      `<div class="t">${f.name}</div>`+
+      `<div class="m"><span>分级</span><b style="color:${col}">${f.tier} · ${TIER_NAME[f.tier]}</b></div>`+
+      `<div class="m"><span>必要性</span><b>${f.necessity} / 100</b></div>`+
+      `<div class="m"><span>代码量</span><b>${f.loc.toLocaleString()} 行</b></div>`+
+      `<div class="v">${f.verdict}</div>`+
+      `<div class="g">开关：${f.gate} · 依赖：${f.deps}</div>`+
+      `<div class="g">${f.files}</div>`;
+    tip.style.opacity = 1;
+    const pr = plot.getBoundingClientRect();
+    const sc = pr.width / W;
+    let tx = cx*sc + 18, ty = cy*sc - 12;
+    if (tx + tip.offsetWidth > pr.width - 8) tx = cx*sc - tip.offsetWidth - 18;
+    if (ty + tip.offsetHeight > pr.height - 8) ty = Math.max(8, cy*sc - tip.offsetHeight - 12);
+    tip.style.left = Math.max(8,tx)+"px"; tip.style.top = Math.max(8,ty)+"px";
+  };
+  const hide = ()=>{ tip.style.opacity = 0; };
+  g.addEventListener("mouseenter", show);
+  g.addEventListener("mousemove", show);
+  g.addEventListener("mouseleave", hide);
+  /* 也允许悬停标签 */
+  if (lab){ lab.style.pointerEvents="auto"; lab.addEventListener("mouseenter",show); lab.addEventListener("mouseleave",hide); }
+});
+
+function applyFilters(){
+  nodes.forEach(({f,g,lab})=>{
+    const on = activeTiers.has(f.tier);
+    g.classList.toggle("dim", !on);
+    if (lab){
+      const vis = on && (showAllLabels || f.loc>=350);
+      lab.style.display = vis ? "" : "none";
+    }
+  });
+}
+applyFilters();
+
+/* 过滤器 */
+document.querySelectorAll("#filters .chip[data-tier]").forEach(ch=>{
+  ch.addEventListener("click",()=>{
+    const t = ch.dataset.tier;
+    if (activeTiers.has(t)) { activeTiers.delete(t); ch.classList.remove("on"); ch.classList.add("off"); }
+    else { activeTiers.add(t); ch.classList.add("on"); ch.classList.remove("off"); }
+    applyFilters();
+  });
+});
+document.getElementById("labToggle").addEventListener("click", e=>{
+  showAllLabels = !showAllLabels;
+  e.currentTarget.classList.toggle("on", showAllLabels);
+  e.currentTarget.textContent = showAllLabels ? "仅显示大标签" : "显示全部标签";
+  applyFilters();
+});
+
+/* ============================================================
+   渲染：代码占比
+   ============================================================ */
+const barsEl = document.getElementById("bars");
+BUCKETS.forEach((b,i)=>{
+  const pct = (b.loc/TOTAL*100);
+  const d = document.createElement("div");
+  d.className = "bar";
+  d.innerHTML = `<div class="top"><span class="nm">${b.label}</span>
+      <span class="vl"><b>${b.loc.toLocaleString()}</b> 行 · ${pct.toFixed(1)}%</span></div>
+    <div class="track"><div class="fill" style="background:${b.color};--w:${pct}%"></div></div>
+    <div class="note">${b.note}</div>`;
+  barsEl.appendChild(d);
+  setTimeout(()=>{ d.querySelector(".fill").style.width = pct+"%"; }, 220 + i*110);
+});
+
+/* ============================================================
+   渲染：表格
+   ============================================================ */
+const tbody = document.getElementById("tbody");
+FEATURES.forEach(f=>{
+  const tr = document.createElement("tr");
+  tr.dataset.tier = f.tier;
+  const bad = (f.gate==="不完整");
+  tr.innerHTML =
+    `<td><span class="tname">${f.name}</span><span class="tfile">${f.files}</span></td>
+     <td><span class="tag ${f.tier}">${f.tier}</span></td>
+     <td class="loc"><b>${f.loc.toLocaleString()}</b></td>
+     <td class="mono${bad?" bad":""}">${f.gate}</td>
+     <td class="mono">${f.deps}</td>
+     <td class="verdict">${f.verdict}</td>`;
+  tbody.appendChild(tr);
+});
+document.querySelectorAll("#tblFilters .chip").forEach(ch=>{
+  ch.addEventListener("click",()=>{
+    const t = ch.dataset.tier;
+    ch.classList.toggle("on");
+    const on = ch.classList.contains("on");
+    ch.classList.toggle("off", !on);
+    document.querySelectorAll(`#tbody tr[data-tier="${t}"]`)
+      .forEach(tr=>tr.classList.toggle("hide", !on));
+  });
+});
+
+/* ============================================================
+   渲染：风险项
+   ============================================================ */
+const risksEl = document.getElementById("risks");
+RISKS.forEach(r=>{
+  const d = document.createElement("div");
+  d.className = "risk";
+  d.innerHTML = `<h3>${r.t}</h3><p>${r.p}</p><div class="ev">${r.e}</div>`;
+  risksEl.appendChild(d);
+});
+</script>
+</body>
+</html>
