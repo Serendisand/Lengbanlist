@@ -26,6 +26,4 @@ jobs:
         cache: maven
 
     - name: Build & test with Maven
-      run: |
-        cd "Lengbanlist - main"
-        mvn clean verify -B
+      run: mvn clean verify -B

@@ -24,14 +24,11 @@ jobs:
         cache: maven
     
     - name: Build with Maven
-      run: |
-        cd "Lengbanlist - main"
-        mvn clean verify -B
+      run: mvn clean verify -B
     
     - name: Get version from pom.xml
       id: get_version
       run: |
-        cd "Lengbanlist - main"
         VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
         echo "version=$VERSION" >> $GITHUB_OUTPUT
     

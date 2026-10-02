@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.leng</groupId>
+        <artifactId>Lengbanlist-Parent</artifactId>
+        <version>2.1.3</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>lengbanlist-api</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Lengbanlist API</name>
+    <description>
+        扩展契约模块：不可变数据对象与事件。
+        设计约束（重要）：
+        1. 本模块必须保持零第三方依赖（仅 spigot-api，provided）。原因是 Spigot 上插件无法从
+           "传递依赖"加载库（SPIGOT-6502），扩展若依赖本模块带入的第三方库会在运行时 NoClassDefFoundError。
+        2. 包名保持不变（org.leng.object / org.leng.api.events），使既有集成方编译不受影响。
+        3. 扩展以 provided 作用域依赖本模块，且不得把 org/leng/api 或 org/leng/object 打进自己的 jar；
+           运行时由核心的 classloader 提供（靠扩展 plugin.yml 的 depend: [Lengbanlist]）。
+    </description>
+
+    <dependencies>
+        <!-- 只取 Bukkit API 本身，显式排除它的全部传递依赖（含 gson 2.8.0）。
+             契约模块必须零第三方依赖：Spigot 上插件无法从传递依赖加载库（SPIGOT-6502），
+             且本模块只用到 org.bukkit.event 与 org.bukkit.configuration.serialization，
+             这些类不把 gson 类型暴露在签名上，编译期不需要它。 -->
+        <dependency>
+            <groupId>org.spigotmc</groupId>
+            <artifactId>spigot-api</artifactId>
+            <version>1.17.1-R0.1-SNAPSHOT</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+    </dependencies>
+</project>

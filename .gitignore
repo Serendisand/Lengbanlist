@@ -1,6 +1,7 @@
-.idea/
-Lengbanlist - main/.idea/
-Lengbanlist - main/Lengbanlist.iml
-Lengbanlist - main/target/
-Lengbanlist - main/dependency-reduced-pom.xml
+# ---------- 构建产物 ----------
+target/
+dependency-reduced-pom.xml
 
+# ---------- IDE ----------
+.idea/
+*.iml
