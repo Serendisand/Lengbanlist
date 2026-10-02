@@ -132,3 +132,14 @@ console:
   auto-update: "§aAuto-update enabled, checking for updates..."
   shutdown: "§k§4Packing our bags, qwq..."
   farewell: "§fUntil we meet again!"
+  # Same set as _base.yml: startup notices and diagnostics that used to be hardcoded
+  # in the ConsoleText enum and called directly, bypassing the model override path.
+  eula-required: "Startup aborted: you must accept the EULA to use this plugin!"
+  eula-hint: "Edit plugins/Lengbanlist/eula.yml to accept it"
+  db-init-failed: "Startup aborted: database initialization failed — check database settings and connectivity."
+  model-detected: "First run: picked model {model} from system language ({language})"
+  model-detect-save-failed: "Failed to save the auto-detected model: {error}"
+  preset-base: "Installed default texts: models/_base.yml (models inherit every field they don't override)"
+  preset-builtin: "Installed built-in model: models/{name}.yml"
+  storage-migrated: "Moved database settings from config.yml to storage.yml"
+  storage-migrate-failed: "Failed to migrate database settings: {error}"

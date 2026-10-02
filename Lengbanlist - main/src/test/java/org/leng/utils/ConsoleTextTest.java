@@ -24,7 +24,14 @@ class ConsoleTextTest {
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{(\\w+)}");
 
     private static final List<String> MODEL_KEYS = List.of(
-            "ready", "loading", "tip", "placeholder-hook", "auto-update", "shutdown", "farewell");
+            // 启动横幅与收尾
+            "ready", "loading", "tip", "placeholder-hook", "auto-update", "shutdown", "farewell",
+            // 启动期提示与诊断。这些原先硬编码在 ConsoleText 枚举里、且被直接以
+            // ConsoleText.X.text() 调用，绕过了模型覆写路径，所以在语言文件里找不到。
+            // 列进来是为了让"枚举与语言文件必须一致"这条约束把它们一起管住。
+            "eula-required", "eula-hint", "db-init-failed", "model-detected",
+            "model-detect-save-failed", "preset-base", "preset-builtin",
+            "storage-migrated", "storage-migrate-failed");
 
     private static Set<String> placeholders(String template) {
         Set<String> found = new TreeSet<>();

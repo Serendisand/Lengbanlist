@@ -429,7 +429,7 @@ download:
 | 0.7 | `Utils.canUse` / `CustomModel.filterDisabledFeatures` / `CommandRegistry.HELP_FEATURES` 统一走注册表 | 消除三处分散门控 | ✅ 已完成：三处都改为经 `Lengbanlist.isFeatureActive`（新增的空安全包装，注册表未建立时退回只看开关）或注册表 |
 | 0.8 | 修复审计发现的 8 项开关缺陷 | 避免缺陷被继承 | ✅ 完成 7 项；1 项判定为**非缺陷**：`StatsController` 是面板仪表盘，聚合封禁/禁言/警告等多来源数据，没有对应的单一功能键，而面板本身已由 `web.enabled` 把关 |
 | 0.9 | `features.*` → `extensions.yml` 迁移 + 语义改为"已安装 且 开启" | 兼容与正确性 | ✅ 已完成：全部 39 个功能键登记为提供者；`extensions.yml` 首次启动自动迁移 `features.*` 的现有选择，读取时新文件优先、缺失键回退旧键；`/lban reload` 一并重载 |
-| 0.11 | **文案外部化**：`ConsoleText` 里没有 yml 对应键的 9 项（`eula-required` / `eula-hint` / `db-init-failed` / `model-detected` / `model-detect-save-failed` / `preset-*` / `storage-*`）补进 `_base.yml` 的 `console:` 段；`ErrorLog` 等 11 处硬编码原因串改为可覆写文案 | 可维护性 | 待做（见第 10 节） |
+| 0.11 | **文案外部化**：把绕过模型覆写路径的文案接回去 | 可维护性 | 🟡 **0.11a 已完成**：9 个键补进 `_base.yml` / `english.yml`，9 处 `ConsoleText.X.text()` 直用改为 `consoleText(key)`。**0.11b 待做**：`ErrorLog` 的 11 处硬编码原因串——需先定"诊断日志保持中文"的界线（见第 10 节） |
 | 0.9 | `features.*` → `extensions.yml` 迁移 + 语义改为"已安装 且 开启" | 兼容与正确性 | 待做 |
 | 0.10 | **统一下载层**：新增 `org.leng.download`（`MirrorChain` + `DownloadService`），`ModelCloudManager` 与 `GitHubUpdateChecker` 已接入，`config.yml` 新增 `download:` 段（见 4.9） | 统一下载，市场复用 | ✅ 已完成（`AutoUpdateManager` 待 `DownloadService` 补齐校验钩子 / 体积上限 / 必须校验后再迁） |
 
@@ -611,10 +611,19 @@ if ((value == null || value.isEmpty()) && base != null) value = base.getString(p
 
 ### 10.3 处理路径
 
-- **0.11**（小）：把上面 9 项补进 `_base.yml`，并把 `ErrorLog` 的 11 处硬编码原因串改为可覆写文案
-- **0.4 / 0.6c**（大）：`Messages` 门面 + 把命令层的用户可见文案从 Java 字面量迁到模型键。
-  这是 1147 处的主要来源，与 models 扩展的拆分是同一件事的两面
-- **外部仓库**：模型文案按人设补齐（内容任务，非代码）
+- ✅ **0.11a（已完成）**：9 个键补进 `_base.yml` / `english.yml`，9 处 `ConsoleText.X.text()` 直用改为 `consoleText(key)`。
+
+  **关键发现**：用户在语言文件里找不到的，正好就是绕过覆写路径的那 9 个——它们被直接以枚举调用（`ConsoleText.X.text()`），压根没进模型。实测对照：
+
+  | 走 `consoleText(key)`（模型可覆写） | 直接调枚举（模型改不了） |
+  | --- | --- |
+  | `loading` `ready` `tip` `placeholder-hook` `auto-update` `shutdown` `farewell` | `eula-required` `eula-hint` `db-init-failed` `model-detected` `model-detect-save-failed` `preset-base` `preset-builtin` `storage-migrated` `storage-migrate-failed` |
+
+  顺带修掉 `consoleText` 借 `ModelManager.getInstance()` 读模型的副作用：`getInstance()` 是懒初始化的，其构造函数会读 `_base.yml`，而 `consoleText` 在启动早期（模型尚未加载）就会被调用，那会把 `ModelManager` 的构造提前到 models 目录都还没建好的时刻。改用静态的 `getCurrentModel()`，行为不变（模型为空时同样回落到 `ConsoleText`）。
+
+- **0.11b（待做）**：`ErrorLog` 的 11 处硬编码原因串。**需要先定一条界线**：`english.yml` 第 126 行明确写着"诊断类日志（数据库报错、同步失败、webhook 重试）保持中文便于排障"，所以并非所有中文串都该外部化——用户可见的提示该迁，排障日志按原设计保持中文。这条界线得先划出来，否则会把排障信息改成跟着模型走的文案，反而更难排查。
+- **0.6c（大）**：把命令层的用户可见文案从 Java 字面量迁到模型键。这是 1147 处的主要来源，与 models 扩展的拆分是同一件事的两面。
+- **外部仓库**：`Lengbanlist-Models` 的 25 个模型按人设补齐新增的 9 个键（内容任务，非代码）。功能上不必补——`CustomModel.raw()` 是逐键回退，没覆写的自动沿用 `_base.yml`。
 
 ---
 

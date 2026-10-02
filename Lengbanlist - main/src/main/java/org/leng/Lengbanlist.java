@@ -109,9 +109,9 @@ public void onLoad() {
         try {
             getConfig().save(configFile);
         } catch (IOException e) {
-            getLogger().warning(ConsoleText.MODEL_DETECT_SAVE_FAILED.text("error", e.getMessage()));
+            getLogger().warning(consoleText("model-detect-save-failed", "error", e.getMessage()));
         }
-        getLogger().info(ConsoleText.MODEL_DETECTED.text("language", language, "model", detectedModel));
+        getLogger().info(consoleText("model-detected", "language", language, "model", detectedModel));
     }
 
     if (!getConfig().contains("update-check.enabled")) {
@@ -150,13 +150,13 @@ public void onLoad() {
     File baseModelFile = new File(modelsDir, "_base.yml");
     if (!baseModelFile.exists()) {
         saveResource("models/_base.yml", false);
-        getLogger().info(ConsoleText.PRESET_BASE.text());
+        getLogger().info(consoleText("preset-base"));
     }
     for (String builtin : new String[]{"default", "english"}) {
         File target = new File(modelsDir, builtin + ".yml");
         if (!target.exists()) {
             saveResource("models/" + builtin + ".yml", false);
-            getLogger().info(ConsoleText.PRESET_BUILTIN.text("name", builtin));
+            getLogger().info(consoleText("preset-builtin", "name", builtin));
         }
     }
 
@@ -211,9 +211,9 @@ private void migrateLegacyStorageConfig(File storageFile) {
     try {
         storageConfig.save(storageFile);
         saveConfig();
-        getLogger().info(ConsoleText.STORAGE_MIGRATED.text());
+        getLogger().info(consoleText("storage-migrated"));
     } catch (IOException e) {
-        getLogger().warning(ConsoleText.STORAGE_MIGRATE_FAILED.text("error", e.getMessage()));
+        getLogger().warning(consoleText("storage-migrate-failed", "error", e.getMessage()));
     }
 }
 
@@ -240,7 +240,7 @@ public int historyRetentionDays() {
 public void onEnable() {
     if (initializationFailed) {
         getLogger().severe("==================================================");
-        getLogger().severe(ConsoleText.DB_INIT_FAILED.text());
+        getLogger().severe(consoleText("db-init-failed"));
         getLogger().severe("==================================================");
         Bukkit.getPluginManager().disablePlugin(Lengbanlist.this);
         return;
@@ -248,8 +248,8 @@ public void onEnable() {
 
     if (!eulaAgreed) {
         getLogger().severe("==================================================");
-        getLogger().severe(ConsoleText.EULA_REQUIRED.text());
-        getLogger().severe(ConsoleText.EULA_HINT.text());
+        getLogger().severe(consoleText("eula-required"));
+        getLogger().severe(consoleText("eula-hint"));
         getLogger().severe("==================================================");
         Bukkit.getPluginManager().disablePlugin(Lengbanlist.this);
         return;
@@ -493,7 +493,7 @@ void shutdownStorage() {
     }
 
     private String consoleText(String key, String... placeholders) {
-        Model model = ModelManager.getInstance().getCurrentModel();
+        Model model = ModelManager.getCurrentModel();
         String template = model == null ? "" : model.getConsole(key);
         if (template == null || template.isEmpty()) {
             return ConsoleText.builtIn(key, placeholders);
