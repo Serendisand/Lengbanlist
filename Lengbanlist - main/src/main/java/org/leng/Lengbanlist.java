@@ -297,18 +297,20 @@ public void onEnable() {
     }
     altsCommand = new GuiCommands.Alts(this);
 
-        // 扩展注册表先建好并装入内置提供者，命令表随后从它派生。
-        extensionRegistry = new ExtensionRegistry(this);
-        extensionRegistry.setOnChanged(this::refreshFeatureCommands);
-        BuiltinExtensions.registerAll(this, extensionRegistry);
-        BuiltinExtensions.registerHooks(this, extensionRegistry);
-        BuiltinExtensions.registerFeatures(this, extensionRegistry);
-        coreService = new CoreService(this, extensionRegistry);
-        getServer().getServicesManager().register(org.leng.api.LengbanlistCore.class, coreService,
-                this, org.bukkit.plugin.ServicePriority.Normal);
+    // 扩展注册表先建好并装入内置提供者，命令表随后从它派生。
+    extensionRegistry = new ExtensionRegistry(this);
+    BuiltinExtensions.registerAll(this, extensionRegistry);
+    BuiltinExtensions.registerHooks(this, extensionRegistry);
+    BuiltinExtensions.registerFeatures(this, extensionRegistry);
+    coreService = new CoreService(this, extensionRegistry);
+    getServer().getServicesManager().register(org.leng.api.LengbanlistCore.class, coreService,
+            this, org.bukkit.plugin.ServicePriority.Normal);
 
-        commandRegistry = new CommandRegistry(this, extensionRegistry);
-        refreshFeatureCommands();
+    commandRegistry = new CommandRegistry(this, extensionRegistry);
+    // 回调必须在命令表就绪后才挂：注册内置提供者期间每次都会通知变更，
+    // 提前挂上就会打到还是 null 的 commandRegistry。
+    extensionRegistry.setOnChanged(this::refreshFeatureCommands);
+    refreshFeatureCommands();
 
     getServer().getConsoleSender().sendMessage(consoleText("ready",
             "version", getPluginVersion(),
