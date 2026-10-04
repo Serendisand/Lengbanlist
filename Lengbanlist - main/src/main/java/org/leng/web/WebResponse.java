@@ -3,7 +3,7 @@ package org.leng.web;
 import com.google.gson.JsonObject;
 import com.sun.net.httpserver.HttpExchange;
 import org.leng.Lengbanlist;
-import org.leng.manager.BanManager;
+import org.leng.service.BanManager;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

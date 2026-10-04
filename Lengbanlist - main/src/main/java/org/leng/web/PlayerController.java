@@ -11,7 +11,7 @@ import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.object.MuteEntry;
 import org.leng.object.WarnEntry;
-import org.leng.utils.TimeUtils;
+import org.leng.util.TimeUtils;
 
 import java.io.IOException;
 import java.util.HashMap;

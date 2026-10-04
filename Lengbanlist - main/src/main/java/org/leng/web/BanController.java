@@ -6,10 +6,10 @@ import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.leng.Lengbanlist;
-import org.leng.manager.BanManager;
+import org.leng.service.BanManager;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
-import org.leng.utils.TimeUtils;
+import org.leng.util.TimeUtils;
 
 import java.io.IOException;
 import java.util.List;
@@ -57,7 +57,7 @@ public class BanController extends WebController {
             String feature = target.contains(".") ? "ban-ip" : "ban";
             if (!requireFeature(exchange, feature)) return;
 
-            if (target.contains(".") && !org.leng.utils.IpMatcher.isValidIpOrCidrOrWildcard(target)) {
+            if (target.contains(".") && !org.leng.util.IpMatcher.isValidIpOrCidrOrWildcard(target)) {
                 WebResponse.sendError(exchange, 400, "无效的 IP 或 CIDR 格式");
                 return;
             }
@@ -111,7 +111,7 @@ public class BanController extends WebController {
             JsonObject json = JsonParser.parseString(WebResponse.readBody(exchange)).getAsJsonObject();
             String target = json.get("target").getAsString();
             String staff = authManager.resolveActor(extractToken(exchange));
-            boolean isIp = target.contains(".") && org.leng.utils.IpMatcher.isValidIpOrCidrOrWildcard(target);
+            boolean isIp = target.contains(".") && org.leng.util.IpMatcher.isValidIpOrCidrOrWildcard(target);
 
             if (!requireFeature(exchange, "unban")) return;
 

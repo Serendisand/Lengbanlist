@@ -6,7 +6,7 @@ import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.leng.Lengbanlist;
-import org.leng.manager.AppealManager;
+import org.leng.service.AppealManager;
 import org.leng.object.AppealEntry;
 
 import java.io.IOException;

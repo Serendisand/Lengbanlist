@@ -8,14 +8,14 @@ import org.leng.api.Messages;
 import org.leng.api.MuteService;
 import org.leng.api.Services;
 import org.leng.api.WarnService;
-import org.leng.manager.DatabaseManager;
-import org.leng.manager.ModelManager;
+import org.leng.storage.DatabaseManager;
+import org.leng.integration.ModelManager;
 import org.leng.models.Model;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.object.MuteEntry;
 import org.leng.object.WarnEntry;
-import org.leng.utils.TimeUtils;
+import org.leng.util.TimeUtils;
 
 import java.sql.Connection;
 import java.sql.SQLException;

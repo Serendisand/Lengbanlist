@@ -62,7 +62,7 @@ public abstract class WebController {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<Throwable> error = new AtomicReference<>();
         AtomicBoolean timedOut = new AtomicBoolean(false);
-        org.leng.utils.SchedulerUtils.SchedulerTask ignored = org.leng.utils.SchedulerUtils.runTask(plugin, () -> {
+        org.leng.util.SchedulerUtils.SchedulerTask ignored = org.leng.util.SchedulerUtils.runTask(plugin, () -> {
             try {
                 if (timedOut.get()) return;
                 task.run();
@@ -105,10 +105,10 @@ public abstract class WebController {
                 latch.countDown();
             }
         };
-        org.leng.utils.SchedulerUtils.SchedulerTask scheduled =
-                entity != null && org.leng.utils.SchedulerUtils.isFolia()
-                        ? org.leng.utils.SchedulerUtils.runTask(plugin, entity, wrapped)
-                        : org.leng.utils.SchedulerUtils.runTask(plugin, wrapped);
+        org.leng.util.SchedulerUtils.SchedulerTask scheduled =
+                entity != null && org.leng.util.SchedulerUtils.isFolia()
+                        ? org.leng.util.SchedulerUtils.runTask(plugin, entity, wrapped)
+                        : org.leng.util.SchedulerUtils.runTask(plugin, wrapped);
         try {
             if (!latch.await(5, TimeUnit.SECONDS)) {
                 timedOut.set(true);

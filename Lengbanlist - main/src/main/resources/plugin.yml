@@ -11,8 +11,6 @@ authors:
 description: >
   This plugin provides a lightweight ban and query system for high-version Minecraft servers.
 commands:
-  # 其余命令（ban/unban/warn/mute/freeze 等）由 CommandRegistry 按 config.yml 的 features.* 运行时注册，
-  # 这里不声明：声明了服务端会在插件加载阶段就把名字占掉，功能关掉也腾不出来给别的插件用。
   lban:
     description: 主命令
     usage: /<command> <必填>子命令

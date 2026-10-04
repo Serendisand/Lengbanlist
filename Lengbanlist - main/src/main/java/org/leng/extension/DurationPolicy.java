@@ -2,7 +2,7 @@ package org.leng.extension;
 
 import org.leng.Lengbanlist;
 import org.leng.api.DurationPolicyHook;
-import org.leng.utils.TimeUtils;
+import org.leng.util.TimeUtils;
 
 /**
  * 自动时长闸门：核心里"auto 该判多久"的唯一入口。

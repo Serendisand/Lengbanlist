@@ -9,7 +9,7 @@ import org.leng.api.CommandRegistrar;
 import org.leng.api.ExtensionConfig;
 import org.leng.api.ExtensionContext;
 import org.leng.api.Scheduler;
-import org.leng.utils.SchedulerUtils;
+import org.leng.util.SchedulerUtils;
 
 import java.io.File;
 import java.util.logging.Level;

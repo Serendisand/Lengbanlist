@@ -7,27 +7,59 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.leng.commands.*;
+import org.leng.command.CommandRegistry;
+import org.leng.command.GuiCommands;
+import org.leng.command.LengbanlistCommand;
 import org.leng.extension.BuiltinExtensions;
 import org.leng.extension.CoreService;
 import org.leng.extension.DurationPolicy;
-import org.leng.extension.ExtensionsConfig;
 import org.leng.extension.ExtensionRegistry;
+import org.leng.extension.ExtensionsConfig;
 import org.leng.extension.PunishmentGate;
-import org.leng.listeners.*;
-import org.leng.manager.*;
+import org.leng.gui.GuiSessionManager;
+import org.leng.gui.WizardManager;
+import org.leng.integration.AutoUpdateManager;
+import org.leng.integration.GitHubUpdateChecker;
+import org.leng.integration.ModelCloudManager;
+import org.leng.integration.ModelManager;
+import org.leng.integration.ThemeManager;
+import org.leng.integration.WebhookNotifier;
+import org.leng.listener.ChatListener;
+import org.leng.listener.FreezeListener;
+import org.leng.listener.GuiCleanupListener;
+import org.leng.listener.ModelChoiceListener;
+import org.leng.listener.MuteCommandBlockListener;
+import org.leng.listener.OpJoinListener;
+import org.leng.listener.PlayerJoinListener;
+import org.leng.listener.VanishListener;
 import org.leng.models.Model;
-import org.leng.utils.ConsoleText;
-import org.leng.utils.GitHubUpdateChecker;
-import org.leng.utils.Metrics;
-import org.leng.utils.AutoUpdateManager;
-import org.leng.utils.SchedulerUtils;
-import org.leng.utils.Utils;
+import org.leng.net.DownloadService;
+import org.leng.net.DownloadSettings;
+import org.leng.service.AppealManager;
+import org.leng.service.AuditManager;
+import org.leng.service.BanManager;
+import org.leng.service.BroadcastManager;
+import org.leng.service.EscalationManager;
+import org.leng.service.ExpiryReminderTask;
+import org.leng.service.FreezeManager;
+import org.leng.service.ImmunityManager;
+import org.leng.service.IpAssociationManager;
+import org.leng.service.MuteManager;
+import org.leng.service.ReportManager;
+import org.leng.service.SyncManager;
+import org.leng.service.VanishManager;
+import org.leng.service.WarnManager;
+import org.leng.storage.DatabaseManager;
+import org.leng.storage.PlayerIdentityResolver;
+import org.leng.storage.StorageMigrationManager;
+import org.leng.util.ConsoleText;
+import org.leng.util.Metrics;
+import org.leng.util.SchedulerUtils;
+import org.leng.util.Utils;
+import org.leng.web.WebServer;
 
 import java.io.File;
 import java.io.IOException;
-
-import org.leng.web.WebServer;
 
 public class Lengbanlist extends JavaPlugin {
     private static Lengbanlist instance;
@@ -66,7 +98,7 @@ public class Lengbanlist extends JavaPlugin {
     private VanishManager vanishManager;
     private FreezeManager freezeManager;
     private WizardManager wizardManager;
-    private BroadCastManager broadCastManager;
+    private BroadcastManager broadCastManager;
     private WebhookNotifier webhookNotifier;
     private AppealManager appealManager;
     private FileConfiguration eulaFC;
@@ -127,7 +159,7 @@ public void onLoad() {
         new StorageMigrationManager(this, databaseManager).migrateYamlIfNeeded();
         muteManager = new MuteManager(this);
     } catch (Exception e) {
-        org.leng.utils.ErrorLog.record(this, "数据库初始化失败，插件将停止启用", e);
+        org.leng.util.ErrorLog.record(this, "数据库初始化失败，插件将停止启用", e);
         initializationFailed = true;
         return;
     }
@@ -337,7 +369,7 @@ public void onEnable() {
     }
 
     if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
-        new org.leng.placeholder.PlaceholderAPIHook(Lengbanlist.this).register();
+        new org.leng.integration.PlaceholderAPIHook(Lengbanlist.this).register();
         getServer().getConsoleSender().sendMessage(prefix() + consoleText("placeholder-hook"));
     }
 
@@ -804,11 +836,11 @@ void shutdownStorage() {
         return wizardManager;
     }
 
-    public BroadCastManager getBroadCastManager() {
+    public BroadcastManager getBroadCastManager() {
         if (broadCastManager == null) {
             synchronized (this) {
                 if (broadCastManager == null) {
-                    broadCastManager = new BroadCastManager(this);
+                    broadCastManager = new BroadcastManager(this);
                 }
             }
         }
@@ -827,13 +859,14 @@ void shutdownStorage() {
         try {
             broadcastFC.save(new File(getDataFolder(), "broadcast.yml"));
         } catch (IOException e) {
-            org.leng.utils.ErrorLog.record(this, "保存 broadcast.yml 失败", e);
+            org.leng.util.ErrorLog.record(this, "保存 broadcast.yml 失败", e);
         }
     }
 
     public String getHitokoto() {
-        try (org.leng.utils.HttpHelper http = new org.leng.utils.HttpHelper(3000, 3000)) {
-            String jsonResponse = http.get("https://v1.hitokoto.cn/", "Mozilla/5.0", "*/*");
+        try (DownloadService downloads = new DownloadService(
+                new DownloadSettings(3000, 3000, "Mozilla/5.0", true))) {
+            String jsonResponse = downloads.get("https://v1.hitokoto.cn/", "*/*");
             String hitokoto = jsonResponse.split("\"hitokoto\":\"")[1].split("\"")[0];
             String from = jsonResponse.split("\"from\":\"")[1].split("\"")[0];
             return hitokoto + " —— " + from;

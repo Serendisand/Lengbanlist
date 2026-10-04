@@ -1,0 +1,263 @@
+package org.leng.command;
+
+import org.bukkit.Bukkit;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.leng.Lengbanlist;
+import org.leng.util.Utils;
+import org.bukkit.command.TabCompleter;
+import org.leng.service.VanishManager;
+import org.leng.models.Model;
+import java.util.Collections;
+import java.util.List;
+import org.leng.service.RollbackManager;
+import org.leng.util.TimeUtils;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
+
+public final class StaffCommands {
+
+    private StaffCommands() {}
+
+    public static final class StaffChat implements CommandExecutor {
+        private final Lengbanlist plugin;
+
+        public StaffChat(Lengbanlist plugin) {
+            this.plugin = plugin;
+        }
+
+        @Override
+        public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+            if (!plugin.isFeatureEnabled("staffchat")) {
+                plugin.sendFeatureDisabled(sender);
+                return true;
+            }
+
+            if (!sender.hasPermission("lengbanlist.staffchat")) {
+                Utils.sendMessage(sender, plugin.prefix() + "§c你没有权限使用此命令。");
+                return true;
+            }
+
+            if (args.length < 1) {
+                Utils.sendMessage(sender, plugin.prefix() + "§c用法喵: /sc <内容>");
+                return true;
+            }
+
+            String message = String.join(" ", args);
+            String senderName = sender instanceof Player ? sender.getName() : "§cConsole";
+
+            String staffChatFormat = "§b<STAFF> §e" + senderName + "§f: " + message;
+
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                if (player.hasPermission("lengbanlist.staffchat")) {
+                    Utils.sendMessage(player, staffChatFormat);
+                }
+            }
+            Bukkit.getConsoleSender().sendMessage(staffChatFormat);
+
+            return true;
+        }
+    }
+
+    public static final class Vanish implements CommandExecutor, TabCompleter {
+
+        private final Lengbanlist plugin;
+
+        public Vanish(Lengbanlist plugin) {
+            this.plugin = plugin;
+        }
+
+        @Override
+        public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+            if (!plugin.isFeatureEnabled("vanish")) {
+                plugin.sendFeatureDisabled(sender);
+                return true;
+            }
+            if (!sender.hasPermission(VanishManager.PERMISSION_USE)) {
+                Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                return true;
+            }
+            if (!(sender instanceof Player)) {
+                Utils.sendMessage(sender, plugin.prefix() + "§c此命令只能由玩家执行。");
+                return true;
+            }
+
+            Player player = (Player) sender;
+            boolean vanished = plugin.getVanishManager().toggle(player);
+            Model model = plugin.getModelManager().getCurrentModel();
+            if (model != null) {
+                Utils.sendMessage(sender, plugin.prefix() + model.onVanish(vanished));
+            }
+            plugin.getAuditManager().log(vanished ? "开启隐身" : "关闭隐身", Utils.getSenderName(sender), player.getName(), "");
+            return true;
+        }
+
+        @Override
+        public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+            return Collections.emptyList();
+        }
+    }
+
+    public static final class Rollback implements CommandExecutor {
+        private static final Pattern DATE_ONLY = Pattern.compile("^(\\d{4})-(\\d{1,2})-(\\d{1,2})$");
+        private static final Pattern DATETIME = Pattern.compile("^(\\d{4})-(\\d{1,2})-(\\d{1,2})[ T](\\d{1,2}):(\\d{1,2})(?::(\\d{1,2}))?$");
+
+        private static final Map<String, PendingRollback> PENDING = new ConcurrentHashMap<>();
+        private static final long CONFIRM_WINDOW_MS = 30_000L;
+
+        private final Lengbanlist plugin;
+
+        public Rollback(Lengbanlist plugin) {
+            this.plugin = plugin;
+        }
+
+        @Override
+        public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+            if (!plugin.isFeatureEnabled("rollback")) {
+                plugin.sendFeatureDisabled(sender);
+                return true;
+            }
+            if (!sender.hasPermission("lengbanlist.rollback")) {
+                Utils.sendMessage(sender, plugin.prefix() + "§c你没有权限使用此命令。");
+                return true;
+            }
+            if (args.length < 1) {
+                sendUsage(sender, label);
+                return true;
+            }
+
+            boolean confirm = false;
+            int argOffset = 0;
+            if (args[0].equalsIgnoreCase("-y") || args[0].equalsIgnoreCase("--yes")) {
+                confirm = true;
+                argOffset = 1;
+            }
+            if (args.length - argOffset < 3) {
+                sendUsage(sender, label);
+                return true;
+            }
+
+            String actor = args[argOffset];
+            Long from = parseTime(args[argOffset + 1], true);
+            Long to = parseTime(args[argOffset + 2], false);
+            if (from == null || to == null) {
+                Utils.sendMessage(sender, plugin.prefix() + "§c时间格式无效喵，请使用：YYYY-MM-DD 或 YYYY-MM-DD HH:mm:ss");
+                return true;
+            }
+            if (from > to) {
+                Utils.sendMessage(sender, plugin.prefix() + "§c开始时间不能晚于结束时间。");
+                return true;
+            }
+
+            String type = args.length - argOffset >= 4 ? args[argOffset + 3] : null;
+            String senderKey = Utils.getSenderName(sender);
+            String tokenKey = actor + "|" + from + "|" + to + "|" + (type == null ? "" : type);
+
+            final int oFrom = argOffset + 1;
+            final int oTo = argOffset + 2;
+            final String[] capturedArgs = args;
+            final String capturedType = type;
+
+            if (!confirm) {
+
+                org.leng.util.SchedulerUtils.runAsync(plugin, () -> {
+                    int previewCount = new RollbackManager(plugin).previewCount(actor, from, to, capturedType);
+                    org.leng.util.SchedulerUtils.runTask(plugin, sender, () -> {
+                        if (previewCount == 0) {
+                            Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getRollbackNoRecords(actor));
+                            return;
+                        }
+                        Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getRollbackPreview(
+                                previewCount, actor,
+                                TimeUtils.timestampToReadable(from) + " ~ " + TimeUtils.timestampToReadable(to)));
+                        Utils.sendMessage(sender, plugin.prefix() + "§e回滚将影响 " + previewCount + " 条记录，请在 30 秒内执行 §f/lban rollback -y " +
+                                actor + " " + capturedArgs[oFrom] + " " + capturedArgs[oTo] +
+                                (capturedType == null ? "" : " " + capturedType) + " §e确认。");
+                        PENDING.put(senderKey + "|" + tokenKey, new PendingRollback(System.currentTimeMillis()));
+                    });
+                });
+                return true;
+            }
+
+            PendingRollback pending = PENDING.remove(senderKey + "|" + tokenKey);
+            if (pending == null || System.currentTimeMillis() - pending.at > CONFIRM_WINDOW_MS) {
+                Utils.sendMessage(sender, plugin.prefix() + "§c缺少预览或已过期,请先执行 §f/lban rollback " +
+                        actor + " " + capturedArgs[oFrom] + " " + capturedArgs[oTo] +
+                        (capturedType == null ? "" : " " + capturedType) + " §c查看待回滚数量,30 秒内再带 -y 确认。");
+                return true;
+            }
+
+            Utils.sendMessage(sender, plugin.prefix() + "§e正在回滚 " + actor + " 在 " +
+                    TimeUtils.timestampToReadable(from) + " ~ " + TimeUtils.timestampToReadable(to) +
+                    " 的操作" + (type == null ? "（全部类型）" : "（类型: " + type + "）") + "...");
+
+            final String rollbackActor = Utils.getSenderName(sender);
+            org.leng.util.SchedulerUtils.runAsync(plugin, () -> {
+                RollbackManager.RollbackResult result = new RollbackManager(plugin).rollback(actor, from, to, type, rollbackActor);
+                org.leng.util.SchedulerUtils.runTask(plugin, sender, () -> {
+                    Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getRollbackResult(
+                            result.matched, result.executed, result.skipped));
+                    for (String detail : result.details) {
+                        Utils.sendMessage(sender, " §7" + detail);
+                    }
+                    if (result.details.isEmpty()) {
+                        Utils.sendMessage(sender, plugin.prefix() + "§7没有找到可回滚的操作记录。");
+                    }
+                });
+            });
+            return true;
+        }
+
+        private record PendingRollback(long at) {}
+
+        private Long parseTime(String text, boolean isStart) {
+            if (text == null || text.trim().isEmpty()) {
+                return null;
+            }
+            String trimmed = text.trim();
+            Matcher dt = DATETIME.matcher(trimmed);
+            if (dt.matches()) {
+                try {
+                    java.util.Calendar cal = java.util.Calendar.getInstance();
+                    cal.clear();
+                    cal.set(parseInt(dt.group(1)), parseInt(dt.group(2)) - 1, parseInt(dt.group(3)),
+                            parseInt(dt.group(4)), parseInt(dt.group(5)), dt.group(6) != null ? parseInt(dt.group(6)) : 0);
+                    return cal.getTimeInMillis();
+                } catch (Exception e) {
+                    return null;
+                }
+            }
+            Matcher d = DATE_ONLY.matcher(trimmed);
+            if (d.matches()) {
+                try {
+                    java.util.Calendar cal = java.util.Calendar.getInstance();
+                    cal.clear();
+                    cal.set(parseInt(d.group(1)), parseInt(d.group(2)) - 1, parseInt(d.group(3)),
+                            isStart ? 0 : 23, isStart ? 0 : 59, isStart ? 0 : 59);
+                    return cal.getTimeInMillis();
+                } catch (Exception e) {
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        private int parseInt(String s) {
+            return Integer.parseInt(s);
+        }
+
+        private void sendUsage(CommandSender sender, String label) {
+            Utils.sendMessage(sender, plugin.prefix() + "§c用法错误喵: /lban rollback [-y] <操作人> <开始时间> <结束时间> [操作类型]");
+            Utils.sendMessage(sender, plugin.prefix() + "§7默认先预览待回滚条数，30 秒内带 -y 才执行实际回滚");
+            Utils.sendMessage(sender, plugin.prefix() + "§7操作人：执行操作的管理员（必填）");
+            Utils.sendMessage(sender, plugin.prefix() + "§7时间格式：YYYY-MM-DD 或 YYYY-MM-DD HH:mm:ss（开始默认 00:00:00，结束默认 23:59:59）");
+            Utils.sendMessage(sender, plugin.prefix() + "§7操作类型（留空为全部）：ban / ban-ip / unban / unban-ip / mute / unmute / warn / unwarn / kick");
+            Utils.sendMessage(sender, plugin.prefix() + "§7示例：/lban rollback Steve 2026-08-01 2026-08-14 ban");
+            Utils.sendMessage(sender, plugin.prefix() + "§7示例：/lban rollback -y Steve 2026-08-01 2026-08-14 （确认执行）");
+        }
+    }
+}

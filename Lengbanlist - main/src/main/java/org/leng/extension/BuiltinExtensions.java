@@ -2,12 +2,12 @@ package org.leng.extension;
 
 import org.bukkit.command.CommandExecutor;
 import org.leng.Lengbanlist;
-import org.leng.commands.BanCommands;
-import org.leng.commands.MuteCommands;
-import org.leng.commands.QueryCommands;
-import org.leng.commands.ReportCommands;
-import org.leng.commands.StaffCommands;
-import org.leng.commands.WarnCommands;
+import org.leng.command.BanCommands;
+import org.leng.command.MuteCommands;
+import org.leng.command.QueryCommands;
+import org.leng.command.ReportCommands;
+import org.leng.command.StaffCommands;
+import org.leng.command.WarnCommands;
 import org.leng.api.CommandSpec;
 import org.leng.api.ExtensionContext;
 import org.leng.api.LengbanlistExtension;

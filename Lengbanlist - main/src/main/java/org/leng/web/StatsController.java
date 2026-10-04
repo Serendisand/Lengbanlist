@@ -7,7 +7,7 @@ import com.sun.net.httpserver.HttpServer;
 import org.leng.Lengbanlist;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
-import org.leng.utils.TimeUtils;
+import org.leng.util.TimeUtils;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;

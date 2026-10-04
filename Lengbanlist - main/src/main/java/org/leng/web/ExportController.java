@@ -6,7 +6,7 @@ import org.leng.Lengbanlist;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.object.MuteEntry;
-import org.leng.utils.TimeUtils;
+import org.leng.util.TimeUtils;
 
 import java.io.IOException;
 import java.io.OutputStream;

@@ -7,10 +7,10 @@ import org.leng.Lengbanlist;
 import org.leng.api.DurationPolicyHook;
 import org.leng.api.ExtensionContext;
 import org.leng.api.LengbanlistExtension;
-import org.leng.manager.EscalationManager;
-import org.leng.manager.WarnManager;
+import org.leng.service.EscalationManager;
+import org.leng.service.WarnManager;
 import org.leng.object.WarnEntry;
-import org.leng.utils.TimeUtils;
+import org.leng.util.TimeUtils;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
