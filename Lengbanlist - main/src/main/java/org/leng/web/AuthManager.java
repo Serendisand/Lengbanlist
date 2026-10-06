@@ -21,29 +21,38 @@ public class AuthManager {
     private static final int PBKDF2_ITERATIONS = 210_000;
     private static final int PBKDF2_KEY_BITS = 256;
 
-    private String secret;
-    private String username;
-    private byte[] passwordSalt;
-    private byte[] passwordKey;
+    private static final class Credentials {
+        final String secret;
+        final String username;
+        final byte[] passwordSalt;
+        final byte[] passwordKey;
+
+        Credentials(String secret, String username, String password) {
+            this.secret = secret;
+            this.username = username;
+            this.passwordSalt = new byte[16];
+            new SecureRandom().nextBytes(this.passwordSalt);
+            this.passwordKey = pbkdf2(password, this.passwordSalt);
+        }
+    }
+
+    private volatile Credentials credentials;
 
     private final Map<String, Long> revokedTokens = new ConcurrentHashMap<>();
 
     public AuthManager(String secret, String username, String password) {
-        this.secret = secret;
-        this.username = username;
-        setPassword(password);
+        this.credentials = new Credentials(secret, username, password);
     }
 
     public void reload(String newSecret, String newUsername, String newPassword) {
-        this.secret = newSecret;
-        this.username = newUsername;
-        setPassword(newPassword);
+        this.credentials = new Credentials(newSecret, newUsername, newPassword);
     }
 
     public String login(String user, String pass) {
-        if (!username.equals(user)) return null;
-        if (!MessageDigest.isEqual(pbkdf2(pass, passwordSalt), passwordKey)) return null;
-        return createToken(username);
+        Credentials current = credentials;
+        if (user == null || pass == null || !current.username.equals(user)) return null;
+        if (!MessageDigest.isEqual(pbkdf2(pass, current.passwordSalt), current.passwordKey)) return null;
+        return createToken(current.username);
     }
 
     public boolean validateToken(String token) {
@@ -88,7 +97,7 @@ public class AuthManager {
         String encodedHeader = b64url(header.toString());
         String encodedPayload = b64url(payload.toString());
         String signingInput = encodedHeader + "." + encodedPayload;
-        String signature = hmacSha256(signingInput, secret);
+        String signature = hmacSha256(signingInput, credentials.secret);
 
         return signingInput + "." + signature;
     }
@@ -98,7 +107,7 @@ public class AuthManager {
             String[] parts = token.split("\\.");
             if (parts.length != 3) return null;
             if (!MessageDigest.isEqual(
-                    hmacSha256(parts[0] + "." + parts[1], secret).getBytes(StandardCharsets.UTF_8),
+                    hmacSha256(parts[0] + "." + parts[1], credentials.secret).getBytes(StandardCharsets.UTF_8),
                     parts[2].getBytes(StandardCharsets.UTF_8))) return null;
 
             String json = new String(Base64.getUrlDecoder().decode(parts[1]));
@@ -118,12 +127,6 @@ public class AuthManager {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private void setPassword(String password) {
-        this.passwordSalt = new byte[16];
-        new SecureRandom().nextBytes(this.passwordSalt);
-        this.passwordKey = pbkdf2(password, this.passwordSalt);
     }
 
     private void pruneRevoked() {

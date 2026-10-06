@@ -21,6 +21,11 @@ public final class ErrorLog {
     private static final int KEEP_DAYS = 7;
 
     private static final Object LOCK = new Object();
+    private static final long CLEANUP_INTERVAL_MS = 3_600_000L;
+    private static final long LOG_THROTTLE_MS = 30_000L;
+    private static final java.util.Map<String, Long> LAST_LOG_AT = new java.util.HashMap<>();
+    private static String cleanupFolder = "";
+    private static long cleanupAt;
 
     private ErrorLog() {
     }
@@ -32,8 +37,7 @@ public final class ErrorLog {
         String detail = error == null ? "" : buildTrace(error);
         String brief = error == null ? "" : briefMessage(error);
         append(plugin, context, detail);
-        plugin.getLogger().warning(context + (brief.isEmpty() ? "" : "：" + brief)
-                + "（详细堆栈见 " + fileName(plugin) + "）");
+        logThrottled(plugin, context, brief);
     }
 
     public static void record(Lengbanlist plugin, String context, String detail) {
@@ -41,7 +45,24 @@ public final class ErrorLog {
             return;
         }
         append(plugin, context, detail == null ? "" : detail);
-        plugin.getLogger().warning(context + "（详情见 " + fileName(plugin) + "）");
+        logThrottled(plugin, context, "");
+    }
+
+    private static void logThrottled(Lengbanlist plugin, String context, String brief) {
+        String key = context + "|" + brief;
+        long now = System.currentTimeMillis();
+        synchronized (LOCK) {
+            Long previous = LAST_LOG_AT.get(key);
+            if (previous != null && now - previous < LOG_THROTTLE_MS) {
+                return;
+            }
+            if (LAST_LOG_AT.size() > 256) {
+                LAST_LOG_AT.entrySet().removeIf(entry -> now - entry.getValue() >= LOG_THROTTLE_MS);
+            }
+            LAST_LOG_AT.put(key, now);
+        }
+        plugin.getLogger().warning(context + (brief.isEmpty() ? "" : "：" + brief)
+                + "（详细堆栈见 " + fileName(plugin) + "）");
     }
 
     public static String fileName(Lengbanlist plugin) {
@@ -74,6 +95,13 @@ public final class ErrorLog {
     }
 
     private static void cleanupOldFiles(File folder) {
+        long now = System.currentTimeMillis();
+        String path = folder.getAbsolutePath();
+        if (path.equals(cleanupFolder) && now - cleanupAt < CLEANUP_INTERVAL_MS) {
+            return;
+        }
+        cleanupFolder = path;
+        cleanupAt = now;
         long today = LocalDate.now().toEpochDay();
         File[] files = folder.listFiles((dir, name) -> name.startsWith("error_") && name.endsWith(".txt"));
         if (files == null) {

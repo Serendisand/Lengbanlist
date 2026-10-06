@@ -998,6 +998,10 @@ public class DatabaseManager {
         return query("SELECT target, staff, freeze_time, reason FROM freezes ORDER BY target", this::readFreeze);
     }
 
+    public int countFreezes() {
+        return count("SELECT COUNT(*) FROM freezes");
+    }
+
     private FreezeEntry readFreeze(ResultSet rs) throws SQLException {
         return new FreezeEntry(value(rs, "target"), value(rs, "staff"),
                 rs.getLong("freeze_time"), value(rs, "reason"));
@@ -1102,6 +1106,10 @@ public class DatabaseManager {
 
     public List<String> getWarnedPlayers() {
         return query("SELECT DISTINCT player FROM warnings", rs -> rs.getString("player"));
+    }
+
+    public int countWarnedPlayers() {
+        return count("SELECT COUNT(DISTINCT player) FROM warnings");
     }
 
     public boolean upsertReport(ReportEntry entry) {

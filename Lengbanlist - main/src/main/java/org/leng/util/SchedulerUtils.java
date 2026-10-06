@@ -10,6 +10,7 @@ import org.leng.Lengbanlist;
 import java.lang.reflect.Method;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 public class SchedulerUtils {
 
@@ -75,6 +76,24 @@ public class SchedulerUtils {
         return folia;
     }
 
+    private static SchedulerTask skipped(Lengbanlist plugin, RuntimeException cause) {
+        if (plugin != null) {
+            plugin.getLogger().fine("插件已停用，本次调度被跳过: " + cause.getMessage());
+        }
+        return new SchedulerTask((Object) null);
+    }
+
+    private static SchedulerTask schedule(Lengbanlist plugin, Supplier<BukkitTask> action) {
+        try {
+            return new SchedulerTask(action.get());
+        } catch (RuntimeException e) {
+            if (plugin != null && plugin.isEnabled()) {
+                throw e;
+            }
+            return skipped(plugin, e);
+        }
+    }
+
     public static SchedulerTask runTask(Lengbanlist plugin, Runnable task) {
         if (folia) {
             try {
@@ -85,8 +104,7 @@ public class SchedulerUtils {
                 return new SchedulerTask((Object) null);
             }
         }
-        BukkitTask bt = Bukkit.getScheduler().runTask(plugin, task);
-        return new SchedulerTask(bt);
+        return schedule(plugin, () -> Bukkit.getScheduler().runTask(plugin, task));
     }
 
     public static void runSync(Lengbanlist plugin, Runnable task) {
@@ -104,7 +122,14 @@ public class SchedulerUtils {
             task.run();
             return;
         }
-        Bukkit.getScheduler().runTask(plugin, task);
+        try {
+            Bukkit.getScheduler().runTask(plugin, task);
+        } catch (RuntimeException e) {
+            if (plugin != null && plugin.isEnabled()) {
+                throw e;
+            }
+            skipped(plugin, e);
+        }
     }
 
     public static SchedulerTask runTask(Lengbanlist plugin, CommandSender sender, Runnable task) {
@@ -138,8 +163,7 @@ public class SchedulerUtils {
                 return new SchedulerTask((Object) null);
             }
         }
-        BukkitTask bt = Bukkit.getScheduler().runTaskLater(plugin, task, delayTicks);
-        return new SchedulerTask(bt);
+        return schedule(plugin, () -> Bukkit.getScheduler().runTaskLater(plugin, task, delayTicks));
     }
 
     public static SchedulerTask runTaskLater(Lengbanlist plugin, Entity entity, Runnable task, long delayTicks) {
@@ -166,8 +190,7 @@ public class SchedulerUtils {
                 return new SchedulerTask((Object) null);
             }
         }
-        BukkitTask bt = Bukkit.getScheduler().runTaskTimer(plugin, task, delayTicks, periodTicks);
-        return new SchedulerTask(bt);
+        return schedule(plugin, () -> Bukkit.getScheduler().runTaskTimer(plugin, task, delayTicks, periodTicks));
     }
 
     public static void runAsync(Lengbanlist plugin, Runnable task) {
@@ -177,8 +200,15 @@ public class SchedulerUtils {
             } catch (Exception e) {
                 plugin.getLogger().warning("Folia async runNow failed: " + e.getMessage());
             }
-        } else {
+            return;
+        }
+        try {
             Bukkit.getScheduler().runTaskAsynchronously(plugin, task);
+        } catch (RuntimeException e) {
+            if (plugin != null && plugin.isEnabled()) {
+                throw e;
+            }
+            skipped(plugin, e);
         }
     }
 
@@ -192,8 +222,7 @@ public class SchedulerUtils {
                 return new SchedulerTask((Object) null);
             }
         }
-        BukkitTask bt = Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, task, delayMs / 50);
-        return new SchedulerTask(bt);
+        return schedule(plugin, () -> Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, task, delayMs / 50));
     }
 
     public static SchedulerTask runTaskTimerAsynchronously(Lengbanlist plugin, Runnable task, long delayTicks, long periodTicks) {
@@ -206,8 +235,7 @@ public class SchedulerUtils {
                 return new SchedulerTask((Object) null);
             }
         }
-        BukkitTask bt = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, task, delayTicks, periodTicks);
-        return new SchedulerTask(bt);
+        return schedule(plugin, () -> Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, task, delayTicks, periodTicks));
     }
 
     public static class SchedulerTask {

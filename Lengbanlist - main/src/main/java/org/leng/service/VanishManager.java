@@ -115,19 +115,21 @@ public class VanishManager {
         });
     }
 
-    private static Method setListedMethod;
-    private static boolean setListedResolved;
+    private static final class SetListedResolver {
+        static final Method METHOD = resolve();
 
-    private void setListed(Player player, boolean listed) {
-        if (!setListedResolved) {
-            setListedResolved = true;
+        private static Method resolve() {
             try {
-                setListedMethod = Player.class.getMethod("setListed", boolean.class);
+                return Player.class.getMethod("setListed", boolean.class);
             } catch (NoSuchMethodException e) {
-                setListedMethod = null;
+                return null;
             }
         }
-        if (setListedMethod == null) {
+    }
+
+    private void setListed(Player player, boolean listed) {
+        Method method = SetListedResolver.METHOD;
+        if (method == null) {
             return;
         }
         SchedulerUtils.runTask(plugin, player, () -> {
@@ -135,7 +137,7 @@ public class VanishManager {
                 return;
             }
             try {
-                setListedMethod.invoke(player, listed);
+                method.invoke(player, listed);
             } catch (Exception ignored) {
             }
         });

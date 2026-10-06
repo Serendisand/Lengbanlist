@@ -24,10 +24,13 @@ public class FreezeManager {
     private static final int TITLE_FADE_IN_TICKS = 10;
     private static final int TITLE_STAY_TICKS = 70;
     private static final int TITLE_FADE_OUT_TICKS = 20;
+    private static final long MISS_TTL_MS = 30_000L;
+    private static final int MISS_CACHE_LIMIT = 1024;
 
     private final Lengbanlist plugin;
     private final DatabaseManager db;
     private final Map<String, FreezeEntry> frozen = new ConcurrentHashMap<>();
+    private final Map<String, Long> missCache = new ConcurrentHashMap<>();
     private volatile long mutationGeneration;
 
     public FreezeManager(Lengbanlist plugin) {
@@ -50,9 +53,18 @@ public class FreezeManager {
     }
 
     private FreezeEntry lookup(String name) {
-        FreezeEntry direct = frozen.get(key(name));
+        String key = key(name);
+        FreezeEntry direct = frozen.get(key);
         if (direct != null || frozen.isEmpty()) {
             return direct;
+        }
+        long now = System.currentTimeMillis();
+        Long missUntil = missCache.get(key);
+        if (missUntil != null) {
+            if (missUntil > now) {
+                return null;
+            }
+            missCache.remove(key, missUntil);
         }
         for (String known : db.getIdentityResolver().resolve(name).lowerNames()) {
             FreezeEntry entry = frozen.get(known);
@@ -60,7 +72,18 @@ public class FreezeManager {
                 return entry;
             }
         }
+        rememberMiss(key, now);
         return null;
+    }
+
+    private void rememberMiss(String key, long now) {
+        if (missCache.size() >= MISS_CACHE_LIMIT) {
+            missCache.entrySet().removeIf(entry -> entry.getValue() <= now);
+            if (missCache.size() >= MISS_CACHE_LIMIT) {
+                missCache.clear();
+            }
+        }
+        missCache.put(key, now + MISS_TTL_MS);
     }
 
     public Collection<FreezeEntry> all() {
@@ -90,6 +113,7 @@ public class FreezeManager {
         synchronized (frozen) {
             mutationGeneration++;
             frozen.put(key, entry);
+            missCache.clear();
         }
         return true;
     }
@@ -107,6 +131,7 @@ public class FreezeManager {
         }
         synchronized (frozen) {
             mutationGeneration++;
+            missCache.clear();
             return frozen.remove(key) != null;
         }
     }
@@ -125,6 +150,7 @@ public class FreezeManager {
             mutationGeneration++;
             int removed = frozen.size();
             frozen.clear();
+            missCache.clear();
             return removed;
         }
     }
@@ -141,6 +167,7 @@ public class FreezeManager {
                 for (FreezeEntry entry : entries) {
                     frozen.put(entry.key(), entry);
                 }
+                missCache.clear();
             }
             return true;
         } catch (Exception e) {

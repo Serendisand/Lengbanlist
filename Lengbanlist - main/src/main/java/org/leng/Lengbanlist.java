@@ -65,11 +65,11 @@ public class Lengbanlist extends JavaPlugin {
     private static Lengbanlist instance;
     public BanManager banManager;
     public MuteManager muteManager;
-    public SyncManager syncManager;
+    public volatile SyncManager syncManager;
     public WarnManager warnManager;
-    public AuditManager auditManager;
-    public ReportManager reportManager;
-    public IpAssociationManager ipAssociationManager;
+    public volatile AuditManager auditManager;
+    public volatile ReportManager reportManager;
+    public volatile IpAssociationManager ipAssociationManager;
     public WebServer webServer;
     public SchedulerUtils.SchedulerTask broadcastTask;
     private SchedulerUtils.SchedulerTask historyCleanupTask;
@@ -78,7 +78,7 @@ public class Lengbanlist extends JavaPlugin {
     private EscalationManager escalationManager;
     private GuiSessionManager guiSessionManager;
     private GuiCommands.Gui guiCommand;
-    private ModelCloudManager modelCloudManager;
+    private volatile ModelCloudManager modelCloudManager;
     private GuiCommands.Alts altsCommand;
     private CommandRegistry commandRegistry;
     private ExtensionRegistry extensionRegistry;
@@ -94,15 +94,16 @@ public class Lengbanlist extends JavaPlugin {
     private String hitokoto;
     private ModelManager modelManager;
     private DatabaseManager databaseManager;
-    private ThemeManager themeManager;
-    private VanishManager vanishManager;
-    private FreezeManager freezeManager;
-    private WizardManager wizardManager;
-    private BroadcastManager broadCastManager;
-    private WebhookNotifier webhookNotifier;
-    private AppealManager appealManager;
+    private volatile ThemeManager themeManager;
+    private volatile VanishManager vanishManager;
+    private volatile FreezeManager freezeManager;
+    private volatile WizardManager wizardManager;
+    private volatile BroadcastManager broadCastManager;
+    private volatile WebhookNotifier webhookNotifier;
+    private volatile AppealManager appealManager;
     private FileConfiguration eulaFC;
     private FileConfiguration storageConfig;
+    private Metrics metrics;
 
     private boolean eulaAgreed = false;
     private boolean initializationFailed = false;
@@ -349,7 +350,7 @@ public void onEnable() {
             "model", ModelManager.getInstance().getCurrentModelName(),
             "server", Bukkit.getServer().getVersion()));
 
-    new Metrics(this, 33262);
+    metrics = new Metrics(this, 33262);
 
     if (getConfig().getBoolean("features.auto-update", false)) {
         getLogger().info(consoleText("auto-update"));
@@ -452,8 +453,20 @@ public void onDisable() {
     }
     if (webServer != null) webServer.stop();
 
-    if (vanishManager != null) {
-        vanishManager.restoreAll();
+    try {
+        if (vanishManager != null) {
+            vanishManager.restoreAll();
+        }
+    } catch (Exception e) {
+        getLogger().warning("还原隐身状态时出错: " + e.getMessage());
+    }
+
+    try {
+        if (metrics != null) {
+            metrics.shutdown();
+        }
+    } catch (Exception e) {
+        getLogger().warning("关闭 bStats 统计时出错: " + e.getMessage());
     }
 
     if (eulaAgreed) {

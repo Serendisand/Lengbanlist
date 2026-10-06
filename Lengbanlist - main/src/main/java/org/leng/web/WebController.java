@@ -51,7 +51,7 @@ public abstract class WebController {
     }
 
     protected boolean requireFeature(HttpExchange exchange, String feature) {
-        if (!plugin.isFeatureEnabled(feature)) {
+        if (!plugin.isFeatureActive(feature)) {
             WebResponse.sendError(exchange, 403, "此功能已被管理员禁用");
             return false;
         }

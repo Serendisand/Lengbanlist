@@ -17,10 +17,29 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 public class IpAssociationManager {
+    private static final java.util.regex.Pattern IP_LITERAL =
+            java.util.regex.Pattern.compile("[0-9A-Fa-f:.]{2,45}");
+    private static final DownloadSettings VPN_SETTINGS =
+            new DownloadSettings(3000, 3000, "Lengbanlist-VPNCheck/1.0", true);
+
     private final Lengbanlist plugin;
+    private volatile DownloadService vpnClient;
 
     public IpAssociationManager(Lengbanlist plugin) {
         this.plugin = plugin;
+    }
+
+    private DownloadService vpnClient() {
+        DownloadService local = vpnClient;
+        if (local == null) {
+            synchronized (this) {
+                if (vpnClient == null) {
+                    vpnClient = new DownloadService(VPN_SETTINGS);
+                }
+                local = vpnClient;
+            }
+        }
+        return local;
     }
 
     private static String safeGetHostAddress(Player player) {
@@ -140,10 +159,12 @@ public class IpAssociationManager {
     }
 
     public boolean isVpnIp(String ip) {
-        try (DownloadService downloads = new DownloadService(
-                new DownloadSettings(3000, 3000, "Lengbanlist-VPNCheck/1.0", true))) {
+        if (ip == null || !IP_LITERAL.matcher(ip).matches()) {
+            return false;
+        }
+        try {
             String apiUrl = "https://ip-api.com/json/" + ip + "?fields=status,proxy,hosting";
-            String response = downloads.get(apiUrl, "*/*");
+            String response = vpnClient().get(apiUrl, "*/*");
             JsonObject json = JsonParser.parseString(response).getAsJsonObject();
             if ("success".equals(json.get("status").getAsString())) {
                 boolean proxy = json.has("proxy") && json.get("proxy").getAsBoolean();

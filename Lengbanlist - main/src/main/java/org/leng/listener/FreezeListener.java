@@ -51,6 +51,11 @@ public class FreezeListener implements Listener {
         plugin.getFreezeManager().notify(player, entry.reason());
     }
 
+    @EventHandler
+    public void onQuit(org.bukkit.event.player.PlayerQuitEvent event) {
+        lastNotice.remove(event.getPlayer().getUniqueId());
+    }
+
     @EventHandler(ignoreCancelled = true)
     public void onMove(PlayerMoveEvent event) {
         if (!frozen(event.getPlayer())) {

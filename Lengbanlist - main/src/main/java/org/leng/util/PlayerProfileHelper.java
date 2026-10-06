@@ -14,9 +14,11 @@ public final class PlayerProfileHelper {
 
     private PlayerProfileHelper() {}
 
-    private static final ConcurrentHashMap<String, OfflinePlayer> cache = new ConcurrentHashMap<>();
+    private record Cached(OfflinePlayer player, long expiresAt) {}
+
+    private static final ConcurrentHashMap<String, Cached> cache = new ConcurrentHashMap<>();
     private static final long CACHE_TTL_MS = 60_000L;
-    private static final ConcurrentHashMap<String, Long> cacheTime = new ConcurrentHashMap<>();
+    private static final int MAX_ENTRIES = 1024;
 
     public static OfflinePlayer lookupSync(String name) {
         if (name == null || name.isEmpty()) return null;
@@ -24,17 +26,19 @@ public final class PlayerProfileHelper {
         Player online = Bukkit.getPlayerExact(name);
         if (online != null) return online;
 
-        OfflinePlayer cached = cache.get(name);
-        Long t = cacheTime.get(name);
-        if (cached != null && t != null && System.currentTimeMillis() - t < CACHE_TTL_MS) {
-            return cached;
+        long now = System.currentTimeMillis();
+        Cached cached = cache.get(name);
+        if (cached != null) {
+            if (cached.expiresAt() > now) {
+                return cached.player();
+            }
+            cache.remove(name, cached);
         }
 
         try {
             OfflinePlayer fresh = Bukkit.getOfflinePlayer(name);
             if (fresh != null && (fresh.hasPlayedBefore() || fresh.isOnline())) {
-                cache.put(name, fresh);
-                cacheTime.put(name, System.currentTimeMillis());
+                remember(name, fresh, now);
                 return fresh;
             }
         } catch (UnsupportedOperationException ex) {
@@ -45,6 +49,16 @@ public final class PlayerProfileHelper {
             return null;
         }
         return null;
+    }
+
+    private static void remember(String name, OfflinePlayer player, long now) {
+        if (cache.size() >= MAX_ENTRIES) {
+            cache.entrySet().removeIf(entry -> entry.getValue().expiresAt() <= now);
+            if (cache.size() >= MAX_ENTRIES) {
+                cache.clear();
+            }
+        }
+        cache.put(name, new Cached(player, now + CACHE_TTL_MS));
     }
 
     public static CompletableFuture<OfflinePlayer> lookupAsync(String name) {
@@ -73,7 +87,6 @@ public final class PlayerProfileHelper {
 
     public static void clearCache() {
         cache.clear();
-        cacheTime.clear();
     }
 
     private static final class LengbanlistAccessor {

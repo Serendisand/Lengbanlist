@@ -200,11 +200,11 @@ public class SyncManager {
     private void performSync(CommandSender sender) {
         SchedulerUtils.runAsync(plugin, () -> {
             SyncResult result = new SyncResult();
-            result.bans = plugin.getDatabaseManager().getAllActiveBans().size();
-            result.ipBans = plugin.getDatabaseManager().getIpBans().size();
-            result.mutes = plugin.getDatabaseManager().getMutes().size();
-            result.warnings = plugin.getDatabaseManager().getWarnedPlayers().size();
-            result.freezes = plugin.getDatabaseManager().loadFreezes().size();
+            result.bans = plugin.getDatabaseManager().countActiveBans();
+            result.ipBans = plugin.getDatabaseManager().countActiveIpBans();
+            result.mutes = plugin.getDatabaseManager().countActiveMutes();
+            result.warnings = plugin.getDatabaseManager().countWarnedPlayers();
+            result.freezes = plugin.getDatabaseManager().countFreezes();
 
             plugin.getDatabaseManager().reloadBanCache();
             plugin.getDatabaseManager().reloadWarnCache();

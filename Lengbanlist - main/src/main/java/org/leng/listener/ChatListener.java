@@ -76,6 +76,9 @@ public class ChatListener implements Listener {
         boolean containsBadWord = false;
         if (!badWords.isEmpty()) {
             for (String badWord : badWords) {
+                if (badWord == null || badWord.isEmpty()) {
+                    continue;
+                }
                 if (message.contains(badWord)) {
                     containsBadWord = true;
                     String replacement = "喵".repeat(badWord.length());

@@ -30,17 +30,24 @@ import org.leng.gui.GuiSessionManager;
 public class ModelManager {
     private static final String BASE_FILE_NAME = "_base.yml";
 
-    private static ModelManager instance;
-    private static Map<String, Model> models = new HashMap<>();
-    private static Model currentModel;
+    private static volatile ModelManager instance;
+    private static final Map<String, Model> models = new java.util.concurrent.ConcurrentHashMap<>();
+    private static volatile Model currentModel;
     private static FileConfiguration baseConfig;
     private boolean enabled = true;
 
     public static ModelManager getInstance() {
-        if (instance == null) {
-            instance = new ModelManager();
+        ModelManager local = instance;
+        if (local == null) {
+            synchronized (ModelManager.class) {
+                local = instance;
+                if (local == null) {
+                    local = new ModelManager();
+                    instance = local;
+                }
+            }
         }
-        return instance;
+        return local;
     }
 
     private ModelManager() {

@@ -79,17 +79,20 @@ public final class QueryCommands {
 
         private void checkPlayerInfo(CommandSender sender, String playerName) {
             Player online = plugin.getServer().getPlayerExact(playerName);
-            OfflinePlayer player;
             if (online != null) {
-                player = online;
-            } else {
-                player = org.leng.util.PlayerProfileHelper.lookupSync(playerName);
+                describePlayer(sender, playerName, online);
+                return;
+            }
+            org.leng.util.PlayerProfileHelper.lookupAsync(playerName, player -> {
                 if (player == null) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c未找到玩家：" + playerName + "（离线查询不可用，请在 Folia 服务端查询在线玩家）");
                     return;
                 }
-            }
+                describePlayer(sender, playerName, player);
+            });
+        }
 
+        private void describePlayer(CommandSender sender, String playerName, OfflinePlayer player) {
             String uuid = player.getUniqueId().toString();
             long lastLogin = player.getLastPlayed();
             String lastLoginTime = lastLogin == 0 ? "从未登录" : TimeUtils.timestampToReadable(lastLogin);
@@ -108,6 +111,7 @@ public final class QueryCommands {
             Utils.sendMessage(sender, plugin.prefix() + "§b是否禁言: " + (isMuted ? "是" : "否"));
             Utils.sendMessage(sender, plugin.prefix() + "§b是否封禁: " + (isBanned ? "是" : "否"));
             Utils.sendMessage(sender, plugin.prefix() + "§b是否是OP: " + (isOp ? "是" : "否"));
+            Player online = plugin.getServer().getPlayerExact(playerName);
             if (online != null) {
                 org.leng.object.FreezeEntry freeze = plugin.getFreezeManager().get(online);
                 if (freeze != null) {
