@@ -45,6 +45,17 @@ public final class BuiltinExtensions {
     }
 
     /**
+     * 标记：这个提供者是<b>核心自带</b>的，不是用户装进来的扩展。
+     *
+     * <p>唯一用途是让 {@code /lban help} 分清楚"该自动补行"和"该保持原样"：
+     * 内置命令在模型文件的 help 列表里是<b>手工编排</b>的（有分区标题、运算符说明、刻意省略
+     * 若干条），自动补行只会把那份编排搅乱；而用户装的扩展不可能去改别人的模型文件，
+     * 它们提供的命令必须自动出现在帮助里，否则装完谁也不知道有哪些命令。
+     */
+    interface CoreProvided {
+    }
+
+    /**
      * 一条内置命令声明。
      *
      * <p>执行器用工厂而不是实例，是为了让本表保持静态——没有 plugin 也能被帮助过滤与测试访问。
@@ -230,7 +241,7 @@ public final class BuiltinExtensions {
     }
 
     /** 只声明功能键的提供者：没有任何命令或钩子。 */
-    private static final class FeatureOnlyProvider implements LengbanlistExtension {
+    private static final class FeatureOnlyProvider implements LengbanlistExtension, CoreProvided {
 
         private final String id;
 
@@ -265,7 +276,7 @@ public final class BuiltinExtensions {
     }
 
     /** 核心 jar 内的功能提供者：没有自己的 Plugin，配置落在核心数据目录下。 */
-    private static final class BuiltinProvider implements LengbanlistExtension {
+    private static final class BuiltinProvider implements LengbanlistExtension, CoreProvided {
 
         private final String id;
         private final List<CommandSpec> commands;
@@ -297,7 +308,7 @@ public final class BuiltinExtensions {
     }
 
     /** 无命令、只挂一条钩子的内置提供者。 */
-    private static final class HookProvider<T> implements LengbanlistExtension {
+    private static final class HookProvider<T> implements LengbanlistExtension, CoreProvided {
 
         private final String id;
         private final Class<T> hookType;

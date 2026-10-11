@@ -9,6 +9,12 @@ sendtime: 5          # 循环广播间隔（分钟）
 Model: "Default"     # 当前模型（说话语气/风格），开启 model-auto-detect 时首次加载会自动设置
 model-auto-detect: true  # 首次加载时根据系统语言自动选择模型（zh→Default 中文，其他→English）
 
+# ---------- 帮助菜单 ----------
+help:
+  # 把「扩展提供的、模型文件里还没手工写过的」命令自动补进 /lban help（按权限过滤，
+  # 功能没开的不列）。内置命令不受影响——它们在模型文件里是手工编排的。
+  extension-commands: true
+
 # ---------- 功能开关----------
 # 关闭后：独立命令（/ban、/report 等）直接不注册，名字可以留给其他插件；
 #         /lban 的子命令（/lban freeze、/lban vanish 等）无法单独注销，执行时会提示"已被管理员禁用"。

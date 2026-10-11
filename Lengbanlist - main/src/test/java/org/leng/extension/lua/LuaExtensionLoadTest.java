@@ -1,6 +1,14 @@
 package org.leng.extension.lua;
 
+import org.bukkit.Location;
+import org.bukkit.Server;
+import org.bukkit.World;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.plugin.PluginManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,6 +19,7 @@ import org.leng.api.ExtensionContext;
 import org.leng.api.ExtensionLoadException;
 import org.leng.api.LengbanlistExtension;
 import org.leng.extension.ExtensionRegistry;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -23,6 +32,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -30,9 +40,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 /**
  * 脚本 → 核心的整条装载链：目录 → 沙箱 → 命令表 / 事件表。
@@ -290,6 +302,114 @@ class LuaExtensionLoadTest {
                 () -> install("chatty", "leng.on('player_chat', function(ctx) end)"));
 
         assertTrue(error.getMessage().contains("异步"), error.getMessage());
+    }
+
+    // ------------------------------------------------------------------ 事件订阅
+
+    /**
+     * 文档里那段"从零做一个扩展"的示例，连同事件桥本身。
+     *
+     * <p>事件桥此前没有任何覆盖：注册要经过 Bukkit 的 {@code PluginManager}，触发要走事件分发，
+     * 这两样在单元测试里都没有。这里把 {@code PluginManager} 换成 mock、抓住注册进去的监听器，
+     * 直接调它的 {@code @EventHandler} 方法——分发是 Bukkit 的，回调之后的逻辑才是我们的。
+     */
+    @Test
+    void documentedWelcomeExampleGreetsOnJoin() throws Exception {
+        PluginManager pluginManager = pluginManagerMock();
+
+        File directory = write("welcome", """
+                leng.name("欢迎语")
+                leng.version("1.0.0")
+                leng.api("1.0")
+                local TEMPLATE = leng.config("message", "默认欢迎语")
+                local function greet(player) player:send(string.format(TEMPLATE, player.name)) end
+                leng.on("player_join", function(ctx) greet(ctx.player) end)
+                """);
+        Files.writeString(new File(directory, LuaExtension.CONFIG_FILE).toPath(),
+                "enabled: true\nmessage: \"欢迎回来，%s\"\n");
+        registry.register(new LuaExtension(plugin, registry, directory));
+
+        List<String> received = new ArrayList<>();
+        ((LuaEventBridge) registeredListener(pluginManager))
+                .onPlayerJoin(new PlayerJoinEvent(playerWithSink(received), ""));
+
+        assertEquals(List.of("欢迎回来，Uki"), received, "欢迎语要来自扩展自己的 config.yml");
+    }
+
+    /** 一个订阅者抛异常，不能影响同一个事件上的其它订阅者，也不能漏到核心。 */
+    @Test
+    void oneFailingEventHandlerDoesNotStopTheOthers() throws Exception {
+        PluginManager pluginManager = pluginManagerMock();
+
+        File directory = write("noisy", """
+                leng.on("player_join", function(ctx) error("第一个订阅者炸了") end)
+                leng.on("player_join", function(ctx) ctx.player:send("第二个照常跑") end)
+                """);
+        registry.register(new LuaExtension(plugin, registry, directory));
+
+        List<String> received = new ArrayList<>();
+        ((LuaEventBridge) registeredListener(pluginManager))
+                .onPlayerJoin(new PlayerJoinEvent(playerWithSink(received), ""));
+
+        assertEquals(List.of("第二个照常跑"), received);
+    }
+
+    /** 玩家事件回调里改动的值要能落回事件本身（唯一能干预流程的事件）。 */
+    @Test
+    void playerCommandEventCanBeCancelledFromTheScript() throws Exception {
+        PluginManager pluginManager = pluginManagerMock();
+
+        File directory = write("guard", """
+                leng.on("player_command", function(ctx)
+                  if string.find(ctx.command, "boom") then
+                    ctx:set_cancelled(true)
+                  end
+                end)
+                """);
+        registry.register(new LuaExtension(plugin, registry, directory));
+
+        PlayerCommandPreprocessEvent event =
+                new PlayerCommandPreprocessEvent(playerWithSink(new ArrayList<>()), "/lban boom");
+        ((LuaEventBridge) registeredListener(pluginManager)).onPlayerCommand(event);
+
+        assertTrue(event.isCancelled(), "脚本调用 set_cancelled 要真的作用在事件上");
+    }
+
+    /** 把 PluginManager 换成 mock；注册后由 {@link #registeredListener} 把它抓出来。 */
+    private PluginManager pluginManagerMock() {
+        Server server = mock(Server.class);
+        PluginManager pluginManager = mock(PluginManager.class);
+        lenient().when(plugin.getServer()).thenReturn(server);
+        lenient().when(server.getPluginManager()).thenReturn(pluginManager);
+        return pluginManager;
+    }
+
+    private static Listener registeredListener(PluginManager pluginManager) {
+        ArgumentCaptor<Listener> captor = ArgumentCaptor.forClass(Listener.class);
+        verify(pluginManager).registerEvents(captor.capture(), any());
+        return captor.getValue();
+    }
+
+    /** 一个能把 send 出去的消息收进 {@code received} 的假玩家。 */
+    private static Player playerWithSink(List<String> received) {
+        Player player = mock(Player.class);
+        World world = mock(World.class);
+        // 玩家事件（如 PlayerCommandPreprocessEvent）的构造函数会去取 getServer().getOnlinePlayers()，
+        // 假玩家也得有个假服务端，否则事件还没造出来就 NPE。
+        Server server = mock(Server.class);
+        lenient().doReturn(List.of()).when(server).getOnlinePlayers();
+        lenient().when(player.getServer()).thenReturn(server);
+        lenient().when(world.getName()).thenReturn("world");
+        lenient().when(player.getName()).thenReturn("Uki");
+        lenient().when(player.getUniqueId()).thenReturn(UUID.randomUUID());
+        lenient().when(player.getWorld()).thenReturn(world);
+        lenient().when(player.getLocation()).thenReturn(new Location(world, 1, 2, 3));
+        lenient().when(player.isOnline()).thenReturn(true);
+        lenient().doAnswer(call -> {
+            received.add(call.getArgument(0));
+            return null;
+        }).when(player).sendMessage(anyString());
+        return player;
     }
 
     // ------------------------------------------------------------------ 开关

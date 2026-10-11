@@ -7,24 +7,45 @@ Lengbanlist 是一个面向高版本 Bukkit / Paper / Folia 服务端的轻量�
 ```text
 src/main/java/org/leng/
 ├── Lengbanlist.java                 # 插件主类，负责生命周期、配置加载、命令注册、监听器注册和任务启动
-├── BroadCastBanCountMessage.java    # 自动广播当前封禁统计
-├── Metrics.java                     # bStats 统计上报
-├── commands/                        # Bukkit 命令实现
-├── listeners/                       # 玩家、聊天、GUI、OP 入服等事件监听
-├── manager/                         # 封禁、禁言、警告、举报、数据库、模型等业务管理器
-├── models/                          # 不同角色模型的提示文本实现
-├── object/                          # 封禁、禁言、警告、举报等数据对象
-├── utils/                           # 时间、调度器、更新检查、IP 保存等工具类
+├── command/                         # Bukkit 命令实现；CommandRegistry 是从扩展注册表派生的命令表
+├── extension/                       # 扩展注册表、统一门控、内置提供者声明；extension/lua 是 Lua 子系统
+├── gui/                             # 箱子 GUI 会话与向导
+├── integration/                     # 角色模型、主题、更新检查、IP 归属、Webhook、PlaceholderAPI 等外部集成
+├── listener/                        # 玩家、聊天、GUI、OP 入服等事件监听
+├── net/                             # 出站网络统一入口（下载服务、镜像链、HTTP 传输）
+├── service/                         # 封禁、禁言、警告、举报、申诉、审计、同步、隐身、冻结等业务管理器
+├── storage/                         # 数据库连接与方言、封禁/警告缓存、身份解析、schema 迁移
+├── util/                            # 时间、调度器（Folia 安全）、文本替换、指标上报等工具类
 └── web/                             # Web 管理面板 HTTP API
 ```
 
 资源文件位于 `src/main/resources/`：
 
-- `plugin.yml`：命令、权限、插件版本占位符和 Folia 支持声明。
+- `plugin.yml`：`/lban` 主命令与权限节点声明、插件版本占位符和 Folia 支持声明。各功能的独立命令
+  （`/ban`、`/sc` 等）改为按功能开关在运行时注册，不在此声明，这样功能关掉时命令名能留给别的插件。
 - `config.yml`：功能开关、数据库、Web、广播、更新检查等主配置。
+- `storage.yml`：数据库连接配置（从 `config.yml` 迁移而来）。
 - `broadcast.yml`：自动广播文本配置。
 - `chatconfig.yml`：聊天过滤和审核相关配置。
 - `eula.yml`：插件启用前的 EULA 确认文件。
+- `extensions/`：随 jar 打包的官方 Lua 扩展（`tp`、`staffchat`），仅在数据目录里
+  `extensions/` 整个不存在时释放一次。
+
+## 扩展系统
+
+低频功能不再写进核心，而是做成 **Lua 扩展**放在 `plugins/Lengbanlist/extensions/<扩展名>/`：
+目录存在即已安装，入口脚本固定为 `extension.lua`，开关是该目录下 `config.yml` 的 `enabled`。
+核心 `config.yml` 里**没有**它的键——一个功能的开关只有一个来源，不会出现两处开关互相覆盖的
+僵尸配置。脚本注册的命令与内置命令走同一条注册路径，权限、别名、补全、`/lban help` 过滤与
+功能门控因此自动一致（`/lban tp` 就是这么从核心搬出去的，用户看到的命令界面没变）。
+
+- `extension/`：扩展注册表、统一门控（`isFeatureActive` = 已安装 **且** 开启）、内置提供者声明表。
+- `extension/lua/`：Lua 子系统——沙箱（白名单库 + 指令预算与墙钟双超时）、加载器、命令桥、事件桥、门面。
+- `lengbanlist-api`：对外契约模块，Java 扩展以 `provided` 依赖它编译，运行时装核心提供的那份。
+- 管理命令：`/lban ext list|reload|enable|disable`（权限 `lengbanlist.reload`）。
+
+脚本 API、沙箱边界、事件列表与排错见 [`docs/LuaExtensions.md`](../docs/LuaExtensions.md)；
+官方扩展的源码在 [Lengbanlist-Extensions](https://github.com/Serendisand/Lengbanlist-Extensions)。
 
 ## 启动流程
 

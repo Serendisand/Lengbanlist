@@ -179,7 +179,73 @@ end)
 
 ---
 
-## 八、排障
+## 八、从零做一个扩展（完整走一遍）
+
+目标：玩家进服时按扩展自己的配置发欢迎语，另外提供一个命令手动补发。
+
+**第 1 步**：建目录 `plugins/Lengbanlist/extensions/welcome/`（目录名就是扩展名，也是功能键）。
+
+**第 2 步**：写 `plugins/Lengbanlist/extensions/welcome/extension.lua`：
+
+```lua
+leng.name("欢迎语")
+leng.version("1.0.0")
+leng.api("1.0")
+
+-- 读扩展自己的 config.yml；第二个参数是取不到时的默认值
+local TEMPLATE = leng.config("message", "§e欢迎回来，%s！")
+local PERMISSION = leng.config("permission", "lengbanlist.admin")
+
+local function greet(player)
+    player:send(string.format(TEMPLATE, player.name))
+end
+
+leng.on("player_join", function(ctx)
+    greet(ctx.player)
+end)
+
+leng.command{
+    name = "greet",
+    parent = "lban",
+    permission = PERMISSION,
+    usage = "/lban greet <玩家名>",
+    description = "给玩家补发欢迎语",
+    run = function(ctx)
+        local target = leng.player(ctx.args[1] or "")
+        if not target then
+            ctx.reply("§c玩家不在线")
+            return true
+        end
+        greet(target)
+        ctx.reply("§a已发送")
+        return true
+    end,
+    complete = function(ctx)
+        return leng.online_players(ctx.args[#ctx.args] or "")
+    end,
+}
+```
+
+**第 3 步**：写 `plugins/Lengbanlist/extensions/welcome/config.yml`：
+
+```yaml
+# 这个扩展自己的配置。核心的 config.yml 里没有它的键。
+enabled: true
+message: "§e欢迎回来，%s！"
+permission: lengbanlist.admin
+```
+
+**第 4 步**：`/lban ext reload`（或重启服务端）。**Lua 扩展不需要编译**，改完脚本重载即可。
+
+**第 5 步**：验证。`/lban ext list` 应显示 `welcome v1.0.0 [启用]`；进服能收到欢迎语；
+`/lban greet <名字>` 能补发；`/lban help` 里出现这一行。
+
+**第 6 步**：关掉用 `/lban ext disable welcome`——它写的是上面那个 `config.yml`（文本级改写，
+注释原样保留），不会碰核心配置。
+
+---
+
+## 九、排障
 
 | 现象 | 先看哪里 |
 | --- | --- |

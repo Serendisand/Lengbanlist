@@ -211,6 +211,18 @@ public final class ExtensionRegistry {
                 : plugin.isFeatureEnabled(feature);
     }
 
+    /**
+     * 该功能是否由<b>核心自带</b>的提供者提供（区别于用户装进来的扩展）。
+     *
+     * <p>{@code /lban help} 拿它决定要不要自动补行：内置命令在模型文件的 help 列表里是手工
+     * 编排的（分区标题、运算符说明、刻意省略若干条），自动补行会搅乱那份编排；而用户装的
+     * 扩展改不了别人的模型文件，它们提供的命令必须自动出现，否则装完没人知道有哪些命令。
+     */
+    public boolean isBuiltinProvided(String feature) {
+        Registration reg = byFeature.get(feature);
+        return reg != null && reg.extension instanceof BuiltinExtensions.CoreProvided;
+    }
+
     // ---------------------------------------------------------------- 内部
 
     private static final class Registration {

@@ -4,15 +4,18 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.leng.Lengbanlist;
+import org.leng.api.CommandSpec;
 import org.leng.command.CommandRegistry;
 import org.leng.util.Utils;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.leng.models.Model;
 
 public class CustomModel implements Model {
@@ -88,10 +91,76 @@ public class CustomModel implements Model {
             Utils.sendMessage(sender, "§6" + name + " 模型 - 没有自定义帮助信息");
             return;
         }
-        String version = Lengbanlist.getInstance().getPluginVersion();
+        helpLines = appendExtensionCommands(helpLines, sender);
+        Lengbanlist plugin = Lengbanlist.getInstance();
+        String version = plugin == null ? "" : plugin.getPluginVersion();
         for (String line : helpLines) {
             Utils.sendMessage(sender, line.replace("{version}", version == null ? "" : version));
         }
+    }
+
+    /** 帮助框的底边。自动补的命令行插在它之前，免得掉到框外面去。 */
+    private static final String HELP_FOOTER_MARKER = "╚";
+
+    /**
+     * 把<b>用户装的扩展</b>提供的命令补进帮助列表。
+     *
+     * <p>模型文件里的 help 列表是给核心命令手工编排的，而扩展作者改不了别人的模型文件——
+     * 不自动补的话，装完扩展谁也不知道多了哪些命令。四条过滤：手工写过的（同一个功能键）
+     * 不重复、功能没开的不列、发送者没权限的不显示、内置命令不碰（那份编排是刻意的）。
+     */
+    private List<String> appendExtensionCommands(List<String> lines, CommandSender sender) {
+        Lengbanlist plugin = Lengbanlist.getInstance();
+        if (plugin == null || plugin.getExtensionRegistry() == null || plugin.getCommandRegistry() == null
+                || !plugin.getConfig().getBoolean("help.extension-commands", true)) {
+            return lines;
+        }
+        // 已经手工写进帮助的功能键：这些命令有人写过描述了，不再自动补
+        Set<String> documented = new HashSet<>();
+        for (String line : lines) {
+            String feature = plugin.getCommandRegistry().featureForUsage(commandUsageOf(line));
+            if (feature != null) {
+                documented.add(feature);
+            }
+        }
+        List<String> generated = new ArrayList<>();
+        for (CommandSpec spec : plugin.getExtensionRegistry().commandSpecs()) {
+            if (documented.contains(spec.feature())
+                    || plugin.getExtensionRegistry().isBuiltinProvided(spec.feature())
+                    || !plugin.isFeatureActive(spec.feature())) {
+                continue;
+            }
+            if (!spec.permission().isEmpty() && !sender.hasPermission(spec.permission())) {
+                continue;
+            }
+            generated.add(applyHelpBullet(DEFAULT_HELP_BULLET + "§b" + spec.usage()
+                    + " §7- §3" + spec.description()));
+        }
+        if (generated.isEmpty()) {
+            return lines;
+        }
+        List<String> additions = new ArrayList<>();
+        additions.add("§6§l◆ 扩展");
+        additions.addAll(generated);
+        return insertBeforeFooter(lines, additions);
+    }
+
+    /** 把新增行插在底部边框之前；模型没画边框就追加到末尾。 */
+    static List<String> insertBeforeFooter(List<String> lines, List<String> additions) {
+        List<String> merged = new ArrayList<>(lines);
+        int footer = -1;
+        for (int i = merged.size() - 1; i >= 0; i--) {
+            if (merged.get(i).contains(HELP_FOOTER_MARKER)) {
+                footer = i;
+                break;
+            }
+        }
+        if (footer < 0) {
+            merged.addAll(additions);
+        } else {
+            merged.addAll(footer, additions);
+        }
+        return merged;
     }
 
     private static final java.util.regex.Pattern COLOR_PATTERN =

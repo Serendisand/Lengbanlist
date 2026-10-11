@@ -49,6 +49,13 @@ public abstract class LengbanlistExtensionPlugin extends JavaPlugin implements L
     private LengbanlistCore core;
     private ExtensionContext context;
 
+    /**
+     * Bukkit 的插件启用入口（无参）。
+     *
+     * <p>注意它与 {@link #onEnable(ExtensionContext)} 是<b>重载</b>而不是覆盖：前者是
+     * Bukkit 的插件生命周期，后者是扩展契约里"核心已接受本扩展"的回调，由核心在
+     * {@link LengbanlistCore#enable} 内部回调。两个都要实现，缺一个子类就得自己补。
+     */
     @Override
     public final void onEnable() {
         core = Bukkit.getServicesManager().load(LengbanlistCore.class);
@@ -59,12 +66,18 @@ public abstract class LengbanlistExtensionPlugin extends JavaPlugin implements L
             return;
         }
         try {
+            // 核心会在 enable 内部回调 onEnable(ExtensionContext)，子类的逻辑在那里开始
             context = core.enable(this);
         } catch (ExtensionLoadException e) {
             getLogger().severe("扩展启用失败: " + e.getMessage());
             getServer().getPluginManager().disablePlugin(this);
-            return;
         }
+    }
+
+    /** 扩展契约的回调：核心接受本扩展后调用。子类请改写 {@link #onExtensionEnable}。 */
+    @Override
+    public final void onEnable(ExtensionContext context) {
+        this.context = context;
         onExtensionEnable(context);
     }
 
