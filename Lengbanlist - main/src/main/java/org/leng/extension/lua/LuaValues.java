@@ -123,7 +123,7 @@ final class LuaValues {
                 if (material == null) {
                     return FALSE;
                 }
-                int amount = Math.max(1, arg(args, 1).optint(1));
+                int amount = Math.max(1, LuaValues.arg(args, 1).optint(1));
                 player.getInventory().addItem(new ItemStack(material, amount));
                 return TRUE;
             }
