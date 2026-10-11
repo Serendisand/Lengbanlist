@@ -116,4 +116,4 @@ src/main/java/org/leng/
 mvn clean package
 ```
 
-构建产物位于 `target/Lengbanlist-<version>.jar`。当前版本号由 `pom.xml` 控制，并会写入 `plugin.yml` 的 `${project.version}`。
+构建产物位于 `target/Lengbanlist-<version>.jar`。当前版本号由 `pom.xml` 控制
