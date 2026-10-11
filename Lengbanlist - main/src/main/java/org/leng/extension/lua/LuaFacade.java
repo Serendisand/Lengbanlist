@@ -18,12 +18,15 @@ import java.util.Locale;
  * <p>没有 {@code leng.id()}：扩展 id 就是目录名。注册表在 {@code onEnable} 之前
  * 就要拿 id 建索引，而脚本是 {@code onEnable} 里才跑的，允许覆写会让索引与自报的 id
  * 对不上——"一个东西两个来源"正是刚被回退的那版设计栽的跟头。
+ *
+ * <p>参数一律从<b>末尾</b>数（{@link LuaValues#arg}）：这样 {@code p:send(msg)} 与
+ * {@code p.send(msg)} 两种写法都成立，脚本作者少写一个冒号不至于报错。
  */
 final class LuaFacade {
 
     private final LuaTable table = new LuaTable();
 
-    LuaFacade(LuaExtension owner, LuaCommandBridge bridge) {
+    LuaFacade(LuaExtension owner, LuaCommandBridge commands, LuaEventBridge events) {
         table.set("name", new VarArgFunction() {
             @Override
             public Varargs invoke(Varargs args) {
@@ -38,11 +41,30 @@ final class LuaFacade {
                 return NONE;
             }
         });
+        table.set("api", new VarArgFunction() {
+            @Override
+            public Varargs invoke(Varargs args) {
+                owner.requireLoading("leng.api");
+                owner.api(LuaValues.optString(args, 1, ""));
+                return NONE;
+            }
+        });
 
         table.set("command", new VarArgFunction() {
             @Override
             public Varargs invoke(Varargs args) {
-                bridge.register(LuaValues.arg(args, 1).checktable());
+                owner.requireLoading("leng.command");
+                commands.register(LuaValues.arg(args, 1).checktable());
+                return NONE;
+            }
+        });
+
+        table.set("on", new VarArgFunction() {
+            @Override
+            public Varargs invoke(Varargs args) {
+                owner.requireLoading("leng.on");
+                String name = LuaValues.optString(args, 2, "").trim().toLowerCase(Locale.ROOT);
+                events.on(name, LuaValues.arg(args, 1));
                 return NONE;
             }
         });
@@ -71,6 +93,18 @@ final class LuaFacade {
             }
         });
 
+        table.set("players", new VarArgFunction() {
+            @Override
+            public Varargs invoke(Varargs args) {
+                LuaTable players = new LuaTable();
+                int index = 1;
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    players.set(index++, LuaValues.playerProxy(player));
+                }
+                return players;
+            }
+        });
+
         table.set("online_players", new VarArgFunction() {
             @Override
             public Varargs invoke(Varargs args) {
@@ -83,6 +117,14 @@ final class LuaFacade {
                     }
                 }
                 return names;
+            }
+        });
+
+        table.set("console", new VarArgFunction() {
+            @Override
+            public Varargs invoke(Varargs args) {
+                Bukkit.getConsoleSender().sendMessage(LuaValues.arg(args, 1).tojstring());
+                return NONE;
             }
         });
 

@@ -3,6 +3,7 @@ package org.leng.extension.lua;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.leng.Lengbanlist;
+import org.leng.api.ApiVersion;
 import org.leng.api.ExtensionContext;
 import org.leng.api.ExtensionLoadException;
 import org.leng.api.LengbanlistExtension;
@@ -41,6 +42,14 @@ public final class LuaExtension implements LengbanlistExtension, SelfGatedExtens
     static final String ENTRY_FILE = "extension.lua";
     static final String CONFIG_FILE = "config.yml";
 
+    /**
+     * 脚本 API 版本。脚本用 {@code leng.api("1.0")} 声明它要求的范围，核心在加载期校验。
+     *
+     * <p>它与插件版本是两件事：插件每次修 bug 都发版，而脚本 API 只在
+     * {@code leng} 表增删能力时才动，这样扩展作者不必跟着核心版本号跑。
+     */
+    public static final String API_VERSION = "1.0";
+
     private final Lengbanlist plugin;
     private final ExtensionRegistry registry;
     private final File directory;
@@ -48,12 +57,17 @@ public final class LuaExtension implements LengbanlistExtension, SelfGatedExtens
 
     private String displayName;
     private String version = "";
+    private String requiredApi = "";
     private FileConfiguration config;
     private LuaSandbox sandbox;
+    private LuaEventBridge events;
     private LuaValue onDisable;
     private final Map<Integer, SchedulerUtils.SchedulerTask> tasks = new LinkedHashMap<>();
     private int nextTaskHandle = 1;
     private boolean poisoned;
+    private String disabledReason = "";
+    /** 加载期标志：命令与事件订阅只能在脚本顶层注册，运行期注册会让命令表与事件表漂移。 */
+    private boolean loading;
 
     LuaExtension(Lengbanlist plugin, ExtensionRegistry registry, File directory) {
         this.plugin = plugin;
@@ -85,19 +99,30 @@ public final class LuaExtension implements LengbanlistExtension, SelfGatedExtens
 
     @Override
     public boolean isFeatureEnabled(String feature) {
-        FileConfiguration current = config;
-        return current == null || current.getBoolean("enabled", true);
+        return enabled();
     }
 
     @Override
     public void onEnable(ExtensionContext context) throws ExtensionLoadException {
-        config = YamlConfiguration.loadConfiguration(new File(directory, CONFIG_FILE));
+        config = YamlConfiguration.loadConfiguration(configFile());
         sandbox = new LuaSandbox(line -> log("info", line));
+        events = new LuaEventBridge(this);
 
-        LuaCommandBridge bridge = new LuaCommandBridge(this, context.commands());
-        sandbox.globals().set("leng", new LuaFacade(this, bridge).table());
+        LuaCommandBridge commands = new LuaCommandBridge(this, context.commands());
+        sandbox.globals().set("leng", new LuaFacade(this, commands, events).table());
 
-        runChunk(readEntry());
+        loading = true;
+        try {
+            runChunk(readEntry());
+        } finally {
+            loading = false;
+        }
+        // 版本校验放在脚本跑完之后：leng.api() 是脚本在顶层声明的，注册时核心还不知道它。
+        // 不满足就抛出去，注册表会完整回滚这次注册。
+        if (!ApiVersion.satisfies(requiredApi, API_VERSION)) {
+            throw new ExtensionLoadException("脚本要求 API " + requiredApi
+                    + "，当前核心提供的是 " + API_VERSION);
+        }
         onDisable = sandbox.globals().get("on_disable");
         if (!onDisable.isfunction()) {
             onDisable = null;
@@ -110,11 +135,40 @@ public final class LuaExtension implements LengbanlistExtension, SelfGatedExtens
             runScript(onDisable, LuaValue.NONE, "on_disable");
             onDisable = null;
         }
+        if (events != null) {
+            events.unregister();
+            events = null;
+        }
         for (SchedulerUtils.SchedulerTask task : tasks.values()) {
             task.cancel();
         }
         tasks.clear();
         sandbox = null;
+    }
+
+    /** 命令与事件订阅的注册时机检查：加载期之外注册会让命令表/事件表与实际不符。 */
+    void requireLoading(String what) {
+        if (!loading) {
+            throw new LuaError(what + " 只能在扩展加载期（脚本顶层）调用");
+        }
+    }
+
+    /**
+     * 扩展自己的开关（{@code extensions/<id>/config.yml} 的 {@code enabled}）。
+     *
+     * <p>它就是"这个功能开不开"的唯一来源，核心 {@code config.yml} 里没有对应的键。
+     */
+    public boolean enabled() {
+        FileConfiguration current = config;
+        return current == null || current.getBoolean("enabled", true);
+    }
+
+    File configFile() {
+        return new File(directory, CONFIG_FILE);
+    }
+
+    void api(String range) {
+        requiredApi = range == null ? "" : range.trim();
     }
 
     private String readEntry() throws ExtensionLoadException {
@@ -182,19 +236,36 @@ public final class LuaExtension implements LengbanlistExtension, SelfGatedExtens
             return;
         }
         poisoned = true;
+        disabledReason = reason;
         try {
+            // 延后一拍再摘自己：中断可能发生在命令分派的中途，当场改注册表会打到正在遍历的表。
             SchedulerUtils.runTask(plugin, () -> registry.unregister(id));
         } catch (Exception e) {
             registry.unregister(id);
         }
     }
 
+    /** 因超时/崩溃被强制停用的原因；正常运行返回空串。给 {@code /lban ext list} 用。 */
+    public String disabledReason() {
+        return poisoned ? disabledReason : "";
+    }
+
     int scheduleTask(int delayTicks, int periodTicks, LuaValue body) {
-        Runnable wrapper = () -> runScript(body, LuaValue.NONE, "定时任务");
+        int handle = nextTaskHandle++;
+        Runnable wrapper = () -> {
+            try {
+                runScript(body, LuaValue.NONE, "定时任务");
+            } finally {
+                // 一次性任务跑完就把句柄摘掉：留着的话每调度一次就攒一条，
+                // 长跑的服务端会攒出一张只增不减的表。
+                if (periodTicks <= 0) {
+                    tasks.remove(handle);
+                }
+            }
+        };
         SchedulerUtils.SchedulerTask task = periodTicks > 0
                 ? SchedulerUtils.runTaskTimer(plugin, wrapper, Math.max(0, delayTicks), periodTicks)
                 : SchedulerUtils.runTaskLater(plugin, wrapper, Math.max(0, delayTicks));
-        int handle = nextTaskHandle++;
         tasks.put(handle, task);
         return handle;
     }

@@ -23,45 +23,8 @@ public final class StaffCommands {
 
     private StaffCommands() {}
 
-    public static final class StaffChat implements CommandExecutor {
-        private final Lengbanlist plugin;
-
-        public StaffChat(Lengbanlist plugin) {
-            this.plugin = plugin;
-        }
-
-        @Override
-        public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-            if (!plugin.isFeatureEnabled("staffchat")) {
-                plugin.sendFeatureDisabled(sender);
-                return true;
-            }
-
-            if (!sender.hasPermission("lengbanlist.staffchat")) {
-                Utils.sendMessage(sender, plugin.prefix() + "§c你没有权限使用此命令。");
-                return true;
-            }
-
-            if (args.length < 1) {
-                Utils.sendMessage(sender, plugin.prefix() + "§c用法喵: /sc <内容>");
-                return true;
-            }
-
-            String message = String.join(" ", args);
-            String senderName = sender instanceof Player ? sender.getName() : "§cConsole";
-
-            String staffChatFormat = "§b<STAFF> §e" + senderName + "§f: " + message;
-
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player.hasPermission("lengbanlist.staffchat")) {
-                    Utils.sendMessage(player, staffChatFormat);
-                }
-            }
-            Bukkit.getConsoleSender().sendMessage(staffChatFormat);
-
-            return true;
-        }
-    }
+    // 管理员频道 /sc 已搬进 Lua 扩展（plugins/Lengbanlist/extensions/staffchat/），
+    // 作为「Lua 命令与内置命令走同一条注册路径」的第二个样本。
 
     public static final class Vanish implements CommandExecutor, TabCompleter {
 

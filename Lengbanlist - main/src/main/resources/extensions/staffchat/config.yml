@@ -1,0 +1,4 @@
+# 管理员频道（/sc）的配置。
+#
+# enabled 就是这个功能的开关。核心的 config.yml 里没有 staffchat 这一项。
+enabled: true

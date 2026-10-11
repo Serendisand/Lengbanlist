@@ -57,7 +57,7 @@ public final class BuiltinExtensions {
                               Function<Lengbanlist, CommandExecutor> executorFactory) {
     }
 
-    /** 每个功能键的展示名，用于日志与未来的 {@code /lban ext list}。 */
+    /** 每个功能键的展示名，用于日志与 {@code /lban ext list}。 */
     private static final Map<String, String> DISPLAY_NAMES = Map.ofEntries(
             Map.entry("ban", "封禁玩家"),
             Map.entry("ban-ip", "IP 封禁"),
@@ -74,7 +74,6 @@ public final class BuiltinExtensions {
             Map.entry("history", "处罚历史"),
             Map.entry("mute", "禁言"),
             Map.entry("getip", "IP 归属地"),
-            Map.entry("staffchat", "管理员频道"),
             Map.entry("alts", "小号查询"),
             Map.entry("immunity", "权重免疫"),
             // 以下功能没有自己的命令或钩子，行为分散在核心各处（GUI 按钮、监听器、
@@ -84,7 +83,6 @@ public final class BuiltinExtensions {
             Map.entry("freeze", "冻结玩家"),
             Map.entry("appeal", "封禁申诉"),
             Map.entry("model", "角色模型"),
-            Map.entry("tp", "传送"),
             Map.entry("chest-ui", "箱子 GUI"),
             Map.entry("broadcast", "封禁广播"),
             Map.entry("mute-command-block", "禁言期指令屏蔽"),
@@ -100,6 +98,9 @@ public final class BuiltinExtensions {
             Map.entry("auto-update", "自动更新"),
             Map.entry("webhook-events", "Webhook 推送"),
             Map.entry("reload", "配置重载"));
+    // 注意：tp 与 staffchat 已搬进 Lua 扩展（extensions/tp、extensions/staffchat），
+    // 这里不能再登记它们——功能键被内置提供者先占住，LuaLoader 会判定撞车而拒绝加载，
+    // 于是扩展自己的开关永远不会被读到。
 
     private static final List<Declaration> DECLARATIONS = List.of(
             d("ban", "ban", "lengbanlist.ban",
@@ -138,8 +139,6 @@ public final class BuiltinExtensions {
                     "/listmute", "查看禁言列表", MuteCommands.ListMute::new),
             d("getip", "getip", "lengbanlist.getip",
                     "/getip [玩家名]", "查询玩家 IP 地理位置", QueryCommands.GetIp::new),
-            d("staffchat", "sc", "lengbanlist.staffchat",
-                    "/sc <内容>", "工作频道聊天", StaffCommands.StaffChat::new),
             d("alts", "alts", "lengbanlist.alts",
                     "/alts <玩家名>", "查询玩家同IP小号", Lengbanlist::getAltsCommand));
 

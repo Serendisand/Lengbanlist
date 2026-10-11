@@ -131,8 +131,13 @@ public class CustomModel implements Model {
             return lines;
         }
         List<String> filtered = new ArrayList<>(lines.size());
+        CommandRegistry registry = plugin.getCommandRegistry();
         for (String line : lines) {
-            String feature = CommandRegistry.featureForUsage(commandUsageOf(line));
+            String usage = commandUsageOf(line);
+            // 注册表优先：功能搬进 Lua 扩展之后，只有它能说出这行属于哪个功能键
+            String feature = registry == null
+                    ? CommandRegistry.declareFeatureForUsage(usage)
+                    : registry.featureForUsage(usage);
             if (feature != null && !plugin.isFeatureActive(feature)) {
                 continue;
             }

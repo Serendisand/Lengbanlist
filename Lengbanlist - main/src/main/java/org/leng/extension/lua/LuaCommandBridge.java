@@ -51,10 +51,11 @@ final class LuaCommandBridge {
         String description = text(declaration, "description", text(declaration, "desc", name));
         String parent = text(declaration, "parent", "");
         LuaValue completer = declaration.get("complete");
+        boolean subcommand = !parent.isEmpty();
 
         registrar.register(new CommandSpec(name, feature, permission, usage, description,
                 aliases(declaration.get("aliases")),
-                new Executor(body, usage),
+                new Executor(body, usage, subcommand),
                 completer.isfunction() ? new Completer(completer, usage) : null,
                 parent));
     }
@@ -102,22 +103,35 @@ final class LuaCommandBridge {
         return context;
     }
 
-    /** 返回 false 表示"没处理"，让 Bukkit 回落到默认的用法提示。 */
+    /**
+     * 返回 false 表示"没处理"：顶层命令交给 Bukkit 回落到默认用法提示；
+     * <b>子命令不能返回 false</b>——那会被 {@code /lban} 的分派当成"没被认领"，
+     * 于是脚本明明执行了，玩家却看到"未知子命令"。
+     */
     private final class Executor implements CommandExecutor {
 
         private final LuaValue body;
         private final String usage;
+        private final boolean subcommand;
 
-        private Executor(LuaValue body, String usage) {
+        private Executor(LuaValue body, String usage, boolean subcommand) {
             this.body = body;
             this.usage = usage;
+            this.subcommand = subcommand;
         }
 
         @Override
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
             Varargs result = owner.runScript(body, context(sender, label, args, usage), label);
             LuaValue first = result.arg1();
-            return !(first.isboolean() && !first.toboolean());
+            if (first.isboolean() && !first.toboolean()) {
+                if (subcommand) {
+                    sender.sendMessage(owner.plugin().prefix() + "§c用法: §f" + usage);
+                    return true;
+                }
+                return false;
+            }
+            return true;
         }
     }
 

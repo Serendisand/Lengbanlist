@@ -5,6 +5,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.luaj.vm2.LuaTable;
@@ -12,7 +13,9 @@ import org.luaj.vm2.LuaValue;
 import org.luaj.vm2.Varargs;
 import org.luaj.vm2.lib.VarArgFunction;
 
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Java 值 ↔ Lua 值的翻译，以及脚本侧的参数取用约定。
@@ -63,6 +66,30 @@ final class LuaValues {
         if (raw instanceof Number number) {
             return LuaValue.valueOf(number.doubleValue());
         }
+        // 列表与嵌套配置段要翻成表，不能落到 toString：那会把 {a, b} 变成字符串
+        // "[a, b]" 交给脚本，脚本拿到的是个看着像表、其实是字符串的东西，全程无声。
+        if (raw instanceof List<?> list) {
+            LuaTable table = new LuaTable();
+            int index = 1;
+            for (Object element : list) {
+                table.set(index++, of(element));
+            }
+            return table;
+        }
+        if (raw instanceof ConfigurationSection section) {
+            LuaTable table = new LuaTable();
+            for (String key : section.getKeys(false)) {
+                table.set(key, of(section.get(key)));
+            }
+            return table;
+        }
+        if (raw instanceof Map<?, ?> map) {
+            LuaTable table = new LuaTable();
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                table.set(String.valueOf(entry.getKey()), of(entry.getValue()));
+            }
+            return table;
+        }
         return LuaValue.valueOf(String.valueOf(raw));
     }
 
@@ -95,6 +122,13 @@ final class LuaValues {
         table.set("z", LuaValue.valueOf(location.getZ()));
         table.set("is_online", LuaValue.valueOf(player.isOnline()));
 
+        table.set("has_permission", new VarArgFunction() {
+            @Override
+            public Varargs invoke(Varargs args) {
+                return valueOf(player.hasPermission(LuaValues.arg(args, 1).tojstring()));
+            }
+        });
+
         table.set("send", new VarArgFunction() {
             @Override
             public Varargs invoke(Varargs args) {
@@ -106,13 +140,30 @@ final class LuaValues {
         table.set("teleport", new VarArgFunction() {
             @Override
             public Varargs invoke(Varargs args) {
-                World target = Bukkit.getWorld(LuaValues.arg(args, 4).tojstring());
+                World target = Bukkit.getWorld(optString(args, 1, ""));
                 if (target == null) {
                     return FALSE;
                 }
                 return valueOf(player.teleport(new Location(target,
-                        LuaValues.arg(args, 3).todouble(), LuaValues.arg(args, 2).todouble(),
-                        LuaValues.arg(args, 1).todouble())));
+                        LuaValues.arg(args, 4).todouble(), LuaValues.arg(args, 3).todouble(), LuaValues.arg(args, 2).todouble())));
+            }
+        });
+
+        // 传到另一个玩家身边是最常见的需求，独立成一个函数：写坐标要自己拼 world/x/y/z，
+        // 参数顺序错一位就把人送进虚空，而这在脚本里不报错、只表现为"传歪了"。
+        table.set("teleport_to", new VarArgFunction() {
+            @Override
+            public Varargs invoke(Varargs args) {
+                LuaValue target = LuaValues.arg(args, 1);
+                if (!target.istable()) {
+                    return FALSE;
+                }
+                World world = Bukkit.getWorld(target.get("world").tojstring());
+                if (world == null) {
+                    return FALSE;
+                }
+                return valueOf(player.teleport(new Location(world,
+                        target.get("x").todouble(), target.get("y").todouble(), target.get("z").todouble())));
             }
         });
 
@@ -123,7 +174,7 @@ final class LuaValues {
                 if (material == null) {
                     return FALSE;
                 }
-                int amount = Math.max(1, arg(args, 1).optint(1));
+                int amount = Math.max(1, LuaValues.arg(args, 1).optint(1));
                 player.getInventory().addItem(new ItemStack(material, amount));
                 return TRUE;
             }

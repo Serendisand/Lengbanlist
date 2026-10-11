@@ -1,0 +1,5 @@
+# /lban tp 的配置。
+#
+# enabled 就是这个功能的开关。核心的 config.yml 里没有 tp 这一项，
+# 所以别去那边找开关、也别往那边加——一个功能只有一个开关来源。
+enabled: true

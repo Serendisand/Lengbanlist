@@ -100,10 +100,10 @@ class CommandRegistryTest {
     @Test
     void helpFeaturesCoverEveryCommand() {
         for (CommandRegistry.Spec spec : specs()) {
-            String feature = CommandRegistry.featureForUsage(spec.usage());
-            assertNotNull(feature, spec.name() + " 的用法串匹配不到 HELP_FEATURES，/lban help 会漏掉这一行");
+            String feature = registry.featureForUsage(spec.usage());
+            assertNotNull(feature, spec.name() + " 的用法串匹配不到功能键，/lban help 会漏掉这一行");
             assertTrue(feature.equals(spec.feature()),
-                    spec.name() + " 在 HELP_FEATURES 里记的是 " + feature + "，但命令表里是 " + spec.feature());
+                    spec.name() + " 反查到的功能键是 " + feature + "，但命令表里是 " + spec.feature());
         }
     }
 }

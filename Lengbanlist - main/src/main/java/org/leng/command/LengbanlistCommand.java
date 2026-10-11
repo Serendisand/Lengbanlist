@@ -333,27 +333,6 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
 
                 String[] reportArgs = Arrays.copyOfRange(args, 1, args.length);
                 return new ReportCommands.Report(plugin).onCommand(sender, this, label, reportArgs);
-            case "tp":
-                if (!plugin.isFeatureEnabled("tp")) {
-                    plugin.sendFeatureDisabled(sender);
-                    return true;
-                }
-                if (!sender.hasPermission("lengbanlist.admin")) {
-                    Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
-                    return true;
-                }
-                if (args.length < 2) {
-                    Utils.sendMessage(sender, plugin.prefix() + "§c用法喵: /lban tp <玩家名>");
-                    return true;
-                }
-                Player targetPlayer = Bukkit.getPlayer(args[1]);
-                if (targetPlayer != null && sender instanceof Player) {
-                    ((Player) sender).teleport(targetPlayer);
-                    Utils.sendMessage(sender, plugin.prefix() + "§a已传送到玩家 " + targetPlayer.getName());
-                } else {
-                    Utils.sendMessage(sender, plugin.prefix() + "§c玩家不在线");
-                }
-                break;
             case "vanish":
                 return new StaffCommands.Vanish(plugin).onCommand(sender, this, label, Arrays.copyOfRange(args, 1, args.length));
             case "freeze":
@@ -604,6 +583,9 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 }
                 String[] rollbackArgs = args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
                 return new StaffCommands.Rollback(plugin).onCommand(sender, null, "lban rollback", rollbackArgs);
+            case "ext":
+                return new LuaExtCommand(plugin).onCommand(sender, this, label,
+                        args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0]);
             default:
                 // 扩展提供的子命令。放在所有内置分支之后：核心自己的子命令优先级更高，
                 // 扩展无法顶替它们。详见 CommandSpec.parent。
@@ -615,16 +597,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
 
                 Utils.sendMessage(sender, plugin.prefix() + "§c未知子命令喵: §f" + args[0] + "§c，输入 §f/lban help §c看看能用什么喵。");
                 StringBuilder available = new StringBuilder("§6§l可用子命令： §b");
-                java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>(java.util.Arrays.asList(
-                        "toggle", "a", "list", "reload", "add", "remove", "help", "open",
-                        "getip", "model", "models", "mute", "unmute", "list-mute", "warn", "unwarn",
-                        "report", "admin", "check", "info", "tp", "history", "audit", "webhook", "handle", "alts", "sync", "rollback",
-                        "vanish", "freeze", "unfreeze"));
-                // 并入扩展提供的子命令，避免功能迁出后这张列表变成过期的谎话
-                if (plugin.getCommandRegistry() != null) {
-                    names.addAll(plugin.getCommandRegistry().subcommandNames());
-                }
-                for (String s : names) {
+                for (String s : subcommandSuggestions()) {
                     available.append(s).append(" ");
                 }
                 Utils.sendMessage(sender, available.toString());
@@ -643,13 +616,12 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
         List<String> completions = new ArrayList<>();
         if (args.length == 1) {
             String prefix = args[0].toLowerCase();
-            String[] subs = {"toggle", "a", "list", "reload", "add", "remove", "help", "open",
-                    "getip", "model", "models", "mute", "unmute", "list-mute", "warn", "unwarn",
-                    "report", "admin", "check", "info", "tp", "history", "audit", "webhook", "handle", "alts", "sync", "rollback",
-                    "vanish", "freeze", "unfreeze"};
-            for (String s : subs) {
+            for (String s : subcommandSuggestions()) {
                 if (s.startsWith(prefix)) completions.add(s);
             }
+        } else if (args.length >= 2 && args[0].equalsIgnoreCase("ext")) {
+
+            return new LuaExtCommand(plugin).onTabComplete(sender, null, "", Arrays.copyOfRange(args, 1, args.length));
         } else if (args.length >= 2 && args[0].equalsIgnoreCase("models")) {
 
             return new ModelsCommand(plugin).onTabComplete(sender, null, "", Arrays.copyOfRange(args, 1, args.length));
@@ -668,7 +640,6 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 case "add":
                 case "check":
                 case "getip":
-                case "tp":
                 case "history":
                 case "alts":
                     for (Player p : Bukkit.getOnlinePlayers()) {
@@ -729,7 +700,37 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 }
             }
         }
+        // 兜底：扩展提供的子命令。放在所有内置分支之后（与执行路径的分派顺序一致），
+        // 核心分支没接住时才问注册表——扩展子命令不占独立命令名，Bukkit 不会替它调补全。
+        if (completions.isEmpty() && args.length >= 2 && plugin.getCommandRegistry() != null) {
+            List<String> fromExtensions = plugin.getCommandRegistry().completeSubcommand(
+                    CommandRegistry.SUBCOMMAND_PARENT, args[0], sender, alias, args);
+            if (fromExtensions != null) {
+                return fromExtensions;
+            }
+        }
         return completions;
+    }
+
+    /** 内置子命令提示表：写死在 {@code /lban} 的 switch 里、不占独立命令名的那些。 */
+    private static final List<String> BUILTIN_SUBCOMMANDS = List.of(
+            "toggle", "a", "list", "reload", "ext", "add", "remove", "help", "open",
+            "getip", "model", "models", "mute", "unmute", "list-mute", "warn", "unwarn",
+            "report", "admin", "check", "info", "history", "audit", "webhook", "handle",
+            "alts", "sync", "rollback", "vanish", "freeze", "unfreeze");
+
+    /**
+     * 提示与补全共用的子命令名：内置的 + 扩展提供的。
+     *
+     * <p>合一的原因很实在：两张表分开写时，功能搬进扩展后总会漏改一张，
+     * 于是"提示里有、补全里没有"，或者更糟——提示里列着已经搬走的命令。
+     */
+    private List<String> subcommandSuggestions() {
+        java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>(BUILTIN_SUBCOMMANDS);
+        if (plugin.getCommandRegistry() != null) {
+            names.addAll(plugin.getCommandRegistry().subcommandNames());
+        }
+        return new ArrayList<>(names);
     }
 
     private static final int LIST_DISPLAY_LIMIT = 50;

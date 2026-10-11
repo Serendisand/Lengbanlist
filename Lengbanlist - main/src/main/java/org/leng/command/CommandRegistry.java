@@ -11,6 +11,7 @@ import org.leng.Lengbanlist;
 import org.leng.api.CommandSpec;
 import org.leng.extension.BuiltinExtensions;
 import org.leng.extension.ExtensionRegistry;
+import org.leng.util.Utils;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -179,11 +180,40 @@ public class CommandRegistry {
             return false;
         }
         if (!spec.permission().isEmpty() && !sender.hasPermission(spec.permission())) {
-            plugin.sendFeatureDisabled(sender);
+            Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
             return true;
         }
         String[] tail = args != null && args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
         return spec.executor().onCommand(sender, null, label + " " + sub, tail);
+    }
+
+    /**
+     * 扩展子命令的补全。
+     *
+     * <p>子命令不占独立的命令名，因此它的 {@code TabCompleter} 不会被 Bukkit 直接调用，
+     * 必须由父命令转发过来——否则 {@code /lban <扩展子命令>} 敲 Tab 什么都不会出。
+     *
+     * @return {@code null} 表示没有这个子命令（调用方照旧用自己的补全表）；
+     *         空列表表示有这个子命令但它没提供补全
+     */
+    public List<String> completeSubcommand(String parent, String sub, CommandSender sender,
+                                           String label, String[] args) {
+        if (parent == null || sub == null || !parent.equalsIgnoreCase(SUBCOMMAND_PARENT)) {
+            return null;
+        }
+        Spec spec = subcommands.get(sub.toLowerCase(Locale.ROOT));
+        if (spec == null) {
+            return null;
+        }
+        if (!spec.permission().isEmpty() && !sender.hasPermission(spec.permission())) {
+            return List.of();
+        }
+        if (spec.tabCompleter() == null) {
+            return List.of();
+        }
+        String[] tail = args != null && args.length > 1 ? Arrays.copyOfRange(args, 1, args.length) : new String[0];
+        List<String> completed = spec.tabCompleter().onTabComplete(sender, null, label + " " + sub, tail);
+        return completed == null ? List.of() : completed;
     }
 
     private void unregister(CommandMap commandMap, Command command) {
@@ -327,14 +357,46 @@ public class CommandRegistry {
         SUBCOMMAND_FEATURES.put("/lban info", "info");
         SUBCOMMAND_FEATURES.put("/lban handle", "report");
         SUBCOMMAND_FEATURES.put("/lban admin", "admin");
-        SUBCOMMAND_FEATURES.put("/lban tp", "tp");
     }
 
     /**
-     * 按用法串反查功能键：先匹配已注册命令（键为 {@code "/" + 命令名}，由声明表派生），
-     * 再匹配 {@code /lban} 子命令手工表，取匹配到的最长键。
+     * 按用法串反查功能键：<b>先问注册表</b>（含 Lua 扩展注册的命令），再回落到内置声明表。
+     *
+     * <p>注册表优先是必须的：功能搬进扩展之后，声明表里就没有它了，若只查内置表，
+     * {@code /lban help} 会把已禁用的功能照常列出来——帮助里写着、敲下去说"功能已禁用"，
+     * 这是最让管理员困惑的一种不一致。
      */
-    public static String featureForUsage(String usage) {
+    public String featureForUsage(String usage) {
+        if (usage == null || usage.isEmpty()) {
+            return null;
+        }
+        String bestKey = null;
+        String bestFeature = null;
+        for (CommandSpec spec : extensions.commandSpecs()) {
+            String key = usageKeyOf(spec);
+            if (matchesKey(usage, key) && (bestKey == null || key.length() > bestKey.length())) {
+                bestKey = key;
+                bestFeature = spec.feature();
+            }
+        }
+        return bestFeature != null ? bestFeature : declareFeatureForUsage(usage);
+    }
+
+    /** 一条命令声明对应的用法串前缀：顶层 {@code /name}，子命令 {@code /parent name}。 */
+    private static String usageKeyOf(CommandSpec spec) {
+        return spec.parent() == null || spec.parent().isEmpty()
+                ? "/" + spec.name()
+                : "/" + spec.parent() + " " + spec.name();
+    }
+
+    /**
+     * 只查内置声明表的功能键反查。
+     *
+     * <p>剩下的都是<b>没有注册命令</b>的核心子命令（{@code /lban vanish}、{@code /lban freeze}
+     * 这些写死在 {@code /lban} 的 switch 里，不占命令名），它们无法从注册表推导，
+     * 所以这张手工表还得留着。能推导的部分一律走 {@link #featureForUsage(String)}。
+     */
+    public static String declareFeatureForUsage(String usage) {
         if (usage == null || usage.isEmpty()) {
             return null;
         }
