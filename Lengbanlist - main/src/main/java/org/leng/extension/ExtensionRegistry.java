@@ -8,6 +8,7 @@ import org.leng.api.CommandSpec;
 import org.leng.api.ExtensionContext;
 import org.leng.api.ExtensionLoadException;
 import org.leng.api.LengbanlistExtension;
+import org.leng.api.SelfGatedExtension;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -177,11 +178,14 @@ public final class ExtensionRegistry {
     }
 
     /**
-     * 统一门控：功能是否生效 = 归属提供者已启用 <b>且</b> {@code features.<key>} 开关为 true。
+     * 统一门控：功能是否生效 = 归属提供者已启用 <b>且</b> 开关为 true。
      *
-     * <p>对内置提供者而言"已启用"恒为真，因此行为与改造前完全一致；
-     * 对外部扩展而言，未安装的扩展自然不生效——这正是 Phase 0.9 要的语义
-     * （"已安装 且 开启"），且修掉了"缺失键默认 true"带来的误导。
+     * <p>对内置提供者而言"已启用"恒为真、开关来自 {@code config.yml} 的
+     * {@code features.<key>}，因此行为与改造前完全一致；对外部扩展而言，未安装的扩展
+     * 自然不生效——这正是"已安装 且 开启"的语义，且修掉了"缺失键默认 true"带来的误导。
+     *
+     * <p>开关的来源由提供者自己决定：实现 {@link SelfGatedExtension} 的扩展
+     * （如 Lua 扩展）从自己的目录读，其余仍读核心配置。两处不会同时生效。
      *
      * <p>未知功能键沿用旧语义（只看开关），以免尚未登记的功能被静默关闭。
      */
@@ -190,7 +194,13 @@ public final class ExtensionRegistry {
         if (reg == null) {
             return plugin.isFeatureEnabled(feature);
         }
-        return reg.enabled && plugin.isFeatureEnabled(feature);
+        return reg.enabled && isEnabled(reg, feature);
+    }
+
+    private boolean isEnabled(Registration reg, String feature) {
+        return reg.extension instanceof SelfGatedExtension self
+                ? self.isFeatureEnabled(feature)
+                : plugin.isFeatureEnabled(feature);
     }
 
     // ---------------------------------------------------------------- 内部

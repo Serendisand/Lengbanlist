@@ -14,8 +14,8 @@ import org.leng.extension.BuiltinExtensions;
 import org.leng.extension.CoreService;
 import org.leng.extension.DurationPolicy;
 import org.leng.extension.ExtensionRegistry;
-import org.leng.extension.ExtensionsConfig;
 import org.leng.extension.PunishmentGate;
+import org.leng.extension.lua.LuaLoader;
 import org.leng.gui.GuiSessionManager;
 import org.leng.gui.WizardManager;
 import org.leng.integration.AutoUpdateManager;
@@ -85,7 +85,7 @@ public class Lengbanlist extends JavaPlugin {
     private CoreService coreService;
     private PunishmentGate punishmentGate;
     private DurationPolicy durationPolicy;
-    private org.bukkit.configuration.file.FileConfiguration extensionsConfig;
+    private LuaLoader luaLoader;
     private boolean isBroadcast;
     private FileConfiguration broadcastFC;
     private FileConfiguration chatConfig;
@@ -134,7 +134,6 @@ public void onLoad() {
     File configFile = new File(getDataFolder(), "config.yml");
     boolean firstLoad = !configFile.exists();
     saveDefaultConfig();
-    loadExtensionsConfig();
     if (firstLoad && getConfig().getBoolean("model-auto-detect", true)) {
         String language = java.util.Locale.getDefault().getLanguage();
         String detectedModel = language != null && language.toLowerCase().startsWith("zh") ? "Default" : "English";
@@ -306,7 +305,7 @@ public void onEnable() {
             // 只输出模型文案，不再前置模型名：模型自己的措辞（如"堂主悄悄告诉你"）
             // 已经带了口吻，再挂一个 "Hutao" 是重复；而且这是全插件唯一一条
             // 在 prefix() 之后又拼模型名的控制台消息，与 consoleMessage() 的约定不一致。
-            consoleMessage("tip", hitokoto);
+            consoleMessage("tip", "tip", hitokoto);
         });
     });
 
@@ -344,6 +343,9 @@ public void onEnable() {
     // 提前挂上就会打到还是 null 的 commandRegistry。
     extensionRegistry.setOnChanged(this::refreshFeatureCommands);
     refreshFeatureCommands();
+
+    luaLoader = new LuaLoader(this, extensionRegistry);
+    luaLoader.loadAll();
 
     getServer().getConsoleSender().sendMessage(consoleText("ready",
             "version", getPluginVersion(),
@@ -605,32 +607,7 @@ void shutdownStorage() {
     }
 
     public boolean isFeatureEnabled(String feature) {
-        return ExtensionsConfig.isEnabled(extensionsConfig, getConfig(), feature);
-    }
-
-    /**
-     * 读取 extensions.yml；文件缺失或尚无 enabled 段时，把 config.yml 的
-     * {@code features.*} 现有选择迁移过来，保证升级后开关状态不变。
-     */
-    private void loadExtensionsConfig() {
-        File file = new File(getDataFolder(), ExtensionsConfig.FILE_NAME);
-        ExtensionsConfig.Loaded loaded = ExtensionsConfig.load(
-                file, getConfig().getConfigurationSection("features"));
-        extensionsConfig = loaded.config();
-        if (loaded.message() != null) {
-            getLogger().info(loaded.message());
-        }
-    }
-
-    /** 重新读取 config.yml 与 extensions.yml（{@code /lban reload} 使用）。 */
-    public void reloadExtensionsConfig() {
-        reloadConfig();
-        loadExtensionsConfig();
-    }
-
-    /** extensions.yml 的当前内容，供 {@code /lban ext list} 之类读取。 */
-    public org.bukkit.configuration.file.FileConfiguration getExtensionsConfig() {
-        return extensionsConfig;
+        return getConfig().getBoolean("features." + feature, true);
     }
 
     public boolean isUpdateCheckEnabled() {

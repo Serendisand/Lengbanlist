@@ -49,8 +49,6 @@
     </repositories>
 
     <dependencies>
-        <!-- 扩展契约模块。org.leng.object / org.leng.api.events 已迁入该模块，
-             包名不变，因此核心既有代码无需改动 import。 -->
         <dependency>
             <groupId>org.leng</groupId>
             <artifactId>lengbanlist-api</artifactId>
@@ -65,6 +63,11 @@
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>2.14.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.luaj</groupId>
+            <artifactId>luaj-jse</artifactId>
+            <version>3.0.1</version>
         </dependency>
         <dependency>
             <groupId>org.json</groupId>
@@ -207,6 +210,12 @@
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.luaj</pattern>
+                                    <shadedPattern>org.leng.libs.luaj</shadedPattern>
+                                </relocation>
+                            </relocations>
                         </configuration>
                     </execution>
                 </executions>

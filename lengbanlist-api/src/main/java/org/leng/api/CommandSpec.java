@@ -13,8 +13,7 @@ import java.util.Objects;
  *
  * <ul>
  *   <li>{@code feature} 是该命令的总开关键（对应 {@code config.yml} 的
- *       {@code features.<key>} / {@code extensions.yml}）。关闭后命令不会注册，
- *       名字可以留给别的插件。</li>
+ *       {@code features.<key>}）。关闭后命令不会注册，名字可以留给别的插件。</li>
  *   <li>{@code usage} 会被 {@code /lban help} 用来做功能过滤；写法必须与帮助表一致，
  *       否则该命令在帮助里会永远显示（或永远不显示）。</li>
  * </ul>

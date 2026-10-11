@@ -9,6 +9,7 @@ import org.leng.api.CommandSpec;
 import org.leng.api.ExtensionContext;
 import org.leng.api.ExtensionLoadException;
 import org.leng.api.LengbanlistExtension;
+import org.leng.api.SelfGatedExtension;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -279,5 +280,69 @@ class ExtensionRegistryTest {
 
         assertTrue(registry.ids().isEmpty());
         assertTrue(registry.commandSpecs().isEmpty());
+    }
+
+    // ------------------------------------------------------------ 自带开关的扩展
+
+    /** 开关自己说了算的假扩展，用来钉住"核心配置不再参与判断"。 */
+    private static final class SelfGatedFake implements LengbanlistExtension, SelfGatedExtension {
+
+        private final String id;
+        private boolean switchOn;
+
+        SelfGatedFake(String id, boolean switchOn) {
+            this.id = id;
+            this.switchOn = switchOn;
+        }
+
+        @Override
+        public String id() {
+            return id;
+        }
+
+        @Override
+        public String version() {
+            return "1.0.0";
+        }
+
+        @Override
+        public void onEnable(ExtensionContext context) {
+            context.commands().register(spec("lua-" + id, id, "p"));
+        }
+
+        @Override
+        public boolean isFeatureEnabled(String feature) {
+            return switchOn;
+        }
+    }
+
+    @Test
+    void selfGatedExtensionIgnoresCoreConfig() throws Exception {
+        registry.register(new SelfGatedFake("kit", true));
+        // 核心配置里根本没有 kit 这个键，就算有也不该被读
+        lenient().when(plugin.isFeatureEnabled("kit")).thenReturn(false);
+
+        assertTrue(registry.isFeatureActive("kit"),
+                "自带开关的扩展不该被核心 config.yml 的取值影响——否则开关又有两个来源了");
+    }
+
+    @Test
+    void selfGatedExtensionCanTurnItselfOff() throws Exception {
+        registry.register(new SelfGatedFake("kit", false));
+        lenient().when(plugin.isFeatureEnabled("kit")).thenReturn(true);
+
+        assertFalse(registry.isFeatureActive("kit"), "扩展自己的开关关掉就该失效");
+    }
+
+    @Test
+    void selfGatedSwitchIsReReadEveryTime() throws Exception {
+        SelfGatedFake ext = new SelfGatedFake("kit", true);
+        registry.register(ext);
+        assertTrue(registry.isFeatureActive("kit"));
+
+        ext.switchOn = false;
+
+        assertFalse(registry.isFeatureActive("kit"),
+                "开关必须每次现读，不能在注册时快照——脚本改了配置重载后要立刻生效");
     }
 }

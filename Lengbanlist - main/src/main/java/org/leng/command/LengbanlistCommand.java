@@ -96,7 +96,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     plugin.sendFeatureDisabled(sender);
                     return true;
                 }
-                plugin.reloadExtensionsConfig();
+                plugin.reloadConfig();
                 ModelManager.getInstance().reloadModel();
 
                 File broadcastFile = new File(plugin.getDataFolder(), "broadcast.yml");

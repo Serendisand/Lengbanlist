@@ -21,8 +21,8 @@ public interface LengbanlistExtension {
     /**
      * 扩展唯一标识，全小写、无连字符，例如 {@code vanish}、{@code audittools}。
      *
-     * <p>它同时是 {@code extensions.yml} 里的开关键与市场 {@code index.json} 里的 id，
-     * 一旦发布不应更改。
+     * <p>它同时是 {@code config.yml} 里 {@code features.<id>} 的开关键与市场
+     * {@code index.json} 里的 id，一旦发布不应更改。
      */
     String id();
 
@@ -61,7 +61,7 @@ public interface LengbanlistExtension {
      *
      * <p>命令里声明的功能键会自动并入，这里只需列出<b>没有命令的功能</b>——
      * 例如只提供钩子的免疫系统、只写审计的哈希链。核心据此判断
-     * "这个功能是否已安装"，也是 {@code extensions.yml} 与市场索引的对账依据。
+     * "这个功能是否已安装"，也是与市场索引对账的依据。
      */
     default java.util.Set<String> features() {
         return java.util.Set.of();
