@@ -8,7 +8,6 @@ import org.luaj.vm2.Varargs;
 import org.luaj.vm2.compiler.LuaC;
 import org.luaj.vm2.lib.BaseLib;
 import org.luaj.vm2.lib.Bit32Lib;
-import org.luaj.vm2.lib.CoroutineLib;
 import org.luaj.vm2.lib.DebugLib;
 import org.luaj.vm2.lib.MathLib;
 import org.luaj.vm2.lib.OsLib;
@@ -21,9 +20,14 @@ import java.util.function.Consumer;
 /**
  * 一个 Lua 扩展的运行环境。
  *
- * <p><b>库是白名单式的</b>：只装 BaseLib / Table / String / Math / Bit32 / Coroutine 与
- * 裁剪过的 Os，不装 IoLib（文件）、PackageLib（require 任意路径）、LuajavaLib
+ * <p><b>库是白名单式的</b>：只装 BaseLib / Table / String / Math / Bit32 与裁剪过的 Os，
+ * 不装 IoLib（文件）、PackageLib（require 任意路径）、CoroutineLib、LuajavaLib
  * （Java 反射，那是完全逃逸）。
+ *
+ * <p><b>不装协程库</b>：LuaJ 的协程是真 Java 线程，而且不是守护线程——一个
+ * {@code coroutine.yield()} 挂起的协程会永久占住一个非守护线程，连带钉住整个
+ * Globals 堆；攒够几十个就能让 {@code /stop} 卡死、把线程数顶到 OOM。
+ * 脚本少个协程不算大事，服务器卡死是大事。
  *
  * <p><b>调试库装了但不给脚本看</b>：指令预算挂在 {@link DebugLib} 的
  * {@code onInstruction} 上——{@code LuaClosure.execute()} 每条指令都会调它，
@@ -46,7 +50,8 @@ public final class LuaSandbox {
     private static final int CLOCK_CHECK_INTERVAL = 1024;
 
     /** 会读文件系统或强制 GC 的全局函数，直接摘掉。 */
-    private static final String[] REMOVED_GLOBALS = {"dofile", "loadfile", "collectgarbage", "debug"};
+    private static final String[] REMOVED_GLOBALS = {
+            "dofile", "loadfile", "collectgarbage", "debug", "package", "coroutine"};
 
     /**
      * os 库里会碰进程与文件系统的成员。
@@ -65,12 +70,15 @@ public final class LuaSandbox {
      */
     public LuaSandbox(Consumer<String> printSink) {
         Globals built = new Globals();
+        // LuaJ 的各个库在 call() 结尾会往 package.loaded 里塞自己的模块名，
+        // 所以装载期间 package 必须存在；装完再摘掉，脚本就看不到 require/loadlib 了。
+        built.set("package", new LuaTable());
+        built.get("package").set("loaded", new LuaTable());
         built.load(new BaseLib());
         built.load(new TableLib());
         built.load(new StringLib());
         built.load(new MathLib());
         built.load(new Bit32Lib());
-        built.load(new CoroutineLib());
         built.load(new OsLib());
         LuaC.install(built);
         LoadState.install(built);

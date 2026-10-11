@@ -16,10 +16,13 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public class CommandRegistry {
 
@@ -59,6 +62,26 @@ public class CommandRegistry {
             return;
         }
         boolean changed = false;
+
+        // 先摘掉已经不属于任何提供者的命令。卸载扩展（或 /lban reload 重载它）之后，
+        // 它的 spec 从 specs() 里整体消失，光靠下面那个循环永远走不到 remove 分支——
+        // 命令名会被一个死执行器永久占着，重装同一个扩展时还会因为 existing != null
+        // 而继续用旧的执行器。
+        Set<String> live = new HashSet<>();
+        for (Spec spec : specs()) {
+            if (!spec.isSubcommand()) {
+                live.add(spec.name());
+            }
+        }
+        for (Iterator<Map.Entry<String, FeatureCommand>> it = registered.entrySet().iterator(); it.hasNext(); ) {
+            Map.Entry<String, FeatureCommand> entry = it.next();
+            if (!live.contains(entry.getKey())) {
+                unregister(commandMap, entry.getValue());
+                it.remove();
+                changed = true;
+            }
+        }
+
         for (Spec spec : specs()) {
             if (spec.isSubcommand()) {
                 continue;   // 交给 /lban 分派，不占用独立的命令名
@@ -251,11 +274,7 @@ public class CommandRegistry {
     }
 
     record Spec(String feature, String name, String permission, String usage, String description,
-                CommandExecutor executor, String parent) {
-
-        TabCompleter tabCompleter() {
-            return executor instanceof TabCompleter ? (TabCompleter) executor : null;
-        }
+                CommandExecutor executor, TabCompleter tabCompleter, String parent) {
 
         boolean isSubcommand() {
             return parent != null && !parent.isEmpty();
@@ -268,7 +287,7 @@ public class CommandRegistry {
         for (CommandSpec commandSpec : extensions.commandSpecs()) {
             specs.add(new Spec(commandSpec.feature(), commandSpec.name(), commandSpec.permission(),
                     commandSpec.usage(), commandSpec.description(), commandSpec.executor(),
-                    commandSpec.parent()));
+                    commandSpec.tabCompleter(), commandSpec.parent()));
         }
         return specs;
     }

@@ -38,6 +38,18 @@ final class LuaValues {
         return index < 1 ? LuaValue.NIL : args.arg(index);
     }
 
+    /**
+     * 取倒数第 n 个参数并转成字符串，缺失时用 {@code fallback}。
+     *
+     * <p>不能用 {@code arg(...).tojstring()} 代替：Lua 的 {@code nil} 转字符串是字面量
+     * {@code "nil"}，会把"没传这个参数"悄悄变成"传了一个叫 nil 的字符串"——
+     * 查配置会查一个不存在的键，按前缀筛玩家会筛出空表，且全程无声。
+     */
+    static String optString(Varargs args, int fromEnd, String fallback) {
+        LuaValue value = arg(args, fromEnd);
+        return value.isnil() ? fallback : value.tojstring();
+    }
+
     static LuaValue of(Object raw) {
         if (raw == null) {
             return LuaValue.NIL;
@@ -107,11 +119,11 @@ final class LuaValues {
         table.set("give", new VarArgFunction() {
             @Override
             public Varargs invoke(Varargs args) {
-                Material material = Material.matchMaterial(LuaValues.arg(args, 2).tojstring());
+                Material material = Material.matchMaterial(optString(args, 2, ""));
                 if (material == null) {
                     return FALSE;
                 }
-                int amount = Math.max(1, LuaValues.arg(args, 1).toint(1));
+                int amount = Math.max(1, arg(args, 1).optint(1));
                 player.getInventory().addItem(new ItemStack(material, amount));
                 return TRUE;
             }

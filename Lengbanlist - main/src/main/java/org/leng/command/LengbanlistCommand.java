@@ -97,6 +97,9 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     return true;
                 }
                 plugin.reloadConfig();
+                if (plugin.getLuaLoader() != null) {
+                    plugin.getLuaLoader().reload();
+                }
                 ModelManager.getInstance().reloadModel();
 
                 File broadcastFile = new File(plugin.getDataFolder(), "broadcast.yml");

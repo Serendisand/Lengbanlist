@@ -86,9 +86,17 @@ public final class ExtensionRegistry {
         reg.context = context;
         try {
             extension.onEnable(context);
-        } catch (Exception e) {
+        } catch (Throwable t) {
             byId.remove(id);
-            throw new ExtensionLoadException("扩展 " + id + " 启用失败: " + e.getMessage(), e);
+            // 回滚必须连 onDisable 一起调：扩展可能已经起了定时任务或占了别的资源，
+            // 只从索引里摘掉的话，那些东西会一直活着，而且再也没人拿得到句柄。
+            try {
+                extension.onDisable();
+            } catch (Throwable cleanup) {
+                plugin.getLogger().warning("回滚扩展 " + id + " 时出错: " + cleanup);
+            }
+            throw new ExtensionLoadException("扩展 " + id + " 启用失败: "
+                    + (t.getMessage() == null ? t.toString() : t.getMessage()), t);
         }
 
         for (CommandSpec spec : reg.commands) {

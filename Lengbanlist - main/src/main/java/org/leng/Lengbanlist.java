@@ -610,6 +610,11 @@ void shutdownStorage() {
         return getConfig().getBoolean("features." + feature, true);
     }
 
+    /** Lua 扩展加载器。装载在此处发生，重载与列表也走它——别绕过去直接动 extensions/ 目录。 */
+    public LuaLoader getLuaLoader() {
+        return luaLoader;
+    }
+
     public boolean isUpdateCheckEnabled() {
         return getConfig().getBoolean("update-check.enabled", true);
     }

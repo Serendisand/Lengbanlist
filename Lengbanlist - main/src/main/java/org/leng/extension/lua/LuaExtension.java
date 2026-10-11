@@ -168,8 +168,10 @@ public final class LuaExtension implements LengbanlistExtension, SelfGatedExtens
             poison(what + " " + aborted.getMessage());
         } catch (LuaError error) {
             log("error", what + " 出错: " + error.getMessage());
-        } catch (Exception e) {
-            log("error", what + " 出错: " + e);
+        } catch (Throwable t) {
+            // 这里必须接 Throwable：深层非尾递归会抛 StackOverflowError，那是 Error，
+            // 漏出去既不会记日志也不会隔离扩展，等于每次调用都崩一遍。
+            log("error", what + " 出错: " + t);
         }
         return LuaValue.NONE;
     }

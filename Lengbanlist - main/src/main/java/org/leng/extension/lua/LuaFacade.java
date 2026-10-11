@@ -50,7 +50,7 @@ final class LuaFacade {
         table.set("log", new VarArgFunction() {
             @Override
             public Varargs invoke(Varargs args) {
-                owner.log(LuaValues.arg(args, 2).tojstring(), LuaValues.arg(args, 1).tojstring());
+                owner.log(LuaValues.optString(args, 2, "info"), LuaValues.arg(args, 1).tojstring());
                 return NONE;
             }
         });
@@ -58,7 +58,7 @@ final class LuaFacade {
         table.set("config", new VarArgFunction() {
             @Override
             public Varargs invoke(Varargs args) {
-                Object raw = owner.config().get(LuaValues.arg(args, 2).tojstring());
+                Object raw = owner.config().get(LuaValues.optString(args, 2, null));
                 return raw == null ? LuaValues.arg(args, 1) : LuaValues.of(raw);
             }
         });
@@ -66,7 +66,7 @@ final class LuaFacade {
         table.set("player", new VarArgFunction() {
             @Override
             public Varargs invoke(Varargs args) {
-                Player player = LuaValues.onlinePlayer(LuaValues.arg(args, 1).tojstring());
+                Player player = LuaValues.onlinePlayer(LuaValues.optString(args, 1, ""));
                 return player == null ? NIL : LuaValues.playerProxy(player);
             }
         });
@@ -74,7 +74,7 @@ final class LuaFacade {
         table.set("online_players", new VarArgFunction() {
             @Override
             public Varargs invoke(Varargs args) {
-                String prefix = LuaValues.arg(args, 1).tojstring().toLowerCase(Locale.ROOT);
+                String prefix = LuaValues.optString(args, 1, "").toLowerCase(Locale.ROOT);
                 LuaTable names = new LuaTable();
                 int index = 1;
                 for (Player player : Bukkit.getOnlinePlayers()) {
@@ -94,14 +94,14 @@ final class LuaFacade {
                     return NIL;
                 }
                 return valueOf(owner.scheduleTask(
-                        LuaValues.arg(args, 3).toint(0), LuaValues.arg(args, 2).toint(0), body));
+                        LuaValues.arg(args, 3).optint(0), LuaValues.arg(args, 2).optint(0), body));
             }
         });
 
         table.set("cancel", new VarArgFunction() {
             @Override
             public Varargs invoke(Varargs args) {
-                owner.cancelTask(LuaValues.arg(args, 1).toint(-1));
+                owner.cancelTask(LuaValues.arg(args, 1).optint(-1));
                 return NONE;
             }
         });

@@ -40,7 +40,7 @@ class LuaSandboxTest {
     @Test
     void filesystemAndJavaBridgesAreNotReachable() {
         for (String name : new String[]{"io", "package", "require", "dofile", "loadfile",
-                "debug", "luajava", "collectgarbage"}) {
+                "debug", "luajava", "collectgarbage", "coroutine"}) {
             assertTrue(run("return " + name).isnil(), name + " 不该出现在沙箱里");
         }
         assertTrue(run("return os.execute").isnil(), "os.execute 必须摘掉");
@@ -86,8 +86,12 @@ class LuaSandboxTest {
     }
 
     @Test
-    void coroutineCannotSmuggleAnInfiniteLoop() {
-        assertAborted("local co = coroutine.create(function() while true do end end) coroutine.resume(co)");
+    void coroutinesAreAbsentOnPurpose() {
+        // LuaJ 的协程是真 Java 线程，而且不是守护线程：一个 yield 挂起的协程会永久占住
+        // 一个线程并钉住整个 Globals 堆，攒够几十个就能让 /stop 卡死。
+        // 这个用例钉住"别顺手把 CoroutineLib 加回来"。
+        assertTrue(run("return coroutine").isnil());
+        assertThrows(LuaError.class, () -> run("coroutine.create(function() end)"));
     }
 
     @Test

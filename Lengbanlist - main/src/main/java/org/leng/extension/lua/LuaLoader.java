@@ -71,6 +71,15 @@ public final class LuaLoader {
 
     private void load(File directory) {
         LuaExtension extension = new LuaExtension(plugin, registry, directory);
+        // 功能键与已注册的提供者撞车时，byFeature.putIfAbsent 会静默丢弃新来的，
+        // 于是扩展自己的开关根本没被读过——这正是"一个功能两个来源"的老毛病，
+        // 必须喊出来而不是让它悄悄失效。
+        String owner = registry.ownerOf(extension.id());
+        if (owner != null) {
+            plugin.getLogger().warning("Lua 扩展 " + extension.id() + " 跳过：功能键已被内置功能 "
+                    + owner + " 占用，两者必须换掉一个");
+            return;
+        }
         try {
             registry.register(extension);
             loaded.add(extension.id());
