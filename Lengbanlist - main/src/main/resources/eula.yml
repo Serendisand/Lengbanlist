@@ -15,8 +15,10 @@
 # 2. This plugin is licensed under MPL-2.0. Users must comply with its terms.
 #    The developer reserves all related rights, including but not limited to interpretation and disabling.
 
-# 3. 基于本插件或其衍生作品须遵循对应开源协议，并注意协议中禁止的行为。
-# 3. Projects forked from or based on this plugin must comply with the corresponding open-source license and its prohibitions.
+# 3. 基于本插件或其衍生作品须遵循 MPL-2.0 协议，并注意协议中禁止的行为。
+#    衍生作品需保留原项目链接、作者署名，并注明修改内容。
+# 3. Projects forked from or based on this plugin must comply with MPL-2.0 and its prohibitions.
+#    Derivatives must retain the original project link, author credits, and indicate modifications.
 
 # 4. 本插件为免费同人作品，与米哈游官方无关，不用于商业用途。
 #    “魈”“胡桃”等角色形象版权归米哈游所有。使用者须自行承担可能引发的版权或法律风险。
@@ -74,15 +76,135 @@
 # 7. If the plugin fails to load, delete the plugins/Lengbanlist folder and restart the server.
 
 # ================================================
-# 五、开发者信息 / Developer Information
+# 五、开源协议与合规 / Open-Source License and Compliance
 # ------------------------------------------------
-# 作者：Serendisand
+# 1. 本插件采用 MPL-2.0 协议，您可以在遵守协议的前提下：
+#    ├── 使用、复制、修改本插件
+#    ├── 分发本插件或其衍生作品
+#    └── 将本插件用于商业用途（须遵守 MPL-2.0 及本 EULA）
+# 1. Under MPL-2.0, you may, provided you comply with the license:
+#    ├── Use, copy, and modify this plugin
+#    ├── Distribute this plugin or its derivatives
+#    └── Use this plugin commercially (subject to MPL-2.0 and this EULA)
 
-# 最后更新：2026年8月3日
+# 2. 您必须遵守的 MPL-2.0 核心义务：
+#    ├── 保留原版权声明、许可证文本及免责声明
+#    ├── 修改过的文件需注明修改内容与日期
+#    ├── 分发衍生作品时须以 MPL-2.0 或兼容协议开源
+#    └── 不得移除或篡改原作者的版权标识
+# 2. Core obligations under MPL-2.0:
+#    ├── Retain original copyright notices, license text, and disclaimers
+#    ├── Indicate modifications and dates in modified files
+#    ├── Distribute derivatives under MPL-2.0 or a compatible license
+#    └── Do not remove or alter the original author's copyright notices
 
+# 3. 本 EULA 与 MPL-2.0 冲突的，以 MPL-2.0 为准；本 EULA 仅补充 MPL-2.0 未覆盖的使用规范。
+# 3. If this EULA conflicts with MPL-2.0, MPL-2.0 prevails. This EULA only supplements usage rules not covered by MPL-2.0.
 
 # ================================================
-# 六、用户同意 / User Agreement
+# 六、免责与责任限制 / Disclaimer and Limitation of Liability
+# ------------------------------------------------
+# 1. 本插件按“现状”提供，开发者不对其适用性、稳定性、无错误性或数据完整性作任何明示或暗示担保。
+# 1. This plugin is provided "as is". The developer makes no express or implied warranties regarding its fitness, stability, error-free operation, or data integrity.
+
+# 2. 因使用或无法使用本插件造成的任何直接或间接损失，包括但不限于服务器数据丢失、封禁争议、玩家流失、收益损失等，开发者不承担赔偿责任。
+# 2. The developer shall not be liable for any direct or indirect losses caused by the use or inability to use this plugin, including but not limited to server data loss, ban disputes, player loss, or revenue loss.
+
+# 3. 请务必定期备份服务器数据及 plugins/Lengbanlist 文件夹。因未备份导致的数据丢失，开发者不承担责任。
+# 3. Please back up your server data and the plugins/Lengbanlist folder regularly. The developer is not responsible for data loss caused by failure to back up.
+
+# 4. 若本插件调用第三方服务（如 GitHub、爱发电等），其可用性、政策变更及风险由第三方负责，开发者不承担相关责任。
+# 4. If this plugin references third-party services (such as GitHub or Afdian), their availability, policy changes, and risks are the responsibility of the third party. The developer assumes no liability.
+
+# 5. 使用者应自行评估本插件是否适合其服务器环境，并自行承担使用风险。
+# 5. Users should evaluate whether this plugin suits their server environment and bear the risks of use themselves.
+
+# ================================================
+# 七、使用限制与禁止行为 / Usage Restrictions and Prohibitions
+# ------------------------------------------------
+# 1. 禁止将本插件或其衍生作品用于商业转售，除非获得作者书面授权。
+# 1. Commercial resale of this plugin or its derivatives is prohibited unless written authorization is obtained from the author.
+
+# 2. 禁止移除或篡改插件内的版权标识、作者署名及本 EULA 文件。
+# 2. Removing or altering copyright notices, author credits, or this EULA file is prohibited.
+
+# 3. 禁止利用本插件漏洞进行破坏、批量封禁正常玩家、绕过服务器规则或其他恶意行为。
+# 3. Exploiting plugin vulnerabilities for disruption, mass-banning legitimate players, bypassing server rules, or other malicious behavior is prohibited.
+
+# 4. 禁止以“Lengbanlist 官方”“作者授权”“作者合作”等名义进行虚假宣传或误导他人。
+# 4. False promotion or misleading others under names such as "Lengbanlist Official", "Authorized by the Author", or "Partnered with the Author" is prohibited.
+
+# 5. 禁止将本插件用于任何违反当地法律法规的用途。
+# 5. Using this plugin for any purpose that violates local laws or regulations is prohibited.
+
+# 6. 违反上述限制的，作者有权要求停止使用、删除插件，并保留追究相关责任的权利。
+# 6. If these restrictions are violated, the author has the right to demand cessation of use, deletion of the plugin, and reserves the right to pursue related liability.
+
+# ================================================
+# 八、数据与隐私 / Data and Privacy
+# ------------------------------------------------
+# 1. 本插件默认所有数据（封禁记录、配置、日志等）均存储在服务器本地，不上传至作者服务器。
+# 1. By default, all data (ban records, configurations, logs, etc.) is stored locally on the server and is not uploaded to the author's servers.
+
+# 2. 若插件包含匿名统计功能，仅收集插件版本、启动次数等非个人身份信息，且可在配置中关闭。
+# 2. If the plugin includes anonymous statistics, it only collects non-personally identifiable information such as plugin version and startup count, and can be disabled in the configuration.
+
+# 3. 服务器管理员应自行确保封禁数据的收集、存储与使用符合当地隐私法规（如 GDPR、个人信息保护法等）。
+# 3. Server administrators are responsible for ensuring that the collection, storage, and use of ban data comply with local privacy laws (such as GDPR or personal information protection laws).
+
+# 4. 删除 plugins/Lengbanlist 文件夹即可清除本地数据；已备份或第三方留存的数据不在开发者控制范围内。
+# 4. Deleting the plugins/Lengbanlist folder clears local data. Data that has been backed up or retained by third parties is beyond the developer's control.
+
+# 5. 本插件不会主动收集玩家个人隐私信息，但服务器管理员应自行告知玩家相关数据使用情况。
+# 5. This plugin does not actively collect players' personal privacy information, but server administrators should inform players about relevant data usage.
+
+# ================================================
+# 九、更新与支持政策 / Update and Support Policy
+# ------------------------------------------------
+# 1. 作者不承诺固定更新周期，有权随时调整功能、停止维护或变更协议。
+# 1. The author does not promise a fixed update schedule and reserves the right to adjust features, discontinue maintenance, or change the agreement at any time.
+
+# 2. 不保证本插件与所有服务端核心、其他插件或未来 Minecraft 版本完全兼容。
+# 2. This plugin is not guaranteed to be fully compatible with all server cores, other plugins, or future Minecraft versions.
+
+# 3. 仅对官方发布的最新稳定版提供支持；自行修改、编译或二次分发的版本不在支持范围内。
+# 3. Support is only provided for the latest official stable release. Self-modified, self-compiled, or redistributed versions are not covered.
+
+# 4. 反馈问题时，请提供插件版本、服务端版本、日志及复现步骤，否则可能无法处理。
+# 4. When reporting issues, please provide the plugin version, server version, logs, and reproduction steps; otherwise, the issue may not be processed.
+
+# 5. 旧版本的问题可能不再修复，建议始终使用最新稳定版。
+# 5. Issues in older versions may no longer be fixed. It is recommended to always use the latest stable version.
+
+# 6. BETA 功能可能不稳定、随时变更或移除，不保证数据兼容性，请谨慎用于生产环境。
+# 6. BETA features may be unstable, subject to change or removal at any time, and data compatibility is not guaranteed. Use them cautiously in production environments.
+
+# ================================================
+# 十、协议变更与终止 / Agreement Changes and Termination
+# ------------------------------------------------
+# 1. 作者有权随时更新本 EULA，更新版本发布后继续使用即视为接受新条款。
+# 1. The author reserves the right to update this EULA at any time. Continued use after the updated version is published constitutes acceptance of the new terms.
+
+# 2. 若您违反本 EULA、MPL-2.0 协议或相关法律法规，作者有权要求您停止使用并删除本插件。
+# 2. If you violate this EULA, the MPL-2.0 license, or applicable laws, the author has the right to demand that you stop using and delete this plugin.
+
+# 3. 协议终止后，您应停止分发本插件及其衍生作品，并删除相关文件。
+# 3. After termination, you must stop distributing this plugin and its derivatives and delete related files.
+
+# 4. 本协议部分条款无效或不可执行的，不影响其他条款的效力。
+# 4. If any provision of this agreement is invalid or unenforceable, it does not affect the validity of the other provisions.
+
+# 5. 本协议的最终解释权归作者所有，但不得违反 MPL-2.0 开源协议的强制性规定。
+# 5. The author reserves the final right of interpretation of this agreement, provided it does not violate mandatory provisions of the MPL-2.0 license.
+
+# ================================================
+# 十一、开发者信息 / Developer Information
+# ------------------------------------------------
+# 作者：Serendisand
+# 最后更新：2026年10月11日
+
+# ================================================
+# 十二、用户同意 / User Agreement
 # ------------------------------------------------
 
 I have read and agree to the above terms: no

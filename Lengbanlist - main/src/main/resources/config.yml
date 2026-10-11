@@ -9,7 +9,7 @@ sendtime: 5          # 循环广播间隔（分钟）
 Model: "Default"     # 当前模型（说话语气/风格），开启 model-auto-detect 时首次加载会自动设置
 model-auto-detect: true  # 首次加载时根据系统语言自动选择模型（zh→Default 中文，其他→English）
 
-# ---------- 功能开关（每个功能可独立开启/关闭，按功能分类） ----------
+# ---------- 功能开关----------
 # 关闭后：独立命令（/ban、/report 等）直接不注册，名字可以留给其他插件；
 #         /lban 的子命令（/lban freeze、/lban vanish 等）无法单独注销，执行时会提示"已被管理员禁用"。
 features:
@@ -73,9 +73,8 @@ features:
   webhook-events: true # Webhook 事件推送（配合 webhook 配置段）
   reload: true         # 允许 Web 面板重载配置
 
-# ---------- 统一下载 / 镜像源 ----------
+# ---------- 下载 / 镜像源 ----------
 # 所有对外下载（插件更新检查、云端模型、后续的扩展市场）共用这里的连接参数。
-# 镜像链按用途分开配置；某个用途留空即使用内置默认链。
 download:
   connect-timeout: 8000  # 连接超时（毫秒），国内网络建议不低于 5000
   read-timeout: 10000    # 读取超时（毫秒）
@@ -117,10 +116,6 @@ preset-reasons:
   spam: "广告/刷屏"
   grief: "恶意破坏"
 
-# ---------- 数据保留 / 数据库 ----------
-# 数据库、保留天数、封禁缓存、服务器标识等存储相关配置已拆分到 storage.yml
-# （旧版本写在 config.yml 里的 database 段会在首次启动时自动迁移过去）
-
 # ---------- 举报 ----------
 report-cooldown-seconds: 86400  # 玩家举报冷却时间（秒）
 
@@ -140,7 +135,6 @@ appeal:
 
 # ---------- Webhook 通知（单向转发，Discord 兼容） ----------
 # 说明：需要 features.webhook-events 与 webhook.enabled 同时为 true 才会投递；
-#       投递走独立队列 + 限速线程，不受 features.audit 影响（审计日志关掉也能收到通知）。
 webhook:
   enabled: false                # Webhook 总开关（与 features.webhook-events 同时满足才投递）
   url: ""                       # Discord Webhook 地址，留空则静默跳过（不发任何请求）
@@ -207,12 +201,12 @@ alts:
   max-scan: 5        # 单次最多展示关联账号数
 
 # ---------- 云端角色模型（models-cloud） ----------
-# 角色风格模型从 Lengbanlist-Models 仓库拉取(默认镜像链可换源)
+# 角色风格模型从 Lengbanlist-Models 官方仓库拉取
 models-cloud:
   enabled: true
   repo: "Serendisand/Lengbanlist-Models"
   branch: "main"
-  mirrors: []          # 自定义镜像列表(完整 index.json URL);留空用默认链
+  mirrors: []        
   stats:               # 安装统计上报(用于月度精选自动评选)
-    enabled: true      # 关闭后仅本地统计,不参与跨服自动评选
-    url: "https://lengbanlist-stats.sanno.workers.dev/"            # 统计聚合端点(作者托管,POST {server,model,version});留空=不上报
+    enabled: true     
+    url: "https://lengbanlist-stats.sanno.workers.dev/"          
