@@ -2,8 +2,8 @@
 --
 -- 官方 Lua 扩展，随核心 jar 一起发布。
 --
--- 目录名就是扩展名，也是它的功能键（这里是 staffchat）。命令名与目录名可以不同：
--- 目录叫 staffchat、命令叫 sc，权限节点沿用老的 lengbanlist.staffchat ——
+-- 脚本文件名就是扩展名，也是它的功能键（这里是 staffchat）。命令名与扩展名可以不同：
+-- 扩展叫 staffchat、命令叫 sc，权限节点沿用老的 lengbanlist.staffchat ——
 -- 老用户在 LuckPerms 里配好的权限一个字都不用改。
 
 leng.name("管理员频道")

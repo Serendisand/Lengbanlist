@@ -25,8 +25,8 @@ import java.util.Map;
  *   /lban ext disable &lt;id&gt;      关掉扩展（同上）
  * </pre>
  *
- * <p>开关写的是<b>扩展自己目录</b>里的 {@code config.yml}，不碰核心配置：
- * 核心配置里根本没有它的键，也就不会出现"同一份开关存了两处"的僵尸配置。
+ * <p>开关写的是<b>扩展自己目录</b>里的 {@code config.yml}（{@code extensions/<id>/config.yml}），
+ * 不碰核心配置：核心配置里根本没有它的键，也就不会出现"同一份开关存了两处"的僵尸配置。
  */
 public final class LuaExtCommand implements CommandExecutor, TabCompleter {
 
@@ -75,7 +75,7 @@ public final class LuaExtCommand implements CommandExecutor, TabCompleter {
         try {
             if (!loader.setEnabled(id, enabled)) {
                 Utils.sendMessage(sender, plugin.prefix() + "§c没有这个扩展喵: §f" + id
-                        + "§c（目录 " + loader.directory() + "/" + id + " 不存在）");
+                        + "§c（找不到 " + loader.directory() + "/" + id + ".lua）");
                 return;
             }
         } catch (IOException e) {
@@ -95,8 +95,8 @@ public final class LuaExtCommand implements CommandExecutor, TabCompleter {
         List<LuaExtension> extensions = loader.extensions();
         Utils.sendMessage(sender, plugin.prefix() + "§6§lLua 扩展 §7(" + extensions.size() + " 个)");
         if (extensions.isEmpty()) {
-            Utils.sendMessage(sender, "§7把扩展目录放进 §f" + loader.directory() + "/<扩展名>/§7 就能用了喵"
-                    + "（入口脚本名为 extension.lua）");
+            Utils.sendMessage(sender, "§7把脚本放进 §f" + loader.directory() + "/<扩展名>.lua§7 就能用了喵"
+                    + "（它的配置会生成在 " + loader.directory() + "/<扩展名>/config.yml）");
         }
         for (LuaExtension extension : extensions) {
             Utils.sendMessage(sender, "§b✦ §f" + extension.id() + " §7" + versionText(extension)

@@ -13,10 +13,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 扫描 {@code plugins/Lengbanlist/extensions/} 并加载其中的 Lua 扩展。
+ * 扫描 {@code plugins/Lengbanlist/extensions/} 下的 {@code <扩展名>.lua} 并加载。
  *
- * <p><b>目录存在即已安装</b>，没有安装清单、没有迁移、没有第二个文件记录"装了什么"。
- * 卸载就是删目录。这样"安装状态"只有一个来源，不会出现清单与实际不同步。
+ * <p><b>脚本在、扩展就在</b>，没有安装清单、没有迁移、没有第二个文件记录"装了什么"。
+ * 卸载就是删脚本。这样"安装状态"只有一个来源，不会出现清单与实际不同步。
+ *
+ * <p><b>脚本平铺、配置下钻一层</b>：脚本是 {@code extensions/<id>.lua}，扩展自己的
+ * {@code config.yml} 放在 {@code extensions/<id>/}。根目录因此一眼能看全装了哪些扩展，
+ * 而配置不会和脚本挤在同一层、也不会互相串键。缺配置目录的会按需生成一份。
  *
  * <p>单个扩展加载失败只影响它自己：记一条可读日志，核心照常启动。
  * 这里连 {@link Error} 都接住——脚本超时抛的 {@code Aborted} 就是 Error，
@@ -30,6 +34,9 @@ public final class LuaLoader {
 
     public static final String DIRECTORY = "extensions";
 
+    /** 老布局的入口脚本名（{@code extensions/<id>/extension.lua}）。本版已不识别，只在日志里指路。 */
+    private static final String LEGACY_ENTRY_FILE = "extension.lua";
+
     /**
      * 随核心 jar 打包的官方扩展文件。
      *
@@ -39,9 +46,9 @@ public final class LuaLoader {
      */
     private static final String[] BUNDLED_FILES = {
             "extensions/README.txt",
-            "extensions/tp/extension.lua",
+            "extensions/tp.lua",
             "extensions/tp/config.yml",
-            "extensions/staffchat/extension.lua",
+            "extensions/staffchat.lua",
             "extensions/staffchat/config.yml",
     };
 
@@ -81,15 +88,14 @@ public final class LuaLoader {
             plugin.getLogger().warning("创建 " + DIRECTORY + " 目录失败，Lua 扩展未加载");
             return;
         }
-        File[] directories = root.listFiles(File::isDirectory);
-        if (directories == null || directories.length == 0) {
+        warnAboutLegacyLayout(root);
+        File[] scripts = root.listFiles(file -> file.isFile() && file.getName().endsWith(LuaExtension.ENTRY_SUFFIX));
+        if (scripts == null || scripts.length == 0) {
             return;
         }
-        Arrays.sort(directories, (left, right) -> left.getName().compareToIgnoreCase(right.getName()));
-        for (File directory : directories) {
-            if (new File(directory, LuaExtension.ENTRY_FILE).isFile()) {
-                load(directory);
-            }
+        Arrays.sort(scripts, (left, right) -> left.getName().compareToIgnoreCase(right.getName()));
+        for (File script : scripts) {
+            load(script);
         }
         if (!discovered.isEmpty()) {
             plugin.getLogger().info("已加载 " + discovered.size() + " 个 Lua 扩展: "
@@ -113,29 +119,69 @@ public final class LuaLoader {
     /**
      * 打开/关闭一个扩展。
      *
-     * <p>写的是<b>扩展自己的</b> {@code config.yml}：核心配置里没有它的键，
-     * 所以不会波及核心配置的注释，也不会留下第二个开关来源。
+     * <p>写的是<b>扩展自己的</b> {@code extensions/<id>/config.yml}：核心配置里没有它的键，
+     * 所以不会波及核心配置的注释，也不会留下第二个开关来源。配置目录不存在时顺手生成。
      *
-     * @return 该目录不存在时返回 false
+     * @return 该扩展的脚本不存在时返回 false
      */
     public boolean setEnabled(String id, boolean enabled) throws IOException {
-        File directory = new File(root(), id);
-        if (!directory.isDirectory()) {
+        if (!isSafeId(id)) {
             return false;
         }
-        LuaConfigWriter.writeEnabled(new File(directory, LuaExtension.CONFIG_FILE), enabled);
+        File script = scriptFile(id);
+        if (!script.isFile()) {
+            return false;
+        }
+        File config = new File(new File(root(), id), LuaExtension.CONFIG_FILE);
+        LuaConfigWriter.ensureConfig(config, id);
+        LuaConfigWriter.writeEnabled(config, enabled);
         // 先摘再挂：关掉时命令要立刻消失，打开时要重新读一遍配置。
         // 无论开关，都重新注册一次——禁用状态的扩展留在注册表里（门控关着），
         // /lban ext list 才看得到它、也才能再被打开。
         registry.unregister(id);
         discovered.remove(id);
         failures.remove(id);
-        load(directory);
+        load(script);
         return true;
     }
 
     private File root() {
         return new File(plugin.getDataFolder(), DIRECTORY);
+    }
+
+    private File scriptFile(String id) {
+        return new File(root(), id + LuaExtension.ENTRY_SUFFIX);
+    }
+
+    /**
+     * id 直接来自 {@code /lban ext enable <id>} 的输入，得挡住 {@code ../} 这类东西：
+     * 否则一句命令就能把 config.yml 写到数据目录外面去。扫描出来的 id 来自真实文件名，
+     * 天然安全，这道关卡只对命令入口有意义。
+     */
+    private static boolean isSafeId(String id) {
+        return id != null && !id.isBlank()
+                && id.indexOf('/') < 0 && id.indexOf('\\') < 0 && !id.contains("..");
+    }
+
+    /**
+     * 老布局（{@code extensions/<id>/extension.lua}）本版不再识别，但也不能让它悄悄消失——
+     * 管理员看到的是"功能没了"，而不是"目录放错了"。逐个目录指路，说清该挪去哪。
+     */
+    private void warnAboutLegacyLayout(File root) {
+        File[] directories = root.listFiles(File::isDirectory);
+        if (directories == null) {
+            return;
+        }
+        for (File directory : directories) {
+            if (!new File(directory, LEGACY_ENTRY_FILE).isFile()) {
+                continue;
+            }
+            String id = directory.getName();
+            plugin.getLogger().warning("扩展 " + id + " 用的是旧布局（" + DIRECTORY + "/" + id + "/"
+                    + LEGACY_ENTRY_FILE + "），本版已不再识别；把脚本挪到 "
+                    + DIRECTORY + "/" + id + LuaExtension.ENTRY_SUFFIX + " 即可，"
+                    + "配置目录 " + DIRECTORY + "/" + id + "/ 原地不动。");
+        }
     }
 
     private void ensureDefaults(File root) {
@@ -151,8 +197,12 @@ public final class LuaLoader {
         }
     }
 
-    private void load(File directory) {
-        LuaExtension extension = new LuaExtension(plugin, registry, directory);
+    private void load(File script) {
+        LuaExtension extension = new LuaExtension(plugin, registry, script);
+        // 文件名叫 ".lua" 的取出来是空 id，注册表会拒；这里直接放过，省一条没头没脑的报错
+        if (extension.id().isBlank()) {
+            return;
+        }
         // 功能键与已注册的提供者撞车时，byFeature.putIfAbsent 会静默丢弃新来的，
         // 于是扩展自己的开关根本没被读过——这正是"一个功能两个来源"的老毛病，
         // 必须喊出来而不是让它悄悄失效。
@@ -167,12 +217,31 @@ public final class LuaLoader {
             registry.register(extension);
             discovered.put(extension.id(), extension);
             failures.remove(extension.id());
+            ensureConfig(extension);
         } catch (ExtensionLoadException e) {
             plugin.getLogger().warning("Lua 扩展 " + extension.id() + " 加载失败: " + e.getMessage());
             failures.put(extension.id(), e.getMessage());
         } catch (Throwable t) {
             plugin.getLogger().warning("Lua 扩展 " + extension.id() + " 加载失败: " + t);
             failures.put(extension.id(), String.valueOf(t));
+        }
+    }
+
+    /**
+     * 给还没有配置文件的扩展生成一份。
+     *
+     * <p>放在注册<b>之后</b>：配置是给管理员改的，脚本本身不依赖它（脚本里
+     * {@code leng.config(键, 默认值)} 自带默认值），所以生成失败最多是少一个文件，
+     * 不该把已经跑起来的扩展拖下水。
+     */
+    private void ensureConfig(LuaExtension extension) {
+        try {
+            if (LuaConfigWriter.ensureConfig(extension.configFile(), extension.id())) {
+                plugin.getLogger().info("已生成扩展配置 " + DIRECTORY + "/" + extension.id()
+                        + "/" + LuaExtension.CONFIG_FILE);
+            }
+        } catch (IOException e) {
+            plugin.getLogger().warning("生成扩展 " + extension.id() + " 的配置失败: " + e.getMessage());
         }
     }
 }

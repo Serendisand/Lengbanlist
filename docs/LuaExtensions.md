@@ -12,18 +12,25 @@
 
 ```
 plugins/Lengbanlist/extensions/
-├── tp/                       ← 目录名 = 扩展名
-│   ├── extension.lua         ← 入口脚本（必需，文件名固定）
-│   └── config.yml            ← 扩展自己的配置（可选）
+├── tp.lua                    ← 脚本（文件名 = 扩展名）
+├── staffchat.lua
+├── tp/
+│   └── config.yml            ← 这个扩展自己的配置
 └── staffchat/
+    └── config.yml
 ```
 
-- **目录存在 = 已安装**，删目录 = 卸载。没有安装清单，也没有第二个地方记录"装了什么"。
-- 目录里没有 `extension.lua` 的会被忽略。
-- **开关**是扩展自己 `config.yml` 里的 `enabled`（缺省 `true`）。核心的 `config.yml` 里
+- **脚本在 = 已安装**，删脚本 = 卸载。没有安装清单，也没有第二个地方记录"装了什么"。
+- 脚本平铺在 `extensions/` 下，一眼能看全装了哪些；配置各回各家的同名子目录，不挤在根下。
+- 缺配置目录的扩展，加载时会**自动生成**一份只含 `enabled` 的 `config.yml`；
+  扩展自己要用什么键，由脚本作者往里补。已有的配置不会被覆盖。
+- **开关**是 `extensions/<扩展名>/config.yml` 里的 `enabled`（缺省 `true`）。核心的 `config.yml` 里
   **没有**对应的键——一个功能只有一个开关来源。
 - 官方扩展（`tp`、`staffchat`）随核心 jar 打包，只在 `extensions/` 目录**整个不存在**时
   释放一次；删掉某个官方扩展后不会被下次启动复活。
+
+> 2.1.6 之前的老布局（`extensions/<扩展名>/extension.lua`）**已不再识别**。把脚本挪到
+> `extensions/<扩展名>.lua` 即可，配置目录原地不动；漏挪的会在启动日志里收到提示。
 
 管理命令：`/lban ext list`、`/lban ext reload`、`/lban ext enable|disable <扩展名>`
 （权限 `lengbanlist.reload`）。
@@ -56,11 +63,11 @@ leng.command{
 
 | 调用 | 说明 |
 | --- | --- |
-| `leng.name(文本)` | 展示名，默认等于目录名 |
+| `leng.name(文本)` | 展示名，默认等于扩展名 |
 | `leng.version(文本)` | 版本号，出现在 `/lban ext list` |
 | `leng.api(范围)` | 需要的脚本 API 版本，写法同 `ApiVersion`：`1.0`（=1.0.x）、`[1.0,2.0)`、`1.x` |
 
-**扩展名就是目录名**，脚本无法改：注册表在脚本跑起来之前就要拿它建索引。
+**扩展名就是脚本文件名**（`tp.lua` → `tp`），脚本无法改：注册表在脚本跑起来之前就要拿它建索引。
 
 ---
 
@@ -123,7 +130,7 @@ leng.command{
 | 调用 | 说明 |
 | --- | --- |
 | `leng.log(文本)` / `leng.log(级别, 文本)` | 写插件日志，级别 `info`/`warn`/`error`（默认 info） |
-| `leng.config(键, 默认值)` | 读扩展自己的 `config.yml`；支持 `a.b.c` 与表/数组 |
+| `leng.config(键, 默认值)` | 读 `extensions/<扩展名>/config.yml`；支持 `a.b.c` 与表/数组 |
 | `leng.player(名字)` | 按名取在线玩家（先精确、再前缀），没有返回 `nil` |
 | `leng.players()` | 全部在线玩家的数组 |
 | `leng.online_players(前缀)` | 名字数组（补全常用） |
@@ -183,9 +190,7 @@ end)
 
 目标：玩家进服时按扩展自己的配置发欢迎语，另外提供一个命令手动补发。
 
-**第 1 步**：建目录 `plugins/Lengbanlist/extensions/welcome/`（目录名就是扩展名，也是功能键）。
-
-**第 2 步**：写 `plugins/Lengbanlist/extensions/welcome/extension.lua`：
+**第 1 步**：写 `plugins/Lengbanlist/extensions/welcome.lua`（文件名就是扩展名，也是功能键）：
 
 ```lua
 leng.name("欢迎语")
@@ -226,7 +231,7 @@ leng.command{
 }
 ```
 
-**第 3 步**：写 `plugins/Lengbanlist/extensions/welcome/config.yml`：
+**第 2 步**：写 `plugins/Lengbanlist/extensions/welcome/config.yml`：
 
 ```yaml
 # 这个扩展自己的配置。核心的 config.yml 里没有它的键。
@@ -235,12 +240,15 @@ message: "§e欢迎回来，%s！"
 permission: lengbanlist.admin
 ```
 
-**第 4 步**：`/lban ext reload`（或重启服务端）。**Lua 扩展不需要编译**，改完脚本重载即可。
+这份也可以不写——加载时会自动生成一份只有 `enabled` 的，脚本里的默认值照样生效；
+但脚本读的键（这里是 `message`、`permission`）得由你自己写进去，插件猜不出来。
 
-**第 5 步**：验证。`/lban ext list` 应显示 `welcome v1.0.0 [启用]`；进服能收到欢迎语；
+**第 3 步**：`/lban ext reload`（或重启服务端）。**Lua 扩展不需要编译**，改完脚本重载即可。
+
+**第 4 步**：验证。`/lban ext list` 应显示 `welcome v1.0.0 [启用]`；进服能收到欢迎语；
 `/lban greet <名字>` 能补发；`/lban help` 里出现这一行。
 
-**第 6 步**：关掉用 `/lban ext disable welcome`——它写的是上面那个 `config.yml`（文本级改写，
+**第 5 步**：关掉用 `/lban ext disable welcome`——它写的是上面那个 `config.yml`（文本级改写，
 注释原样保留），不会碰核心配置。
 
 ---
@@ -252,6 +260,7 @@ permission: lengbanlist.admin
 | 扩展没生效 | `/lban ext list`：有没有列出来、状态是启用还是禁用、有没有加载失败原因 |
 | 命令没出现 | 子命令要在 `/lban` 底下用；顶层命令名可能被别的插件占了（日志里有警告） |
 | 改完脚本没变化 | `/lban ext reload` |
+| 升级后扩展集体消失 | 脚本得是 `extensions/<扩展名>.lua`；老布局的 `extensions/<扩展名>/extension.lua` 已不识别，日志里会指路 |
 | 日志里的报错 | 前缀是 `[扩展名]`；语法错、事件名拼错、API 版本不符都会在加载期就报出来 |
 
 脚本报错不会阻止服务端启动，也不会影响别的扩展。

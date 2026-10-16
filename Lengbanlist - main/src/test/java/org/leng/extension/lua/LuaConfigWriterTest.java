@@ -67,6 +67,29 @@ class LuaConfigWriterTest {
         assertEquals("enabled: true\n", Files.readString(config, StandardCharsets.UTF_8));
     }
 
+    /** 生成走的是"从无到有"那条路：连配置目录一起建出来，并说清这份配置是谁的。 */
+    @Test
+    void generatesAConfigWithAHeaderWhenTheDirectoryIsMissing() throws Exception {
+        File file = tempDir.resolve("welcome").resolve("config.yml").toFile();
+
+        assertTrue(LuaConfigWriter.ensureConfig(file, "welcome"));
+
+        String text = Files.readString(file.toPath(), StandardCharsets.UTF_8);
+        assertTrue(text.contains("welcome 扩展自己的配置"), "注释要说清这是谁的配置：" + text);
+        assertTrue(text.endsWith("enabled: true\n"), "默认是开着的：" + text);
+    }
+
+    @Test
+    void generationLeavesAnExistingConfigAlone() throws Exception {
+        config = tempDir.resolve("config.yml");
+        Files.writeString(config, "enabled: false\n# 我自己的注释\n", StandardCharsets.UTF_8);
+
+        assertFalse(LuaConfigWriter.ensureConfig(config.toFile(), "welcome"));
+
+        assertEquals("enabled: false\n# 我自己的注释\n",
+                Files.readString(config, StandardCharsets.UTF_8), "已有配置一个字都不能动");
+    }
+
     @Test
     void keepsCrlfLineEndings() throws Exception {
         String text = write("enabled: true\r\nother: 1\r\n", false);

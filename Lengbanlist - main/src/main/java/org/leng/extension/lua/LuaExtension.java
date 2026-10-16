@@ -30,16 +30,19 @@ import java.util.logging.Logger;
  * 全部复用既有机制，Lua 这边不另起一套。所以"Lua 命令与内置命令同一条命令树"
  * 是结构决定的，不是靠约定维持。
  *
- * <p><b>扩展 id 就是目录名</b>，脚本无法覆写：注册表在 {@code onEnable} 之前就要拿
- * {@code id()} 建索引，而脚本是 {@code onEnable} 里才跑起来的——允许覆写会让
- * 索引与自报的 id 对不上。
+ * <p><b>扩展 id 就是脚本文件名</b>（{@code tp.lua} → {@code tp}），脚本无法覆写：注册表在
+ * {@code onEnable} 之前就要拿 {@code id()} 建索引，而脚本是 {@code onEnable} 里才跑起来的——
+ * 允许覆写会让索引与自报的 id 对不上。
  *
- * <p><b>开关在扩展自己的 config.yml 里</b>（{@link SelfGatedExtension}），
- * 核心配置里不留它的键。所以"一个功能的开关只有一个来源"成立。
+ * <p><b>脚本与配置分两层放</b>：脚本是 {@code extensions/<id>.lua}，配置是
+ * {@code extensions/<id>/config.yml}。脚本平铺一层，一眼能看全装了哪些；配置各回各家的
+ * 子目录，不挤在根下、也不会和别人的键混在一起。开关就在那份 config.yml 里
+ * （{@link SelfGatedExtension}），核心配置里不留它的键——一个功能的开关只有一个来源。
  */
 public final class LuaExtension implements LengbanlistExtension, SelfGatedExtension {
 
-    static final String ENTRY_FILE = "extension.lua";
+    /** 脚本后缀：{@code extensions/<id>.lua}，文件名去掉它就是扩展 id。 */
+    static final String ENTRY_SUFFIX = ".lua";
     static final String CONFIG_FILE = "config.yml";
 
     /**
@@ -52,7 +55,7 @@ public final class LuaExtension implements LengbanlistExtension, SelfGatedExtens
 
     private final Lengbanlist plugin;
     private final ExtensionRegistry registry;
-    private final File directory;
+    private final File script;
     private final String id;
 
     private String displayName;
@@ -69,12 +72,18 @@ public final class LuaExtension implements LengbanlistExtension, SelfGatedExtens
     /** 加载期标志：命令与事件订阅只能在脚本顶层注册，运行期注册会让命令表与事件表漂移。 */
     private boolean loading;
 
-    LuaExtension(Lengbanlist plugin, ExtensionRegistry registry, File directory) {
+    LuaExtension(Lengbanlist plugin, ExtensionRegistry registry, File script) {
         this.plugin = plugin;
         this.registry = registry;
-        this.directory = directory;
-        this.id = directory.getName();
+        this.script = script;
+        this.id = idOf(script);
         this.displayName = id;
+    }
+
+    /** {@code tp.lua} → {@code tp}。名字取出来是空的（文件就叫 {@code .lua}）由加载器挡在门外。 */
+    private static String idOf(File script) {
+        String name = script.getName();
+        return name.endsWith(ENTRY_SUFFIX) ? name.substring(0, name.length() - ENTRY_SUFFIX.length()) : name;
     }
 
     @Override
@@ -163,8 +172,9 @@ public final class LuaExtension implements LengbanlistExtension, SelfGatedExtens
         return current == null || current.getBoolean("enabled", true);
     }
 
+    /** 扩展自己的配置：{@code extensions/<id>/config.yml}，与脚本不在同一层。 */
     File configFile() {
-        return new File(directory, CONFIG_FILE);
+        return new File(new File(script.getParentFile(), id), CONFIG_FILE);
     }
 
     void api(String range) {
@@ -172,14 +182,10 @@ public final class LuaExtension implements LengbanlistExtension, SelfGatedExtens
     }
 
     private String readEntry() throws ExtensionLoadException {
-        File entry = new File(directory, ENTRY_FILE);
-        if (!entry.isFile()) {
-            throw new ExtensionLoadException("缺少入口脚本 " + ENTRY_FILE);
-        }
         try {
-            return Files.readString(entry.toPath(), StandardCharsets.UTF_8);
+            return Files.readString(script.toPath(), StandardCharsets.UTF_8);
         } catch (Exception e) {
-            throw new ExtensionLoadException("读取 " + ENTRY_FILE + " 失败: " + e.getMessage());
+            throw new ExtensionLoadException("读取 " + script.getName() + " 失败: " + e.getMessage());
         }
     }
 
@@ -192,7 +198,8 @@ public final class LuaExtension implements LengbanlistExtension, SelfGatedExtens
     private void runChunk(String source) throws ExtensionLoadException {
         LuaValue chunk;
         try {
-            chunk = sandbox.globals().load(source, "@" + id + "/" + ENTRY_FILE);
+            // 脚本名写成相对路径：报错栈里出现的是 extensions/tp.lua，管理员照着就能找到文件
+            chunk = sandbox.globals().load(source, "@" + LuaLoader.DIRECTORY + "/" + id + ENTRY_SUFFIX);
         } catch (LuaError error) {
             throw new ExtensionLoadException("脚本语法错误: " + error.getMessage());
         }
@@ -302,9 +309,5 @@ public final class LuaExtension implements LengbanlistExtension, SelfGatedExtens
 
     FileConfiguration config() {
         return config;
-    }
-
-    File directory() {
-        return directory;
     }
 }

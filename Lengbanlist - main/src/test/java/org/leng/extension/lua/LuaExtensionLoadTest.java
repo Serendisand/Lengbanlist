@@ -33,6 +33,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -83,10 +85,23 @@ class LuaExtensionLoadTest {
     // ------------------------------------------------------------------ 工具
 
     private File write(String id, String script) throws Exception {
-        Path directory = dataFolder.resolve("extensions").resolve(id);
-        Files.createDirectories(directory);
-        Files.writeString(directory.resolve(LuaExtension.ENTRY_FILE), script, StandardCharsets.UTF_8);
-        return directory.toFile();
+        Path root = dataFolder.resolve("extensions");
+        Files.createDirectories(root);
+        Path file = root.resolve(id + LuaExtension.ENTRY_SUFFIX);
+        Files.writeString(file, script, StandardCharsets.UTF_8);
+        return file.toFile();
+    }
+
+    /** 扩展自己的配置：{@code extensions/<id>/config.yml}，与脚本不在同一层。 */
+    private File configFile(String id) {
+        return dataFolder.resolve("extensions").resolve(id)
+                .resolve(LuaExtension.CONFIG_FILE).toFile();
+    }
+
+    private void writeConfig(String id, String content) throws Exception {
+        File config = configFile(id);
+        Files.createDirectories(config.getParentFile().toPath());
+        Files.writeString(config.toPath(), content, StandardCharsets.UTF_8);
     }
 
     private LuaExtension install(String id, String script) throws Exception {
@@ -111,6 +126,38 @@ class LuaExtensionLoadTest {
                 .filter(s -> s.name().equals(name))
                 .findFirst()
                 .orElseThrow(() -> new AssertionError("没有注册出命令 " + name));
+    }
+
+    /**
+     * 抓一段插件日志。
+     *
+     * <p>给管理员的提示（旧布局该往哪挪）本身就是行为的一部分，不验证等于没写。
+     * 用完就摘掉 handler——{@code Logger.getGlobal()} 是全局的，留着会串到别的测试里。
+     */
+    private List<String> captureLog(Runnable action) {
+        Logger logger = Logger.getGlobal();
+        List<String> lines = new ArrayList<>();
+        Handler handler = new Handler() {
+            @Override
+            public void publish(LogRecord record) {
+                lines.add(String.valueOf(record.getMessage()));
+            }
+
+            @Override
+            public void flush() {
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+        logger.addHandler(handler);
+        try {
+            action.run();
+        } finally {
+            logger.removeHandler(handler);
+        }
+        return lines;
     }
 
     // ------------------------------------------------------------------ 命令声明
@@ -325,8 +372,7 @@ class LuaExtensionLoadTest {
                 local function greet(player) player:send(string.format(TEMPLATE, player.name)) end
                 leng.on("player_join", function(ctx) greet(ctx.player) end)
                 """);
-        Files.writeString(new File(directory, LuaExtension.CONFIG_FILE).toPath(),
-                "enabled: true\nmessage: \"欢迎回来，%s\"\n");
+        writeConfig("welcome", "enabled: true\nmessage: \"欢迎回来，%s\"\n");
         registry.register(new LuaExtension(plugin, registry, directory));
 
         List<String> received = new ArrayList<>();
@@ -423,7 +469,7 @@ class LuaExtensionLoadTest {
                   run = function(ctx) return true end,
                 }
                 """);
-        Files.writeString(new File(directory, LuaExtension.CONFIG_FILE).toPath(), "enabled: false\n");
+        writeConfig("tp", "enabled: false\n");
         LuaExtension extension = new LuaExtension(plugin, registry, directory);
         registry.register(extension);
 
@@ -447,11 +493,11 @@ class LuaExtensionLoadTest {
         File directory = write("tp", """
                 leng.command{ name = "tp", parent = "lban", run = function(ctx) return true end }
                 """);
-        Files.writeString(new File(directory, LuaExtension.CONFIG_FILE).toPath(), "enabled: false\n");
+        writeConfig("tp", "enabled: false\n");
         registry.register(new LuaExtension(plugin, registry, directory));
         assertFalse(registry.isFeatureActive("tp"));
 
-        LuaConfigWriter.writeEnabled(new File(directory, LuaExtension.CONFIG_FILE), true);
+        LuaConfigWriter.writeEnabled(configFile("tp"), true);
         registry.unregister("tp");
         registry.register(new LuaExtension(plugin, registry, directory));
 
@@ -491,15 +537,92 @@ class LuaExtensionLoadTest {
         assertTrue(loader.failures().containsKey("tp"), "但必须留下可读原因，不能悄悄跳过");
     }
 
+    /** 配置目录不是扩展：只有子目录、没有同名 .lua 的，一个都不该被加载。 */
     @Test
-    void loaderSkipsDirectoriesWithoutEntryScript() throws Exception {
-        Files.createDirectories(dataFolder.resolve("extensions").resolve("empty"));
+    void configDirectoriesAloneAreNotExtensions() throws Exception {
+        writeConfig("orphan", "enabled: true\n");
 
         LuaLoader loader = new LuaLoader(plugin, registry);
         loader.loadAll();
 
-        assertTrue(loader.extensions().isEmpty());
-        assertTrue(loader.failures().isEmpty(), "连入口脚本都没有的目录不算扩展，也不必报错");
+        assertTrue(loader.extensions().isEmpty(), "没有 <扩展名>.lua 就是什么都没装");
+        assertTrue(loader.failures().isEmpty(), "这不是错误，不必报");
+    }
+
+    /** 老布局（{@code <扩展名>/extension.lua}）本版不认，但得在日志里指路。 */
+    @Test
+    void legacyLayoutIsIgnoredWithAPointerInTheLog() throws Exception {
+        Path legacy = dataFolder.resolve("extensions").resolve("tp");
+        Files.createDirectories(legacy);
+        Files.writeString(legacy.resolve("extension.lua"), "leng.name('旧布局')");
+
+        List<String> logs = captureLog(() -> new LuaLoader(plugin, registry).loadAll());
+
+        assertTrue(registry.ids().isEmpty(), "旧布局不再被加载");
+        assertTrue(logs.stream().anyMatch(line -> line.contains("tp.lua")),
+                "但必须说清脚本该挪去哪，否则管理员只看到功能没了：" + logs);
+    }
+
+    /** 缺配置目录的扩展，加载时补一份 config.yml——配置该长在哪，不该让人猜。 */
+    @Test
+    void missingConfigIsGeneratedNextToTheScript() throws Exception {
+        write("welcome", "leng.command{ name = 'hi', run = function(ctx) return true end }");
+
+        new LuaLoader(plugin, registry).loadAll();
+
+        File config = configFile("welcome");
+        assertTrue(config.isFile(), "应该在 extensions/welcome/config.yml 生成一份");
+        assertTrue(Files.readString(config.toPath()).contains("enabled: true"), "生成的开关默认是开的");
+        assertTrue(registry.isRegistered("welcome"));
+    }
+
+    /** 已经写过的配置不许被生成逻辑覆盖：那是管理员改过的东西。 */
+    @Test
+    void generatedConfigNeverOverwritesAnExistingOne() throws Exception {
+        write("tp", "leng.command{ name = 'tp', parent = 'lban', run = function(ctx) return true end }");
+        writeConfig("tp", "enabled: false\nmessage: 我自己写的\n");
+
+        new LuaLoader(plugin, registry).loadAll();
+
+        assertEquals("enabled: false\nmessage: 我自己写的\n",
+                Files.readString(configFile("tp").toPath()), "一个字都不能动");
+        assertFalse(registry.isFeatureActive("tp"), "开关还是关着的");
+    }
+
+    /** 配置目录被管理员删了，开关还得有地方落——不能因为目录没了就静默失败。 */
+    @Test
+    void disablingRebuildsADeletedConfigDirectory() throws Exception {
+        write("tp", "leng.command{ name = 'tp', parent = 'lban', run = function(ctx) return true end }");
+        LuaLoader loader = new LuaLoader(plugin, registry);
+        loader.loadAll();
+        File config = configFile("tp");
+        Files.delete(config.toPath());
+        Files.delete(config.getParentFile().toPath());
+
+        assertTrue(loader.setEnabled("tp", false));
+
+        assertTrue(config.isFile(), "目录被删也要能重新写出来，不然开关没地方落");
+        assertTrue(Files.readString(config.toPath()).contains("enabled: false"));
+    }
+
+    /** 没有脚本就谈不上开关：{@code /lban ext enable 鬼} 必须被挡下来。 */
+    @Test
+    void enablingAnExtensionWithoutAScriptIsRefused() throws Exception {
+        LuaLoader loader = new LuaLoader(plugin, registry);
+
+        assertFalse(loader.setEnabled("ghost", true), "没有 <扩展名>.lua 就是没这个扩展");
+    }
+
+    /** id 是命令输入，不能让它顺着 {@code ../} 把 config.yml 写到数据目录外面去。 */
+    @Test
+    void idsThatEscapeTheExtensionsDirectoryAreRefused() throws Exception {
+        LuaLoader loader = new LuaLoader(plugin, registry);
+
+        assertFalse(loader.setEnabled("../outside", true));
+        assertFalse(loader.setEnabled("nested/path", true));
+        assertFalse(loader.setEnabled("", true));
+        assertFalse(Files.exists(dataFolder.resolve("outside")), "一个文件都不该被写到数据目录里");
+        assertFalse(Files.exists(dataFolder.resolve("nested")), "更不该顺着子路径写出去");
     }
 
     @Test
@@ -524,12 +647,13 @@ class LuaExtensionLoadTest {
      */
     @Test
     void shippedExtensionsLoadCleanly() throws Exception {
+        Path root = dataFolder.resolve("extensions");
+        Files.createDirectories(root);
         for (String id : new String[]{"tp", "staffchat"}) {
-            Path directory = dataFolder.resolve("extensions").resolve(id);
-            Files.createDirectories(directory);
-            try (InputStream in = getClass().getResourceAsStream("/extensions/" + id + "/" + LuaExtension.ENTRY_FILE)) {
-                assertTrue(in != null, "jar 里没有 /extensions/" + id + "/" + LuaExtension.ENTRY_FILE);
-                Files.copy(in, directory.resolve(LuaExtension.ENTRY_FILE));
+            String resource = "/extensions/" + id + LuaExtension.ENTRY_SUFFIX;
+            try (InputStream in = getClass().getResourceAsStream(resource)) {
+                assertTrue(in != null, "jar 里没有 " + resource);
+                Files.copy(in, root.resolve(id + LuaExtension.ENTRY_SUFFIX));
             }
         }
 

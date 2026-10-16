@@ -25,8 +25,9 @@ import java.util.logging.Logger;
  *   <li><b>外部扩展</b>（主类同时是 Bukkit {@link Plugin}）：{@code plugins/<扩展名>/config.yml}；
  *       若扩展 jar 里带了 {@code config.yml}，首次会自动释放为默认配置。</li>
  *   <li><b>内置提供者</b>（核心 jar 内的代码，没有自己的 Plugin）：
- *       {@code plugins/Lengbanlist/extensions/<id>/config.yml}——与 Lua 扩展同一个目录形状，
- *       一个扩展一个目录，配置不会挤在 extensions/ 根下。</li>
+ *       {@code plugins/Lengbanlist/extensions/<id>/config.yml}——与 Lua 扩展的配置<b>同一个位置</b>，
+ *       一个扩展一个目录，配置不会挤在 extensions/ 根下。（Lua 那边脚本是
+ *       {@code extensions/<id>.lua}，配置同样落在这个子目录里，两边不冲突。）</li>
  * </ul>
  */
 final class ExtensionContextImpl implements ExtensionContext {

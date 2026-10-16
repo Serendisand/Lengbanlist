@@ -23,7 +23,7 @@ public final class StaffCommands {
 
     private StaffCommands() {}
 
-    // 管理员频道 /sc 已搬进 Lua 扩展（plugins/Lengbanlist/extensions/staffchat/），
+    // 管理员频道 /sc 已搬进 Lua 扩展（plugins/Lengbanlist/extensions/staffchat.lua），
     // 作为「Lua 命令与内置命令走同一条注册路径」的第二个样本。
 
     public static final class Vanish implements CommandExecutor, TabCompleter {

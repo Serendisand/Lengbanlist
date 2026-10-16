@@ -109,7 +109,7 @@ public final class BuiltinExtensions {
             Map.entry("auto-update", "自动更新"),
             Map.entry("webhook-events", "Webhook 推送"),
             Map.entry("reload", "配置重载"));
-    // 注意：tp 与 staffchat 已搬进 Lua 扩展（extensions/tp、extensions/staffchat），
+    // 注意：tp 与 staffchat 已搬进 Lua 扩展（extensions/tp.lua、extensions/staffchat.lua），
     // 这里不能再登记它们——功能键被内置提供者先占住，LuaLoader 会判定撞车而拒绝加载，
     // 于是扩展自己的开关永远不会被读到。
 

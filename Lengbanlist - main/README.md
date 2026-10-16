@@ -28,15 +28,16 @@ src/main/java/org/leng/
 - `broadcast.yml`：自动广播文本配置。
 - `chatconfig.yml`：聊天过滤和审核相关配置。
 - `eula.yml`：插件启用前的 EULA 确认文件。
-- `extensions/`：随 jar 打包的官方 Lua 扩展（`tp`、`staffchat`），仅在数据目录里
-  `extensions/` 整个不存在时释放一次。
+- `extensions/`：随 jar 打包的官方 Lua 扩展（`tp.lua`、`staffchat.lua` 及各自的配置目录），
+  仅在数据目录里 `extensions/` 整个不存在时释放一次。
 
 ## 扩展系统
 
-低频功能不再写进核心，而是做成 **Lua 扩展**放在 `plugins/Lengbanlist/extensions/<扩展名>/`：
-目录存在即已安装，入口脚本固定为 `extension.lua`，开关是该目录下 `config.yml` 的 `enabled`。
-核心 `config.yml` 里**没有**它的键——一个功能的开关只有一个来源，不会出现两处开关互相覆盖的
-僵尸配置。脚本注册的命令与内置命令走同一条注册路径，权限、别名、补全、`/lban help` 过滤与
+低频功能不再写进核心，而是做成 **Lua 扩展**：脚本放 `plugins/Lengbanlist/extensions/<扩展名>.lua`，
+脚本在即已安装，删掉即卸载。扩展自己的 `config.yml` 放在同名的子目录
+`extensions/<扩展名>/` 里（缺了会自动生成一份），开关就是其中的 `enabled`。核心 `config.yml`
+里**没有**它的键——一个功能的开关只有一个来源，不会出现两处开关互相覆盖的僵尸配置。
+脚本注册的命令与内置命令走同一条注册路径，权限、别名、补全、`/lban help` 过滤与
 功能门控因此自动一致（`/lban tp` 就是这么从核心搬出去的，用户看到的命令界面没变）。
 
 - `extension/`：扩展注册表、统一门控（`isFeatureActive` = 已安装 **且** 开启）、内置提供者声明表。
