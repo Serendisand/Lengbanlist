@@ -10,13 +10,6 @@
 **Lengbanlist · A lightweight, modular punishment and management plugin**
 
 *[简体中文](/README.md) | English*
-
-**[Multi-platform](readme-website.md)** ·
-**[Command Help](LengbanlistCommandHelp.md)** ·
-**[Config Guide](LengbanlistConfig.md)** ·
-**[Developer Notes](PullRequest_en.md)** ·
-*[License Notice](Mustn't_en.md)* ·
-**[Discord](https://discord.gg/aeWjf7vD)**
 </div>
 
 ![Lengbanlist](https://github.com/Serendisand/Lengbanlist/blob/main/Photos/Lengbanlist.png)
@@ -26,7 +19,7 @@
 
 Lengbanlist started out as a ban broadcast machine: someone gets banned, the whole server hears about it.
 
-Today it is a full management crew for your server — bans, warnings, mutes, reports and appeals, chat filtering, IP association, VPN detection, audit rollback, plus a web panel you open in a browser. The punishment loop stays in the core, low-frequency features ship as extensions, and anything you don't need can be taken out.
+Today it is a full management crew for your server — bans, warnings, mutes, reports and appeals, chat filtering, IP association, VPN detection, audit rollback, plus a web panel you open in a browser.
 
 Feature toggles all live under `features` in `config.yml`.
 
@@ -92,6 +85,8 @@ Commands from either kind walk the same registration path as built-in ones, so p
 ---
 
 ## Support the Project ❤️
+
+Questions, ideas, or new feature chatter — come find us on [Discord](https://discord.gg/aeWjf7vD).
 
 If this plugin helps you, consider supporting its development. It's what keeps me maintaining and improving it.
 

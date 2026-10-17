@@ -10,13 +10,6 @@
 **冷禁列表 · 轻量、模块化的服务端处罚与管理插件**
 
 *简体中文 | [English](docs/README_en.md)*
-
-**[多平台](docs/readme-website.md)** ·
-**[命令帮助](docs/LengbanlistCommandHelp.md)** ·
-**[配置速览](docs/LengbanlistConfig.md)** ·
-**[开发须知](docs/PullRequest_zh.md)** ·
-*[许可证提示](docs/Mustn't_zh.md)* ·
-**[Discord](https://discord.gg/aeWjf7vD)**
 </div>
 
 ![Lengbanlist](https://github.com/Serendisand/Lengbanlist/blob/main/Photos/Lengbanlist.png)
@@ -26,7 +19,7 @@
 
 Lengbanlist 起初只是台封禁广播机：谁被封了，全服喊一声。
 
-现在它是服务器的一整套管理班子——封禁、警告、禁言、举报申诉、聊天过滤、IP 关联、VPN 检测、审计回滚，外加一个浏览器就能打开的 Web 面板。处罚闭环留在核心，低频功能做成扩展，用不上的拆掉即可。
+现在它是服务器的一整套管理班子——封禁、警告、禁言、举报申诉、聊天过滤、IP 关联、VPN 检测、审计回滚，外加一个浏览器就能打开的 Web 面板。
 
 功能开关都在 `config.yml` 的 `features` 段。
 
@@ -92,6 +85,8 @@ Lengbanlist 起初只是台封禁广播机：谁被封了，全服喊一声。
 ---
 
 ## 支持这个项目 ❤️
+
+遇到问题、想聊新功能，来 [Discord](https://discord.gg/aeWjf7vD) 坐坐。
 
 如果这个插件对你有帮助，欢迎赞助支持。你的支持是我持续开发和维护的动力。
 
