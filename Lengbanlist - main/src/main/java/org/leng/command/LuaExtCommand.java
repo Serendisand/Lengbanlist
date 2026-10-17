@@ -15,9 +15,11 @@ import org.leng.util.Utils;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -266,45 +268,83 @@ public final class LuaExtCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    /**
+     * 统一的扩展列表：和 {@code /lban models list} 一样只有一张表——
+     * 云端索引里的条目按本地状态标记，本地有、云端没有的补在后面。
+     */
     private void list(CommandSender sender, LuaLoader loader) {
-        List<LuaExtension> extensions = loader.extensions();
-        Utils.sendMessage(sender, plugin.prefix() + "§6§lLua 扩展 §7(" + extensions.size() + " 个)");
-        if (extensions.isEmpty()) {
-            Utils.sendMessage(sender, "§7把脚本放进 §f" + loader.directory() + "/<扩展名>.lua§7 就能用了喵"
-                    + "（它的配置会生成在 " + loader.directory() + "/<扩展名>/config.yml）");
+        ExtensionCloudManager cloud = plugin.getExtensionCloudManager();
+        Utils.sendMessage(sender, plugin.prefix() + "§e正在读取扩展列表喵…");
+        Supplier<Optional<ExtensionCloudManager.ExtensionIndex>> task;
+        if (cloud.enabled()) {
+            task = cloud::getIndex;
+        } else {
+            task = () -> Optional.<ExtensionCloudManager.ExtensionIndex>empty();
         }
-        for (LuaExtension extension : extensions) {
-            Utils.sendMessage(sender, "§b✦ §f" + extension.id() + " §7" + versionText(extension)
-                    + " " + stateText(loader, extension) + " §7" + extension.name());
-        }
-        for (Map.Entry<String, String> failure : loader.failures().entrySet()) {
-            Utils.sendMessage(sender, "§c✖ §f" + failure.getKey() + " §7- " + failure.getValue());
-        }
-        listJavaExtensions(sender);
-        listCloudExtensions(sender);
+        runOffThread(sender, task, result -> {
+            Utils.sendMessage(sender, "§7--§b Lengbanlist 扩展列表 §7--");
+            Map<String, LocalExtension> local = localExtensions(loader);
+            if (result.isPresent()) {
+                for (ExtensionCloudManager.ExtensionInfo info : result.get().extensions()) {
+                    LocalExtension mine = local.remove(info.id());
+                    if (mine != null) {
+                        sendLocalLine(sender, mine);
+                    } else if (!info.ready()) {
+                        sendLine(sender, "§7[未上架]", info.name(), info.id(), info.version(), info.kind());
+                    } else {
+                        sendLine(sender, "§7[未安装]", info.name(), info.id(), info.version(), info.kind());
+                    }
+                }
+            } else {
+                Utils.sendMessage(sender, "§7云端索引不可用，仅显示本地扩展（§f/lban ext refresh§7 重试）");
+            }
+            for (LocalExtension mine : local.values()) {
+                sendLocalLine(sender, mine);
+            }
+            for (Map.Entry<String, String> failure : loader.failures().entrySet()) {
+                Utils.sendMessage(sender, "§c✖ §f" + failure.getKey() + " §7- " + failure.getValue());
+            }
+            if (result.isPresent() && result.get().extensions().isEmpty()
+                    && local.isEmpty() && loader.failures().isEmpty()) {
+                Utils.sendMessage(sender, "§7还没有安装任何扩展，输入 §f/lban ext install <扩展名> §7装一个");
+            }
+        });
     }
 
-    /** 追加 Java 扩展的列表；只列真正装进来的外部插件，不列内置提供者。 */
-    private void listJavaExtensions(CommandSender sender) {
+    /** 本地已装的扩展（Lua + Java），键为扩展 id。 */
+    private Map<String, LocalExtension> localExtensions(LuaLoader loader) {
+        Map<String, LocalExtension> result = new LinkedHashMap<>();
+        for (LuaExtension extension : loader.extensions()) {
+            result.put(extension.id(), new LocalExtension(extension.id(), extension.name(),
+                    extension.version(), stateText(loader, extension), ExtensionCloudManager.Kind.LUA));
+        }
         ExtensionRegistry registry = plugin.getExtensionRegistry();
-        if (registry == null) {
-            return;
+        if (registry != null) {
+            for (ExtensionRegistry.ExtensionInfo extension : registry.externalExtensions()) {
+                result.put(extension.id(), new LocalExtension(extension.id(), extension.name(),
+                        extension.version(),
+                        extension.enabled() ? "§a[启用]" : "§e[已禁用]",
+                        ExtensionCloudManager.Kind.JAR));
+            }
         }
-        List<ExtensionRegistry.ExtensionInfo> extensions = registry.externalExtensions();
-        if (extensions.isEmpty()) {
-            return;
-        }
-        Utils.sendMessage(sender, plugin.prefix() + "§6§lJava 扩展 §7(" + extensions.size() + " 个)");
-        for (ExtensionRegistry.ExtensionInfo extension : extensions) {
-            Utils.sendMessage(sender, "§b✦ §f" + extension.id() + " §7"
-                    + versionText(extension.version()) + " "
-                    + (extension.enabled() ? "§a[启用]" : "§e[已禁用]")
-                    + " §7" + extension.name());
-        }
+        return result;
     }
 
-    private static String versionText(LuaExtension extension) {
-        return versionText(extension.version());
+    private void sendLocalLine(CommandSender sender, LocalExtension extension) {
+        sendLine(sender, extension.state(), extension.name(), extension.id(),
+                extension.version(), extension.kind());
+    }
+
+    private void sendLine(CommandSender sender, String state, String name, String id,
+                          String version, ExtensionCloudManager.Kind kind) {
+        String type = kind == ExtensionCloudManager.Kind.JAR ? "§b[Jar]" : "§d[Lua]";
+        String display = name == null || name.isBlank() ? id : name;
+        Utils.sendMessage(sender, state + " §f" + display
+                + " §7(" + id + " " + versionText(version) + ") " + type);
+    }
+
+    private record LocalExtension(String id, String name, String version, String state,
+                                  ExtensionCloudManager.Kind kind) {
     }
 
     private static String versionText(String version) {
