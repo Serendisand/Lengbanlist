@@ -17,6 +17,20 @@ public interface ExtensionContext {
     /** 本上下文所属的扩展 id。 */
     String extensionId();
 
+    /**
+     * 某个功能此刻是否生效：<b>归属提供者已启用 且 开关为 true</b>，与核心门控同一语义。
+     *
+     * <p>命令会被核心自动门控，但监听器与调度任务不会——扩展被核心停用后，Bukkit 插件
+     * 本身并没有 disable，{@code registerEvents} 注册的监听器仍会触发。所以在事件与任务
+     * 的入口问一句 {@code isFeatureActive(feature)}，是扩展侧需要自己做的事。
+     *
+     * <p>实现 {@link SelfGatedExtension} 的扩展问自己时，开关来自它自己的配置；
+     * 其余扩展仍读核心 {@code config.yml} 的 {@code features.<键>}。
+     *
+     * <p>不要在 {@link SelfGatedExtension#isFeatureEnabled} 里调用它——那条路径就是它自己。
+     */
+    boolean isFeatureActive(String feature);
+
     /** 注册命令。扩展注册的命令会随该扩展启用/停用自动注册与注销。 */
     CommandRegistrar commands();
 

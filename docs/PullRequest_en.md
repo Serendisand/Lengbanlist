@@ -132,12 +132,16 @@ gating stay consistent automatically (`/lban ext` only manages the Lua ones).
 | Form | Entry point | Where the toggle lives |
 | --- | --- | --- |
 | Built-in provider | `BuiltinExtensions.declarations()` | `features.<key>` in the core `config.yml` |
-| Java extension | A standalone Bukkit plugin calling `CoreService.enable()` | `features.<id>` in the core `config.yml`, or the extension itself via `SelfGatedExtension` |
+| Java extension | A standalone Bukkit plugin calling `CoreService.enable()` | The extension's own `plugins/<name>/config.yml` (the base class implements `SelfGatedExtension`) |
 | Lua extension | `extensions/<id>.lua` in the data folder | The extension's own `extensions/<id>/config.yml` |
 
 Gating has exactly one meaning: `ExtensionRegistry.isFeatureActive(key)` = **the owning provider
 is enabled AND the toggle is on**. Core code must ask it, not `plugin.isFeatureEnabled()` — the
 latter only reads the config toggle and would treat an uninstalled extension as active.
+
+Commands are gated automatically by that rule; listeners and scheduled tasks are not — when an
+extension is disabled, the Bukkit plugin itself stays enabled and its registered listeners keep
+firing. Extensions must therefore check `context.isFeatureActive()` at event and task entry.
 
 Key classes:
 
@@ -153,9 +157,10 @@ Key classes:
 ## Startup Sequence
 
 1. `onLoad()`: initialise `SchedulerUtils`, check the EULA, load default configs.
-2. `onEnable()`: create `ExtensionRegistry` and load built-in providers (commands, hooks,
+2. `onEnable()`: create `ExtensionRegistry` and load built-in providers (commands and
    feature-only keys), register `CoreService` with the `ServicesManager`, then let
-   `CommandRegistry` derive the command table from the registry.
+   `CommandRegistry` derive the command table from the registry. Java extensions enable
+   as separate plugins and hand their commands and hooks in through `CoreService.enable()`.
 3. `LuaLoader.loadAll()` scans the data folder and loads Lua extensions.
 4. `DatabaseManager` opens the database; legacy YAML data is migrated by `StorageMigrationManager`.
 5. Managers are created (`BanManager`, `MuteManager`, `WarnManager`, `ReportManager`,
@@ -226,8 +231,9 @@ the actual business logic belongs in `service/`.
 - `AuditManager` / `RollbackManager` — audit log (hash chain) and rollback by actor and time range
 - `SyncManager` — data sync across servers
 - `IpAssociationManager` / `PlayerIpService` — historical IPs, same-IP alts, proxy/VPN detection
-- `ImmunityManager` / `EscalationManager` — weight-based immunity and repeat-offender escalation,
-  implementing `PunishmentDecisionHook` / `DurationPolicyHook`
+- Weight-based immunity and repeat-offender escalation moved to the `punishpolicy` extension
+  (implementing `PunishmentDecisionHook` / `DurationPolicyHook`); the core keeps only the
+  fallback used when the hook is absent
 - `VanishManager` / `FreezeManager` / `BroadcastManager` / `ExpiryReminderTask` /
   `MuteCommandBlockPolicy` / `BanMutationFeedback`
 

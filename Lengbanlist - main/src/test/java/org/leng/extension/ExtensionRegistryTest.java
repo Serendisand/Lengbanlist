@@ -1,9 +1,11 @@
 package org.leng.extension;
 
 import org.bukkit.command.CommandExecutor;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.leng.Lengbanlist;
 import org.leng.api.CommandSpec;
 import org.leng.api.ExtensionContext;
@@ -13,8 +15,13 @@ import org.leng.api.SelfGatedExtension;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 /**
  * 扩展注册表与统一门控。
@@ -289,6 +297,8 @@ class ExtensionRegistryTest {
 
         private final String id;
         private boolean switchOn;
+        private Consumer<ExtensionContext> onEnableHook = context -> {
+        };
 
         SelfGatedFake(String id, boolean switchOn) {
             this.id = id;
@@ -306,7 +316,13 @@ class ExtensionRegistryTest {
         }
 
         @Override
+        public Set<String> features() {
+            return Set.of(id);
+        }
+
+        @Override
         public void onEnable(ExtensionContext context) {
+            onEnableHook.accept(context);
             context.commands().register(spec("lua-" + id, id, "p"));
         }
 
@@ -344,5 +360,49 @@ class ExtensionRegistryTest {
 
         assertFalse(registry.isFeatureActive("kit"),
                 "开关必须每次现读，不能在注册时快照——脚本改了配置重载后要立刻生效");
+    }
+
+    @Test
+    void ownFeatureKeyAnswersActiveDuringOnEnable() throws Exception {
+        AtomicBoolean active = new AtomicBoolean();
+        SelfGatedFake ext = new SelfGatedFake("kit", true);
+        ext.onEnableHook = context -> active.set(context.isFeatureActive("kit"));
+
+        registry.register(ext);
+
+        assertTrue(active.get(), "onEnable 里问自己的开关时，功能键还没登记，也要答得出来");
+    }
+
+    @Test
+    void legacyCoreToggleIsMigratedToExtensionConfig(@TempDir Path tempDir) throws Exception {
+        YamlConfiguration core = new YamlConfiguration();
+        core.set("features.kit", false);
+        when(plugin.getConfig()).thenReturn(core);
+        when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+
+        registry.register(new SelfGatedFake("kit", true));
+
+        File configFile = new File(tempDir.toFile(), "extensions/kit/config.yml");
+        assertTrue(configFile.isFile(), "迁移应生成扩展自己的配置文件");
+        YamlConfiguration migrated = YamlConfiguration.loadConfiguration(configFile);
+        assertFalse(migrated.getBoolean("features.kit", true), "旧核心开关的值要原样搬过去");
+    }
+
+    @Test
+    void extensionOwnFeatureKeyWinsOverLegacyCoreKey(@TempDir Path tempDir) throws Exception {
+        YamlConfiguration core = new YamlConfiguration();
+        core.set("features.kit", false);
+        when(plugin.getConfig()).thenReturn(core);
+        when(plugin.getDataFolder()).thenReturn(tempDir.toFile());
+        File dir = new File(tempDir.toFile(), "extensions/kit");
+        assertTrue(dir.mkdirs());
+        YamlConfiguration own = new YamlConfiguration();
+        own.set("features.kit", true);
+        own.save(new File(dir, "config.yml"));
+
+        registry.register(new SelfGatedFake("kit", true));
+
+        YamlConfiguration after = YamlConfiguration.loadConfiguration(new File(dir, "config.yml"));
+        assertTrue(after.getBoolean("features.kit"), "扩展已经自己写了这个键时，旧核心键不得覆盖它");
     }
 }

@@ -1,6 +1,7 @@
 package org.leng.api;
 
 import org.bukkit.Bukkit;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -45,7 +46,7 @@ import java.util.Locale;
  * {@link #onExtensionDisable()} 里，这样"核心那边注册成功"与"扩展自己开始干活"
  * 永远是同一个时刻。
  */
-public abstract class LengbanlistExtensionPlugin extends JavaPlugin implements LengbanlistExtension {
+public abstract class LengbanlistExtensionPlugin extends JavaPlugin implements LengbanlistExtension, SelfGatedExtension {
 
     private LengbanlistCore core;
     private ExtensionContext context;
@@ -122,6 +123,23 @@ public abstract class LengbanlistExtensionPlugin extends JavaPlugin implements L
     @Override
     public String version() {
         return getDescription().getVersion();
+    }
+
+    /**
+     * 扩展自己的开关：{@code plugins/<扩展名>/config.yml}。
+     *
+     * <p>{@code enabled} 是总开关（缺省 {@code true}）：关掉它，整个扩展的功能一起停。
+     * 一个模块带多个功能键时，可以按功能键写 {@code features.<键>: false} 单独关掉某一个。
+     * 开关只住在这份配置里，核心 {@code config.yml} 不再参与判断。
+     */
+    @Override
+    public boolean isFeatureEnabled(String feature) {
+        ExtensionContext current = context;
+        FileConfiguration config = current != null ? current.config().raw() : getConfig();
+        if (!config.getBoolean("enabled", true)) {
+            return false;
+        }
+        return config.getBoolean("features." + feature, true);
     }
 
     /** 核心给的上下文；尚未启用或已停用时为 {@code null}。 */

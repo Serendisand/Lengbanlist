@@ -47,6 +47,31 @@ Lengbanlist 仓库 clone 下来执行 `mvn install`，本地仓库里就有同�
 3. 本模块**零第三方依赖**（只有 provided 的 spigot-api）。需要什么库自己 shade 进 jar，
    并 **relocate** 到自己的包名下，否则会和其他插件的同名库撞车。
 
+### 开关放在扩展自己手里
+
+`LengbanlistExtensionPlugin` 已经实现了 `SelfGatedExtension`：开关读 `plugins/<扩展名>/config.yml`，
+不是核心的 `config.yml`。`enabled` 是总开关（缺省 `true`）；一个模块带多个功能键时，
+可以按功能键单独关掉某一个：
+
+```yaml
+enabled: true          # 总开关：false = 整个扩展停用
+features:
+  vanish: false        # 只关掉隐身
+```
+
+核心在扩展第一次注册时，会把旧版核心 `config.yml` 里的 `features.<键>` 迁移到这份配置里
+（只写一次，之后以扩展配置为准，核心那个键就可以删了）。
+
+命令会被核心自动门控，但**监听器和调度任务不会**：扩展被停用后 Bukkit 插件本身并没有
+disable，`registerEvents` 注册的监听器仍会触发。所以事件与任务入口要自己问一句：
+
+```java
+// id 通常就是功能键；一个模块带多个功能键时换成具体那个
+if (!context.isFeatureActive(id())) {
+    return;
+}
+```
+
 ---
 
 ## 二、完整的 pom.xml
@@ -275,8 +300,10 @@ cp target/*.jar 服务端/plugins/   # 丢进 plugins，与 Lengbanlist-*.jar �
 
 **推荐继承 `LengbanlistExtensionPlugin`**：它把 `onEnable`/`onDisable` 收成 `final`，替你做
 "查核心 → `core.enable(this)` → 失败就 `disablePlugin`"，你只写 `id()` 与
-`onExtensionEnable(ExtensionContext)`（`onExtensionDisable()` 可选）。手动实现当然也行，
-那就自己在 `onEnable` 里 `Bukkit.getServicesManager().load(LengbanlistCore.class)`。
+`onExtensionEnable(ExtensionContext)`（`onExtensionDisable()` 可选）。基类还实现了
+`SelfGatedExtension`（开关读扩展自己的 `config.yml`），并在停用时自动注销监听器。
+手动实现当然也行，那就自己在 `onEnable` 里
+`Bukkit.getServicesManager().load(LengbanlistCore.class)`。
 
 ### LengbanlistCore（核心门面）
 
@@ -293,6 +320,7 @@ cp target/*.jar 服务端/plugins/   # 丢进 plugins，与 Lengbanlist-*.jar �
 | 方法 | 返回 | 说明 |
 | --- | --- | --- |
 | `extensionId()` | `String` | 本上下文的扩展 id |
+| `isFeatureActive(feature)` | `boolean` | 该功能是否"已注册 且 开着"，与核心门控同一语义 |
 | `commands()` | `CommandRegistrar` | 注册命令 |
 | `hooks()` | `HookRegistry` | 挂进核心决策点 |
 | `messages()` | `Messages` | 当前人设模型的文案 |

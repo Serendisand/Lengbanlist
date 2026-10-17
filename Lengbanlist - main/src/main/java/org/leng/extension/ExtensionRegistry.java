@@ -1,10 +1,12 @@
 package org.leng.extension;
 
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.Plugin;
 import org.leng.Lengbanlist;
 import org.leng.api.ApiVersion;
 import org.leng.api.CommandRegistrar;
 import org.leng.api.CommandSpec;
+import org.leng.api.ExtensionConfig;
 import org.leng.api.ExtensionContext;
 import org.leng.api.ExtensionLoadException;
 import org.leng.api.LengbanlistExtension;
@@ -82,8 +84,11 @@ public final class ExtensionRegistry {
         // 扩展主类通常同时是 Bukkit 插件（设计上如此），据此决定配置目录与日志前缀；
         // 内置提供者没有自己的插件，落在核心数据目录下的 extensions/ 里。
         Plugin owner = extension instanceof Plugin bukkitPlugin ? bukkitPlugin : null;
-        ExtensionContextImpl context = new ExtensionContextImpl(plugin, id, new Registrar(reg), reg.hooks, owner);
+        ExtensionContextImpl context = new ExtensionContextImpl(plugin, this, id, new Registrar(reg), reg.hooks, owner);
         reg.context = context;
+        // 迁移必须赶在 onEnable 之前：扩展（尤其是 Lua）会在启用时把配置读进内存，
+        // 之后再写文件，它这一轮看不到迁移结果。
+        migrateLegacyToggles(extension, context);
         try {
             extension.onEnable(context);
         } catch (Throwable t) {
@@ -200,6 +205,11 @@ public final class ExtensionRegistry {
     public boolean isFeatureActive(String feature) {
         Registration reg = byFeature.get(feature);
         if (reg == null) {
+            // 扩展在 onEnable 期间还没来得及把命令/功能键交上来，此时按 id 认领一次：
+            // context.isFeatureActive(自己的 id) 在启用过程中也要答得出来。
+            reg = byId.get(feature);
+        }
+        if (reg == null) {
             return plugin.isFeatureEnabled(feature);
         }
         return reg.enabled && isEnabled(reg, feature);
@@ -224,6 +234,52 @@ public final class ExtensionRegistry {
     }
 
     // ---------------------------------------------------------------- 内部
+
+    /**
+     * 把旧版核心 {@code config.yml} 里的 {@code features.<键>} 搬进自带开关的扩展配置。
+     *
+     * <p>扩展的开关应当只有一个来源。迁移只在扩展配置里还没有对应键时写一次，
+     * 之后核心那个键就被彻底忽略——不做长期双读，避免再次出现"两处开关互相覆盖"。
+     * 扩展没装时旧键会留在用户配置里，装上后第一次注册时自动消费掉。
+     *
+     * <p>要迁移的功能键必须由 {@link LengbanlistExtension#features()} 声明：
+     * 命令里的功能键要到 {@code onEnable} 才交上来，赶不上迁移窗口。
+     */
+    private void migrateLegacyToggles(LengbanlistExtension extension, ExtensionContextImpl context) {
+        if (!(extension instanceof SelfGatedExtension)) {
+            return;
+        }
+        try {
+            FileConfiguration core = plugin.getConfig();
+            if (core == null) {
+                return;
+            }
+            for (String feature : extension.features()) {
+                if (feature == null || feature.isBlank()) {
+                    continue;
+                }
+                String key = "features." + feature;
+                if (!core.contains(key)) {
+                    continue;
+                }
+                ExtensionConfig target = context.config();
+                if (target.raw().contains(key)) {
+                    plugin.getLogger().warning("config.yml 的 " + key
+                            + " 已废弃：开关现在由扩展 " + extension.id()
+                            + " 自己管，这一行可以删掉");
+                    continue;
+                }
+                boolean enabled = core.getBoolean(key, true);
+                target.raw().set(key, enabled);
+                target.save();
+                plugin.getLogger().info("已把 " + key + "=" + enabled
+                        + " 迁移到扩展 " + extension.id() + " 的配置");
+            }
+        } catch (Exception e) {
+            // 迁移失败最多是开关留在原处，绝不能让扩展加载失败
+            plugin.getLogger().warning("迁移扩展 " + extension.id() + " 的旧开关失败: " + e);
+        }
+    }
 
     private static final class Registration {
         private final LengbanlistExtension extension;

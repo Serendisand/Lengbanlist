@@ -33,6 +33,7 @@ import java.util.logging.Logger;
 final class ExtensionContextImpl implements ExtensionContext {
 
     private final Lengbanlist plugin;
+    private final ExtensionRegistry registry;
     private final String extensionId;
     private final CommandRegistrar commands;
     private final HookRegistryImpl hooks;
@@ -45,9 +46,10 @@ final class ExtensionContextImpl implements ExtensionContext {
 
     private volatile ExtensionConfigImpl config;
 
-    ExtensionContextImpl(Lengbanlist plugin, String extensionId, CommandRegistrar commands,
-                          HookRegistryImpl hooks, Plugin owner) {
+    ExtensionContextImpl(Lengbanlist plugin, ExtensionRegistry registry, String extensionId,
+                         CommandRegistrar commands, HookRegistryImpl hooks, Plugin owner) {
         this.plugin = plugin;
+        this.registry = registry;
         this.extensionId = extensionId;
         this.commands = commands;
         this.hooks = hooks;
@@ -79,6 +81,11 @@ final class ExtensionContextImpl implements ExtensionContext {
     @Override
     public String extensionId() {
         return extensionId;
+    }
+
+    @Override
+    public boolean isFeatureActive(String feature) {
+        return registry.isFeatureActive(feature);
     }
 
     @Override

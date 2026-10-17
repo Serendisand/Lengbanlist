@@ -128,12 +128,16 @@ Lengbanlist/
 | 形态 | 入口 | 开关来源 |
 | --- | --- | --- |
 | 内置提供者 | `BuiltinExtensions.declarations()` | 核心 `config.yml` 的 `features.<键>` |
-| Java 扩展 | 独立 Bukkit 插件调 `CoreService.enable()` | 核心 `config.yml` 的 `features.<id>`，或实现 `SelfGatedExtension` 自己回答 |
+| Java 扩展 | 独立 Bukkit 插件调 `CoreService.enable()` | 扩展自己的 `plugins/<扩展名>/config.yml`（基类已实现 `SelfGatedExtension`） |
 | Lua 扩展 | 数据目录 `extensions/<id>.lua` | 扩展自己的 `extensions/<id>/config.yml` |
 
 门控只有一条语义：`ExtensionRegistry.isFeatureActive(键)` = **归属提供者已启用 且 开关为 true**。
 核心代码判断"某功能现在能不能用"必须问它，而不是 `plugin.isFeatureEnabled()`——后者只回答
 配置里的开关，会把未安装的扩展当成已启用。
+
+命令由核心按这个语义自动门控；监听器和调度任务不会——扩展停用后 Bukkit 插件本身仍处于启用
+状态，已注册的监听器还会触发。所以扩展要在事件与任务入口自己问一句
+`context.isFeatureActive()`。
 
 相关类：
 
@@ -146,8 +150,9 @@ Lengbanlist/
 ## 启动流程
 
 1. `onLoad()`：初始化 `SchedulerUtils`，检查 EULA，加载默认配置。
-2. `onEnable()`：建 `ExtensionRegistry` 并装入内置提供者（命令、钩子、纯功能键），把
+2. `onEnable()`：建 `ExtensionRegistry` 并装入内置提供者（命令与纯功能键），把
    `CoreService` 注册进 `ServicesManager`，再由 `CommandRegistry` 从注册表派生命令表。
+   Java 扩展作为独立插件自行启用，通过 `CoreService.enable()` 把命令与钩子交进来。
 3. `LuaLoader.loadAll()` 扫数据目录，加载 Lua 扩展。
 4. `DatabaseManager` 初始化数据库，旧版 YAML 数据由 `StorageMigrationManager` 迁移。
 5. 创建业务管理器（`BanManager`、`MuteManager`、`WarnManager`、`ReportManager`、
@@ -212,8 +217,8 @@ Lengbanlist/
 - `AuditManager` / `RollbackManager`：审计日志（含哈希链）与按操作人、时间回滚
 - `SyncManager`：多子服数据同步
 - `IpAssociationManager` / `PlayerIpService`：历史 IP、同 IP 小号、代理与 VPN 判定
-- `ImmunityManager` / `EscalationManager`：权重免疫与累犯升级，分别实现
-  `PunishmentDecisionHook` / `DurationPolicyHook`
+- 权重免疫与累犯升级已搬进 `punishpolicy` 扩展（分别实现
+  `PunishmentDecisionHook` / `DurationPolicyHook`），核心只保留钩子缺席时的兜底
 - `VanishManager` / `FreezeManager` / `BroadcastManager` / `ExpiryReminderTask` /
   `MuteCommandBlockPolicy` / `BanMutationFeedback`
 
