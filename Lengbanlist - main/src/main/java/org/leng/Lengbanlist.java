@@ -20,6 +20,7 @@ import org.leng.gui.GuiSessionManager;
 import org.leng.gui.WizardManager;
 import org.leng.integration.AutoUpdateManager;
 import org.leng.integration.GitHubUpdateChecker;
+import org.leng.integration.ExtensionCloudManager;
 import org.leng.integration.ModelCloudManager;
 import org.leng.integration.ModelManager;
 import org.leng.integration.ThemeManager;
@@ -75,6 +76,7 @@ public class Lengbanlist extends JavaPlugin {
     private GuiSessionManager guiSessionManager;
     private GuiCommands.Gui guiCommand;
     private volatile ModelCloudManager modelCloudManager;
+    private volatile ExtensionCloudManager extensionCloudManager;
     private GuiCommands.Alts altsCommand;
     private CommandRegistry commandRegistry;
     private ExtensionRegistry extensionRegistry;
@@ -691,6 +693,18 @@ void shutdownStorage() {
             }
         }
         return modelCloudManager;
+    }
+
+    /** 云端扩展市场。首次使用时才建，避免没人用还占一个下载客户端。 */
+    public ExtensionCloudManager getExtensionCloudManager() {
+        if (extensionCloudManager == null) {
+            synchronized (this) {
+                if (extensionCloudManager == null) {
+                    extensionCloudManager = new ExtensionCloudManager(this);
+                }
+            }
+        }
+        return extensionCloudManager;
     }
 
     public GuiCommands.Alts getAltsCommand() {

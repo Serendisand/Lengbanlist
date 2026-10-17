@@ -103,6 +103,8 @@ download:
         url: "https://api.github.com/repos/Serendisand/Lengbanlist/releases/latest"
     # 云端模型索引；留空使用内置默认链（raw.githubusercontent -> gh-proxy -> mirror.ghproxy）
     models: []
+    # 云端扩展索引与产物；留空使用内置默认链
+    extensions: []
 
 # ---------- 更新检查 ----------
 update-check:
@@ -199,7 +201,16 @@ models-cloud:
   enabled: true
   repo: "Serendisand/Lengbanlist-Models"
   branch: "main"
-  mirrors: []        
+  mirrors: []
   stats:               # 安装统计上报(用于月度精选自动评选)
-    enabled: true     
-    url: "https://lengbanlist-stats.sanno.workers.dev/"          
+    enabled: true
+    url: "https://lengbanlist-stats.sanno.workers.dev/"
+
+# ---------- 云端扩展（extensions-cloud） ----------
+# 扩展市场：从 Lengbanlist-Extensions 仓库根目录的 index.json 拉取
+# jar 下载到 plugins/（重启生效），Lua 下载到 extensions/ 并自动重载
+extensions-cloud:
+  enabled: true
+  repo: "Serendisand/Lengbanlist-Extensions"
+  branch: "main"
+  mirrors: []

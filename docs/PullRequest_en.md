@@ -127,7 +127,8 @@ part of the contract, shared by the core and by extensions.
 Low-frequency features no longer live in the core; they ship as extensions. **Built-in
 providers, Java extensions, and Lua scripts all walk the same registration path**
 (`ExtensionRegistry`), so the command table, help filtering, tab completion, permissions, and
-gating stay consistent automatically (`/lban ext` only manages the Lua ones).
+gating stay consistent automatically (`/lban ext list` shows both Lua and Java extensions, and
+`enable`/`disable` works for both).
 
 | Form | Entry point | Where the toggle lives |
 | --- | --- | --- |

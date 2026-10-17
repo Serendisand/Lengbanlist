@@ -123,7 +123,7 @@ Lengbanlist/
 
 低频功能不再写进核心，而是做成扩展。**内置提供者、Java 扩展、Lua 脚本三种来源走同一条注册
 路径**（`ExtensionRegistry`），因此命令表、帮助过滤、补全、权限与门控全都自动一致
-（`/lban ext` 只管 Lua 那一批）。
+（`/lban ext list` 会同时列出 Lua 与 Java 扩展，`enable/disable` 两边都支持）。
 
 | 形态 | 入口 | 开关来源 |
 | --- | --- | --- |

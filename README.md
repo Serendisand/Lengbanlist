@@ -52,7 +52,9 @@ Lengbanlist 起初只是台封禁广播机：谁被封了，全服喊一声。
 - **Lua 扩展**：把 `.lua` 丢进 `plugins/Lengbanlist/extensions/`，`/lban ext reload` 就生效——不用编译，不用重启。核心自带的 `/lban tp`、`/sc` 就是这么写的。
 - **Java 扩展**：独立 Bukkit 插件，编译期依赖 `lengbanlist-api`，能注册命令、挂核心决策钩子、复用核心的连接池。
 
-两种扩展注册的命令和内置命令走同一条路径，权限、补全、`/lban help`、功能开关自动对齐；装了哪些 Lua 扩展，`/lban ext list` 一眼看完。
+两种扩展注册的命令和内置命令走同一条路径，权限、补全、`/lban help`、功能开关自动对齐；装了哪些扩展，`/lban ext list` 一眼看完。
+
+不想手动搬文件的话，`/lban ext market` 看云端市场，`/lban ext install <扩展名>` 一键装：Lua 装完自动重载，jar 会下载到 `plugins/` 并提示重启。
 
 ## 环境要求
 

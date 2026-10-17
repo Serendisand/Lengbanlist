@@ -2,20 +2,28 @@ package org.leng.extension.lua;
 
 import org.leng.Lengbanlist;
 import org.leng.api.ExtensionLoadException;
+import org.leng.extension.ExtensionInstallRecord;
 import org.leng.extension.ExtensionRegistry;
+import org.leng.net.DownloadService;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * 扫描 {@code plugins/Lengbanlist/extensions/} 下的 {@code <扩展名>.lua} 并加载。
  *
  * <p><b>脚本在、扩展就在</b>，没有安装清单、没有迁移、没有第二个文件记录"装了什么"。
+ * 市场安装记录（{@code extensions/.cache/installed.json}）只用于版本与更新判定，
+ * 不参与"装没装"——删掉脚本就是卸载，记录留着也不会把扩展复活。
  * 卸载就是删脚本。这样"安装状态"只有一个来源，不会出现清单与实际不同步。
  *
  * <p><b>脚本平铺、配置下钻一层</b>：脚本是 {@code extensions/<id>.lua}，扩展自己的
@@ -184,7 +192,14 @@ public final class LuaLoader {
         }
     }
 
-    private void ensureDefaults(File root) {
+    /**
+     * 释放随 jar 打包的官方扩展，只在 {@code extensions/} 整个目录不存在时执行一次。
+     *
+     * <p>释放出来的脚本会顺带登记进市场安装记录（版本从脚本的 {@code leng.version(...)}
+     * 解析），这样它们能被 {@code /lban ext install} 正常更新，而不是被当成
+     * "用户自己放的文件"而拒绝覆盖。安装状态本身仍只看脚本在不在——记录只服务市场。
+     */
+    void ensureDefaults(File root) {
         if (root.exists()) {
             return;
         }
@@ -195,7 +210,37 @@ public final class LuaLoader {
                 plugin.getLogger().warning("释放默认扩展文件 " + path + " 失败: " + t);
             }
         }
+        recordBundledExtensions(root);
     }
+
+    private void recordBundledExtensions(File root) {
+        ExtensionInstallRecord record = new ExtensionInstallRecord(plugin);
+        for (String path : BUNDLED_FILES) {
+            if (!path.endsWith(LuaExtension.ENTRY_SUFFIX)) {
+                continue;
+            }
+            String fileName = new File(path).getName();
+            String id = fileName.substring(0, fileName.length() - LuaExtension.ENTRY_SUFFIX.length());
+            File script = new File(root, fileName);
+            if (!script.isFile()) {
+                continue;
+            }
+            try {
+                String body = Files.readString(script.toPath(), StandardCharsets.UTF_8);
+                record.put(id, scriptVersion(body), "lua", DownloadService.sha256Hex(script.toPath()));
+            } catch (Exception e) {
+                plugin.getLogger().warning("登记官方扩展 " + id + " 失败: " + e.getMessage());
+            }
+        }
+    }
+
+    private static String scriptVersion(String body) {
+        Matcher matcher = VERSION_PATTERN.matcher(body);
+        return matcher.find() ? matcher.group(1) : "";
+    }
+
+    private static final Pattern VERSION_PATTERN =
+            Pattern.compile("leng\\s*\\.\\s*version\\s*\\(\\s*[\"']([^\"']+)[\"']");
 
     private void load(File script) {
         LuaExtension extension = new LuaExtension(plugin, registry, script);

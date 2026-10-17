@@ -52,7 +52,9 @@ The core keeps only the punishment loop; everything else can be taken out. Two w
 - **Lua extensions**: drop a `.lua` file into `plugins/Lengbanlist/extensions/` and run `/lban ext reload` — no compilation, no restart. The bundled `/lban tp` and `/sc` are written this way.
 - **Java extensions**: a standalone Bukkit plugin depending on `lengbanlist-api` at compile time, able to register commands, hook into core decision points, and reuse the core's connection pool.
 
-Commands from either kind walk the same registration path as built-in ones, so permissions, tab completion, `/lban help`, and feature toggles stay in sync; `/lban ext list` shows what's installed.
+Commands from either kind walk the same registration path as built-in ones, so permissions, tab completion, `/lban help`, and feature toggles stay in sync; `/lban ext list` shows both Lua and Java extensions.
+
+Don't feel like moving files by hand? `/lban ext market` shows the cloud market and `/lban ext install <id>` installs with one command: Lua extensions reload immediately, jars are downloaded into `plugins/` and the server is told a restart is required.
 
 ## Requirements
 
