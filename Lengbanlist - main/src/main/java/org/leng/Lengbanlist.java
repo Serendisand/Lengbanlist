@@ -39,10 +39,8 @@ import org.leng.service.AppealManager;
 import org.leng.service.AuditManager;
 import org.leng.service.BanManager;
 import org.leng.service.BroadcastManager;
-import org.leng.service.EscalationManager;
 import org.leng.service.ExpiryReminderTask;
 import org.leng.service.FreezeManager;
-import org.leng.service.ImmunityManager;
 import org.leng.service.IpAssociationManager;
 import org.leng.service.MuteManager;
 import org.leng.service.ReportManager;
@@ -74,8 +72,6 @@ public class Lengbanlist extends JavaPlugin {
     public SchedulerUtils.SchedulerTask broadcastTask;
     private SchedulerUtils.SchedulerTask historyCleanupTask;
     private SchedulerUtils.SchedulerTask expiryReminderTask;
-    private ImmunityManager immunityManager;
-    private EscalationManager escalationManager;
     private GuiSessionManager guiSessionManager;
     private GuiCommands.Gui guiCommand;
     private volatile ModelCloudManager modelCloudManager;
@@ -166,10 +162,8 @@ public void onLoad() {
 
     banManager = new BanManager(this);
     warnManager = new WarnManager(this);
-    immunityManager = new ImmunityManager(this);
     punishmentGate = new PunishmentGate(this);
     durationPolicy = new DurationPolicy(this);
-    escalationManager = new EscalationManager(this);
     guiSessionManager = new GuiSessionManager();
     guiCommand = new GuiCommands.Gui(this);
     webServer = new WebServer(this);
@@ -332,7 +326,6 @@ public void onEnable() {
     // 扩展注册表先建好并装入内置提供者，命令表随后从它派生。
     extensionRegistry = new ExtensionRegistry(this);
     BuiltinExtensions.registerAll(this, extensionRegistry);
-    BuiltinExtensions.registerHooks(this, extensionRegistry);
     BuiltinExtensions.registerFeatures(this, extensionRegistry);
     coreService = new CoreService(this, extensionRegistry);
     getServer().getServicesManager().register(org.leng.api.LengbanlistCore.class, coreService,
@@ -679,14 +672,6 @@ void shutdownStorage() {
 
     public WarnManager getWarnManager() {
         return warnManager;
-    }
-
-    public ImmunityManager getImmunityManager() {
-        return immunityManager;
-    }
-
-    public EscalationManager getEscalationManager() {
-        return escalationManager;
     }
 
     public GuiSessionManager getGuiSessionManager() {

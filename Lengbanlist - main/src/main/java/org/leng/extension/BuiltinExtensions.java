@@ -86,7 +86,6 @@ public final class BuiltinExtensions {
             Map.entry("mute", "禁言"),
             Map.entry("getip", "IP 归属地"),
             Map.entry("alts", "小号查询"),
-            Map.entry("immunity", "权重免疫"),
             // 以下功能没有自己的命令或钩子，行为分散在核心各处（GUI 按钮、监听器、
             // 定时任务、Web 端点）。登记它们是为了让 isFeatureActive 能回答
             // "已安装 且 开启"，而不是回落到"未知功能只看开关"。
@@ -194,29 +193,6 @@ public final class BuiltinExtensions {
         }
     }
     /**
-     * 注册<b>只提供钩子、没有命令</b>的内置功能。
-     *
-     * <p>免疫系统就是这一类：它不注册任何命令，只在处罚决策点插一条策略。
-     * 把它登记为提供者，是为了让 {@code isFeatureActive("immunity")} 能正确回答
-     * "已安装 且 开启"，而不是回落到"未知功能只看开关"。
-     */
-    public static void registerHooks(Lengbanlist plugin, ExtensionRegistry registry) {
-        registerHook(plugin, registry, "immunity",
-                org.leng.api.PunishmentDecisionHook.class, plugin.getImmunityManager());
-        registerHook(plugin, registry, "escalation",
-                org.leng.api.DurationPolicyHook.class, plugin.getEscalationManager());
-    }
-
-    private static <T> void registerHook(Lengbanlist plugin, ExtensionRegistry registry,
-                                         String feature, Class<T> type, T hook) {
-        try {
-            registry.register(new HookProvider<>(feature, type, hook));
-        } catch (Exception e) {
-            plugin.getLogger().warning("注册内置钩子 " + feature + " 失败: " + e);
-        }
-    }
-
-    /**
      * 把剩余的功能键登记为"只声明功能、不带任何注册项"的提供者。
      *
      * <p>这些功能的行为分散在核心各处（GUI 按钮、监听器、定时任务、Web 端点），
@@ -304,45 +280,6 @@ public final class BuiltinExtensions {
         @Override
         public void onEnable(ExtensionContext context) {
             context.commands().register(commands.toArray(new CommandSpec[0]));
-        }
-    }
-
-    /** 无命令、只挂一条钩子的内置提供者。 */
-    private static final class HookProvider<T> implements LengbanlistExtension, CoreProvided {
-
-        private final String id;
-        private final Class<T> hookType;
-        private final T hook;
-
-        private HookProvider(String id, Class<T> hookType, T hook) {
-            this.id = id;
-            this.hookType = hookType;
-            this.hook = hook;
-        }
-
-        @Override
-        public String id() {
-            return id;
-        }
-
-        @Override
-        public String name() {
-            return displayName(id);
-        }
-
-        @Override
-        public String version() {
-            return "";
-        }
-
-        @Override
-        public java.util.Set<String> features() {
-            return java.util.Set.of(id);
-        }
-
-        @Override
-        public void onEnable(ExtensionContext context) {
-            context.hooks().register(hookType, hook);
         }
     }
 }

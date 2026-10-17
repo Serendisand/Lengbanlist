@@ -7,7 +7,6 @@ import org.leng.Lengbanlist;
 import org.leng.api.DurationPolicyHook;
 import org.leng.api.ExtensionContext;
 import org.leng.api.LengbanlistExtension;
-import org.leng.service.EscalationManager;
 import org.leng.service.WarnManager;
 import org.leng.object.WarnEntry;
 import org.leng.util.TimeUtils;
@@ -29,8 +28,6 @@ import static org.mockito.Mockito.lenient;
  * <p>关键点是：钩子缺席时的兜底<b>不是</b>恒等，而是核心内置的"按警告数"规则——
  * 改造前 {@code features.escalation} 关闭时走的就是它。若误做成"用请求的时长"，
  * auto 场景下会直接判成 0 时长。
- *
- * <p>另外钉住一个已知例外：禁言时长不走累犯分级（与改造前一致）。
  */
 @ExtendWith(MockitoExtension.class)
 class DurationPolicyTest {
@@ -161,19 +158,5 @@ class DurationPolicyTest {
 
         assertEquals(TimeUtils.daysToMillis(1), policy.autoBan("Steve").durationMillis(),
                 "卸载后必须回到内置兜底");
-    }
-
-    // ---------------------------------------------------------- 已知例外
-
-    @Test
-    void escalationMuteStaysWarnBasedByDesign() {
-        warnCount(3);
-        EscalationManager escalation = new EscalationManager(plugin);
-
-        DurationPolicyHook.Decision decision = escalation.mute("Steve");
-
-        assertEquals(TimeUtils.daysToMillis(14), decision.durationMillis(),
-                "禁言恒按警告数，不走累犯分级——与改造前 resolveMute 行为一致");
-        assertEquals(0, decision.offenseCount());
     }
 }

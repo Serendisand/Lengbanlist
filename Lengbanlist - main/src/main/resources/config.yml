@@ -48,8 +48,9 @@ features:
   # --- 广播 ---
   broadcast: true        # 广播封禁人数（/lban a、Web 面板触发）
 
-  # 已搬进 Lua 扩展的功能（/lban tp、/sc）在这里没有开关：它们的开关在
-  # extensions/<扩展名>/config.yml 里。一个功能只有一个开关来源，永不复制。
+  # 已搬进扩展的功能在这里没有开关：Lua 扩展（/lban tp、/sc）在
+  # extensions/<扩展名>/config.yml；Java 扩展（punishpolicy）在
+  # plugins/Lengbanlist-Ext-PunishPolicy/config.yml。一个功能只有一个开关来源。
 
   # --- 聊天与过滤 ---
   chat-filter: true    # 违禁词过滤、自动禁言、可疑消息标记
@@ -60,9 +61,9 @@ features:
   vpn-detection: true  # VPN/代理检测（登录时，配合 vpn-detection 配置段）
   alts: true           # 小号检测（/lban alts，配合 alts 配置段）
 
-  # --- 处罚体系（免疫/升级/提醒） ---
-  immunity: true       # 权重系统（按权重免疫封禁/踢出，配合 immunity 配置段）
-  escalation: true     # 封禁时长自动升级（惯犯加重处罚，配合 escalation 配置段）
+  # --- 处罚提醒 ---
+  # 权重免疫与累犯升级已搬进 punishpolicy 扩展：开关在
+  # plugins/Lengbanlist-Ext-PunishPolicy/config.yml，这里不再保留键。
   expiry-reminder: true  # 封禁到期提醒（配合 expiry-reminder 配置段）
   offline-warn: true   # 离线警告（玩家上线时通知，配合 offline-warn 配置段）
 
@@ -179,25 +180,10 @@ web:
     bing-enabled: true          # 关闭后默认背景只显示渐变，插件不再访问任何外部接口
     bing-market: "zh-CN"        # 必应地区，影响壁纸内容，例如 en-US / ja-JP
 
-# ---------- 封禁时长自动升级（escalation） ----------
-# 惯犯封禁时封禁时长逐级递增
-escalation:
-  tiers:
-    - 7d
-    - 30d
-    - 90d
-    - 180d
-    - 365d
-
 # ---------- 封禁到期提醒（expiry-reminder） ----------
 expiry-reminder:
   lead-time: 600      # 到期前多少秒提醒
   interval: 60        # 扫描间隔（秒）
-
-# ---------- 权重系统（immunity） ----------
-# 目标玩家权重高于操作者权重时，可免疫该操作者的封禁/踢出
-immunity:
-  default-weight: 0   # 玩家默认免疫权重
 
 # ---------- 离线警告（offline-warn） ----------
 offline-warn:
