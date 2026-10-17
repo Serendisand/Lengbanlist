@@ -104,6 +104,8 @@ download:
     # 云端模型索引；留空使用内置默认链（raw.githubusercontent -> gh-proxy -> mirror.ghproxy）
     models: []
     # 云端扩展索引与产物；留空使用内置默认链
+    # 国内网络可自选可用的加速前缀，例如：
+    # - "https://ghfast.top/https://raw.githubusercontent.com/Serendisand/Lengbanlist-Extensions/main/index.json"
     extensions: []
 
 # ---------- 更新检查 ----------

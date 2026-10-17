@@ -56,6 +56,18 @@ public final class ExtensionCloudManager {
     private static final Pattern FILE_PATTERN = Pattern.compile("[A-Za-z0-9._-]{1,128}\\.(jar|lua)");
     private static final Pattern CONFIG_PATTERN = Pattern.compile("[a-z0-9-]{1,32}/config\\.yml");
 
+    /**
+     * 国内常见的 GitHub 加速前缀。索引拉取与 Release 资产下载都走它们；
+     * 这些站点会批量失效，所以只作为候选，失败就跳过，配置里可以覆盖。
+     */
+    private static final List<String> GITHUB_PROXIES = List.of(
+            "https://ghfast.top/",
+            "https://ghproxy.net/",
+            "https://github.moeyy.xyz/",
+            "https://gh-proxy.com/",
+            "https://mirror.ghproxy.com/"
+    );
+
     private final Lengbanlist plugin;
     private final DownloadService downloads;
     private final ExtensionInstallRecord installRecord;
@@ -194,12 +206,13 @@ public final class ExtensionCloudManager {
             return list.stream().filter(DownloadService::isAllowedUrl).toList();
         }
         String baseRaw = "https://raw.githubusercontent.com/" + repo() + "/" + branch() + "/index.json";
-        return List.of(
-                baseRaw,
-                "https://cdn.jsdelivr.net/gh/" + repo() + "@" + branch() + "/index.json",
-                "https://gh-proxy.com/" + baseRaw,
-                "https://mirror.ghproxy.com/" + baseRaw
-        );
+        List<String> chain = new ArrayList<>();
+        chain.add(baseRaw);
+        chain.add("https://cdn.jsdelivr.net/gh/" + repo() + "@" + branch() + "/index.json");
+        for (String proxy : GITHUB_PROXIES) {
+            chain.add(proxy + baseRaw);
+        }
+        return chain;
     }
 
     private MirrorChain beginTask() {
@@ -604,7 +617,24 @@ public final class ExtensionCloudManager {
     private List<String> candidates(String explicitUrl, String relativePath) {
         List<String> result = new ArrayList<>();
         if (!blank(explicitUrl) && DownloadService.isAllowedUrl(explicitUrl)) {
-            result.add(explicitUrl.trim());
+            String url = explicitUrl.trim();
+            result.add(url);
+            // Release 资产在 github.com 上，直连不通时用加速前缀包一层；
+            // 仓库里的 Lua 文件走下面的"索引镜像 + 相对路径"。
+            if (url.startsWith("https://github.com/")) {
+                for (String proxy : GITHUB_PROXIES) {
+                    String candidate = proxy + url;
+                    if (DownloadService.isAllowedUrl(candidate) && !result.contains(candidate)) {
+                        result.add(candidate);
+                    }
+                }
+            }
+        }
+        // 仓库里的 Lua / 配置文件才按"索引镜像 + 相对路径"推导；
+        // jar 是 Release 资产，不在仓库里，只走显式 URL 与它的加速前缀。
+        boolean deriveFromMirrors = blank(explicitUrl) || !relativePath.endsWith(".jar");
+        if (!deriveFromMirrors) {
+            return result;
         }
         for (String indexUrl : mirrors()) {
             String base = indexUrl.endsWith("/index.json")
