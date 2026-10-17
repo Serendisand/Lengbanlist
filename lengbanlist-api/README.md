@@ -4,11 +4,12 @@
 
 | 形态 | 用什么写 | 放哪里 | 要编译吗 | 适合 |
 | --- | --- | --- | --- | --- |
-| **Lua 扩展** | Lua 5.2 脚本 | `plugins/Lengbanlist/extensions/<扩展名>/` | **不用**，`/lban ext reload` 即可生效 | 加命令、定时任务、事件反应。绝大多数低频功能 |
+| **Lua 扩展** | Lua 5.2 脚本 | `plugins/Lengbanlist/extensions/<扩展名>.lua`（配置在 `<扩展名>/config.yml`） | **不用**，`/lban ext reload` 即可生效 | 加命令、定时任务、事件反应。绝大多数低频功能 |
 | **Java 扩展** | Java 17 独立插件 | `plugins/` 下的一个 jar | 要，`mvn clean package` | 需要自己的监听器/复杂状态/直接读写核心表 |
 
-本模块服务于后者。只想加个命令的话请走 Lua 路线，脚本 API 见
-[`docs/LuaExtensions.md`](../docs/LuaExtensions.md)——不用编译、不用发版、不用管 classloader。
+本模块服务于后者。只想加个命令的话请走 Lua 路线——不用编译、不用发版、不用管 classloader；
+现成的例子是核心自带的 `extensions/tp.lua`、`extensions/staffchat.lua`，更多见
+[Lengbanlist-Extensions](https://github.com/Serendisand/Lengbanlist-Extensions)。
 
 ---
 
@@ -352,8 +353,8 @@ cp target/*.jar 服务端/plugins/   # 丢进 plugins，与 Lengbanlist-*.jar �
 
 | 方法 | 说明 |
 | --- | --- |
-| `Connection connection()` | 借核心的连接池；**用完还回去，别关** |
-| `String tablePrefix()` | 核心的表前缀，扩展表也带上它 |
+| `Connection connection()` | 借出核心连接池里的一个连接；**用完自己关**（try-with-resources），连接会回到池里 |
+| `String tablePrefix()` | 本扩展专属的表名前缀，形如 `ext_<扩展名>_`（连字符换成下划线） |
 | `boolean isNetworkDatabase()` | 是否 MySQL/MariaDB（跨服共享） |
 
 ### HookRegistry（插进核心判定）
