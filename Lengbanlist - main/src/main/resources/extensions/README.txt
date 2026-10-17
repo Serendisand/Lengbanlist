@@ -21,5 +21,5 @@ Lengbanlist Lua 扩展目录
 注意：脚本跑在主线程上，超时（单次调用超过 5 秒或指令预算耗尽）会被强制停用并写进
 服务端日志。写循环记得留出口。
 
-脚本 API 说明见插件文档 docs/LuaExtensions.md。
-官方扩展的源码在 https://github.com/Serendisand/Lengbanlist-Extensions 。
+脚本能用的 API，看这个目录里的 tp.lua 与 staffchat.lua 最快——现成的例子比说明书直接。
+更多官方扩展的源码在 https://github.com/Serendisand/Lengbanlist-Extensions 。
