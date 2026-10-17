@@ -79,7 +79,7 @@ Commands from either kind walk the same registration path as built-in ones, so p
 | [Screenshots](Lengbanlist_Images.md) | Interface screenshots and results in game |
 | [Contributor Guide](PullRequest_en.md) | Project layout, package responsibilities, extension system, build and tests |
 | [Writing an Extension](../lengbanlist-api/README.md) | The Java extension contract, a full example, method reference |
-| [Multi-platform](readme-website.md) | GitHub / SpigotMC / Modrinth |
+| [Multi-platform](readme-website.md) | GitHub / SpigotMC / Modrinth / Discord |
 | [Usage Restrictions](Mustn't_en.md) | MPL-2.0 and EULA essentials |
 
 ---

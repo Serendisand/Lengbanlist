@@ -79,7 +79,7 @@ Lengbanlist 起初只是台封禁广播机：谁被封了，全服喊一声。
 | [插件展示](docs/Lengbanlist_Images.md) | 界面截图与实际效果 |
 | [开发须知](docs/PullRequest_zh.md) | 工程结构、各包职责、扩展系统、构建与测试 |
 | [扩展开发](lengbanlist-api/README.md) | 用 Java 写扩展：契约、完整示例、方法参考 |
-| [多平台链接](docs/readme-website.md) | GitHub / SpigotMC / Modrinth |
+| [多平台链接](docs/readme-website.md) | GitHub / SpigotMC / Modrinth / Discord |
 | [使用限制与责任声明](docs/Mustn't_zh.md) | MPL-2.0 与 EULA 要点 |
 
 ---
