@@ -1,5 +1,7 @@
 package org.leng.util;
 
+import org.leng.api.DurationParser;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
@@ -8,40 +10,33 @@ public class TimeUtils {
     private static final ThreadLocal<SimpleDateFormat> DATE_FORMAT =
             ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));
 
+    // 单位换算与解析都委托给契约模块，确保扩展看到的是同一套规则
     public static long secondsToMillis(long seconds) {
-        return multiplyExactOrInvalid(seconds, 1000L);
+        return DurationParser.secondsToMillis(seconds);
     }
 
     public static long minutesToMillis(long minutes) {
-        return multiplyExactOrInvalid(minutes, 60_000L);
+        return DurationParser.minutesToMillis(minutes);
     }
 
     public static long hoursToMillis(long hours) {
-        return multiplyExactOrInvalid(hours, 3_600_000L);
+        return DurationParser.hoursToMillis(hours);
     }
 
     public static long daysToMillis(long days) {
-        return multiplyExactOrInvalid(days, 86_400_000L);
+        return DurationParser.daysToMillis(days);
     }
 
     public static long weeksToMillis(long weeks) {
-        return multiplyExactOrInvalid(weeks, 604_800_000L);
+        return DurationParser.weeksToMillis(weeks);
     }
 
     public static long monthsToMillis(long months) {
-        return multiplyExactOrInvalid(months, 2_592_000_000L);
+        return DurationParser.monthsToMillis(months);
     }
 
     public static long yearsToMillis(long years) {
-        return multiplyExactOrInvalid(years, 31_536_000_000L);
-    }
-
-    private static long multiplyExactOrInvalid(long value, long factor) {
-        try {
-            return Math.multiplyExact(value, factor);
-        } catch (ArithmeticException e) {
-            return -1L;
-        }
+        return DurationParser.yearsToMillis(years);
     }
 
     public static long parseTime(String timeStr) {
@@ -53,36 +48,7 @@ public class TimeUtils {
     }
 
     public static long parseDurationToMillis(String timeStr) {
-        if (timeStr == null || timeStr.isEmpty()) {
-            return -1L;
-        }
-
-        if (timeStr.equalsIgnoreCase("forever") || timeStr.equalsIgnoreCase("perm") || timeStr.equalsIgnoreCase("permanent")) {
-            return Long.MAX_VALUE;
-        }
-
-        try {
-            char unit = timeStr.charAt(timeStr.length() - 1);
-            long amount = Long.parseLong(timeStr.substring(0, timeStr.length() - 1));
-
-            switch (unit) {
-                case 's':
-                case 'S': return secondsToMillis(amount);
-                case 'm': return minutesToMillis(amount);
-                case 'h':
-                case 'H': return hoursToMillis(amount);
-                case 'd':
-                case 'D': return daysToMillis(amount);
-                case 'w':
-                case 'W': return weeksToMillis(amount);
-                case 'M': return monthsToMillis(amount);
-                case 'y':
-                case 'Y': return yearsToMillis(amount);
-                default: return -1L;
-            }
-        } catch (NumberFormatException e) {
-            return -1L;
-        }
+        return DurationParser.parseMillis(timeStr);
     }
 
     public static long ceilToSecond(long millis) {
