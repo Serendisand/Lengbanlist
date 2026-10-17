@@ -185,6 +185,16 @@ final class ExtensionFacades {
         public int activeIpBanCount() {
             return plugin.getBanManager().countActiveIpBans();
         }
+
+        @Override
+        public int countBanHistory(String target) {
+            return plugin.getDatabaseManager().countBanHistory(target);
+        }
+
+        @Override
+        public int countIpBanHistory(String ip) {
+            return plugin.getDatabaseManager().countIpBanHistory(ip);
+        }
     }
 
     private static final class MuteServiceImpl implements MuteService {

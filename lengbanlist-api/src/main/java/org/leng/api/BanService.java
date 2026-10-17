@@ -43,4 +43,10 @@ public interface BanService {
     int activeBanCount();
 
     int activeIpBanCount();
+
+    /** 该目标的历史封禁次数（含已过期记录），用于累犯判定。 */
+    int countBanHistory(String target);
+
+    /** 该 IP 的历史封禁次数（含已过期记录），用于累犯判定。 */
+    int countIpBanHistory(String ip);
 }
