@@ -2,6 +2,7 @@ package org.leng.extension;
 
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,8 +31,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 /**
  * 扩展注册表与统一门控。
@@ -404,5 +408,33 @@ class ExtensionRegistryTest {
 
         YamlConfiguration after = YamlConfiguration.loadConfiguration(new File(dir, "config.yml"));
         assertTrue(after.getBoolean("features.kit"), "扩展已经自己写了这个键时，旧核心键不得覆盖它");
+    }
+
+    @Test
+    void externalJavaExtensionsAreListedAndToggleable(@TempDir Path tempDir) throws Exception {
+        Plugin owner = mock(Plugin.class, withSettings()
+                .extraInterfaces(LengbanlistExtension.class, SelfGatedExtension.class));
+        LengbanlistExtension external = (LengbanlistExtension) owner;
+        when(external.id()).thenReturn("kit");
+        when(external.name()).thenReturn("Kit");
+        when(external.version()).thenReturn("1.0.0");
+        when(external.requiredApi()).thenReturn("");
+        when(external.features()).thenReturn(Set.of("kit"));
+        when(((SelfGatedExtension) owner).isFeatureEnabled(anyString())).thenReturn(true);
+        when(owner.getDataFolder()).thenReturn(tempDir.toFile());
+        when(owner.getName()).thenReturn("Lengbanlist-Ext-Kit");
+
+        registry.register(external);
+
+        List<ExtensionRegistry.ExtensionInfo> listed = registry.externalExtensions();
+        assertEquals(1, listed.size(), "只列外部 Java 扩展，内置提供者和 Lua 不在里面");
+        assertEquals("kit", listed.get(0).id());
+        assertTrue(listed.get(0).enabled());
+
+        assertTrue(registry.setExternalEnabled("kit", false));
+
+        YamlConfiguration saved = YamlConfiguration.loadConfiguration(
+                new File(tempDir.toFile(), "config.yml"));
+        assertFalse(saved.getBoolean("enabled", true), "开关要写进扩展自己的 config.yml");
     }
 }

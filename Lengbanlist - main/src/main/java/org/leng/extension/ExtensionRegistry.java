@@ -163,14 +163,74 @@ public final class ExtensionRegistry {
     }
 
     /** 全部已注册扩展贡献的命令声明，按注册顺序（内置在前）。 */
-    public List<CommandSpec> commandSpecs() {
-        List<CommandSpec> specs = new ArrayList<>();
+    public List<CommandSpec> commandSpecs() {        List<CommandSpec> specs = new ArrayList<>();
         for (Registration reg : byId.values()) {
             if (reg.enabled) {
                 specs.addAll(reg.commands);
             }
         }
         return specs;
+    }
+
+    /**
+     * 外部 Java 扩展的快照，给 {@code /lban ext list} 用。
+     *
+     * <p>只列 {@code extension instanceof Plugin} 的扩展——内置提供者数量太多，Lua 扩展由
+     * {@code LuaLoader} 自己列，两边不重复。
+     */
+    public List<ExtensionInfo> externalExtensions() {
+        List<ExtensionInfo> result = new ArrayList<>();
+        for (Registration reg : byId.values()) {
+            if (!(reg.extension instanceof Plugin)) {
+                continue;
+            }
+            boolean selfGated = reg.extension instanceof SelfGatedExtension;
+            boolean on = reg.enabled && (selfGated
+                    ? ((SelfGatedExtension) reg.extension).isFeatureEnabled(reg.extension.id())
+                    : plugin.isFeatureEnabled(reg.extension.id()));
+            String configPath = "";
+            if (reg.context != null) {
+                try {
+                    configPath = reg.context.config().file().getPath();
+                } catch (Exception e) {
+                    configPath = "";
+                }
+            }
+            result.add(new ExtensionInfo(reg.extension.id(), reg.extension.name(),
+                    reg.extension.version(), on, configPath));
+        }
+        return result;
+    }
+
+    /**
+     * 打开/关闭一个外部 Java 扩展：写它自己配置里的 {@code enabled}，再刷新命令表。
+     *
+     * <p>不卸载扩展——注册表里的钩子仍然在，但门控每次现读配置，所以关掉后立即失效；
+     * 重新打开时命令会重新注册。监听器需要扩展自己在入口查 {@code isFeatureActive}。
+     *
+     * @return 不是外部 Java 扩展（或写配置失败）时返回 false
+     */
+    public boolean setExternalEnabled(String extensionId, boolean enabled) {
+        Registration reg = byId.get(extensionId);
+        if (reg == null || !(reg.extension instanceof Plugin)
+                || !(reg.extension instanceof SelfGatedExtension) || reg.context == null) {
+            return false;
+        }
+        try {
+            ExtensionConfig config = reg.context.config();
+            config.raw().set("enabled", enabled);
+            config.save();
+            notifyChanged();
+            return true;
+        } catch (Exception e) {
+            plugin.getLogger().warning("切换扩展 " + extensionId + " 开关失败: " + e);
+            return false;
+        }
+    }
+
+    /** {@link #externalExtensions()} 的一行。 */
+    public record ExtensionInfo(String id, String name, String version,
+                                boolean enabled, String configPath) {
     }
 
     /** 某个功能键归属的扩展 id；未知返回 {@code null}。 */
