@@ -1,6 +1,7 @@
 package org.leng.api;
 
 import org.bukkit.Bukkit;
+import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Locale;
@@ -87,6 +88,13 @@ public abstract class LengbanlistExtensionPlugin extends JavaPlugin implements L
             onExtensionDisable();
         } catch (Throwable t) {
             getLogger().warning("扩展停用时出错: " + t);
+        }
+        try {
+            // 核心停用扩展时 Bukkit 插件本身并没有被 disable，监听器不会自动摘掉；
+            // 不注销的话命令没了、事件还在跑。
+            HandlerList.unregisterAll(this);
+        } catch (Throwable t) {
+            getLogger().warning("注销扩展监听器时出错: " + t);
         }
         if (core != null) {
             core.disable(id());
