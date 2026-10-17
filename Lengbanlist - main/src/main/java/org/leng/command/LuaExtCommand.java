@@ -26,20 +26,23 @@ import java.util.function.Supplier;
  * {@code /lban ext} —— 扩展的管理入口。
  *
  * <pre>
- *   /lban ext list              列出已加载的扩展、开关状态与加载失败原因
+ *   /lban ext list              列出已装的扩展与云端市场条目
  *   /lban ext reload            重新扫描 extensions/ 并全部重跑
+ *   /lban ext refresh           拉取云端扩展索引
  *   /lban ext enable  &lt;id&gt;      打开扩展（Lua 写脚本目录，Java 写插件自己的 config.yml）
  *   /lban ext disable &lt;id&gt;      关掉扩展（同上）
+ *   /lban ext install &lt;id|all&gt;  从云端下载安装
  * </pre>
  *
- * <p>Lua 扩展的开关写的是 {@code extensions/<id>/config.yml}；Java 扩展写它自己的
- * {@code plugins/<扩展名>/config.yml}。两边的开关都不在核心配置里。
+ * <p>命名与 {@code /lban models} 对齐：{@code list} 同时看本地与云端，{@code refresh}
+ * 拉索引，{@code install} 下载。Lua 扩展的开关写 {@code extensions/<id>/config.yml}；
+ * Java 扩展写它自己的 {@code plugins/<扩展名>/config.yml}，两边都不在核心配置里。
  */
 public final class LuaExtCommand implements CommandExecutor, TabCompleter {
 
     private static final String PERMISSION = "lengbanlist.reload";
     private static final List<String> ACTIONS =
-            List.of("list", "reload", "enable", "disable", "refresh", "market", "install");
+            List.of("list", "reload", "enable", "disable", "refresh", "install");
 
     private final Lengbanlist plugin;
 
@@ -59,7 +62,11 @@ public final class LuaExtCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        String action = args.length == 0 ? "list" : args[0].toLowerCase(Locale.ROOT);
+        if (args.length == 0) {
+            usage(sender);
+            return true;
+        }
+        String action = args[0].toLowerCase(Locale.ROOT);
         switch (action) {
             case "list" -> list(sender, loader);
             case "reload" -> {
@@ -69,7 +76,6 @@ public final class LuaExtCommand implements CommandExecutor, TabCompleter {
             }
             case "enable", "disable" -> toggle(sender, loader, action, args);
             case "refresh" -> cmdRefresh(sender);
-            case "market" -> cmdMarket(sender);
             case "install" -> cmdInstall(sender, loader, args);
             default -> usage(sender);
         }
@@ -170,22 +176,22 @@ public final class LuaExtCommand implements CommandExecutor, TabCompleter {
             Utils.sendMessage(sender, plugin.prefix() + "§a索引已更新：共 " + index.extensions().size()
                     + " 个扩展" + (index.updated() == null ? "" : "（更新于 " + index.updated() + "）"));
             Utils.sendMessage(sender, plugin.prefix()
-                    + "§7输入 §f/lban ext market §7查看，§f/lban ext install <扩展名> §7安装");
+                    + "§7输入 §f/lban ext list §7查看，§f/lban ext install <扩展名> §7安装");
         });
     }
 
-    private void cmdMarket(CommandSender sender) {
-        ExtensionCloudManager cloud = cloudOrNull(sender);
-        if (cloud == null) {
+    /** 云端条目：和 {@code /lban models list} 一样，同一个 list 里看本地 + 云端。 */
+    private void listCloudExtensions(CommandSender sender) {
+        ExtensionCloudManager cloud = plugin.getExtensionCloudManager();
+        if (!cloud.enabled()) {
             return;
         }
-        Utils.sendMessage(sender, plugin.prefix() + "§e正在读取云端扩展列表喵…");
+        Utils.sendMessage(sender, plugin.prefix() + "§6§l云端扩展 §7(市场)");
         runOffThread(sender, cloud::getIndex, result -> {
             if (result.isEmpty()) {
-                Utils.sendMessage(sender, plugin.prefix() + "§c云端索引不可用，请先执行 §f/lban ext refresh");
+                Utils.sendMessage(sender, "§7  索引不可用，输入 §f/lban ext refresh §7重试");
                 return;
             }
-            Utils.sendMessage(sender, "§7--§b Lengbanlist 扩展市场 §7--");
             for (ExtensionCloudManager.ExtensionInfo info : result.get().extensions()) {
                 String type = info.kind() == ExtensionCloudManager.Kind.JAR ? "§b[Jar]" : "§d[Lua]";
                 String state = !info.ready() ? "§7[未上架]"
@@ -194,8 +200,6 @@ public final class LuaExtCommand implements CommandExecutor, TabCompleter {
                 Utils.sendMessage(sender, type + " " + state + " §f" + name
                         + " §7(" + info.id() + " v" + info.version() + ")");
             }
-            Utils.sendMessage(sender, plugin.prefix()
-                    + "§7安装：§f/lban ext install <扩展名> §7或 §f/lban ext install all");
         });
     }
 
@@ -256,7 +260,7 @@ public final class LuaExtCommand implements CommandExecutor, TabCompleter {
             case INCOMPATIBLE -> Utils.sendMessage(sender, plugin.prefix()
                     + "§c扩展 " + id + " 与当前核心不兼容：" + outcome.detail());
             case NOT_FOUND -> Utils.sendMessage(sender, plugin.prefix()
-                    + "§c云端没有找到扩展 " + id + "，试试 §f/lban ext market");
+                    + "§c云端没有找到扩展 " + id + "，试试 §f/lban ext list");
             default -> Utils.sendMessage(sender, plugin.prefix()
                     + "§c扩展 " + id + " 安装失败：" + outcome.detail());
         }
@@ -277,6 +281,7 @@ public final class LuaExtCommand implements CommandExecutor, TabCompleter {
             Utils.sendMessage(sender, "§c✖ §f" + failure.getKey() + " §7- " + failure.getValue());
         }
         listJavaExtensions(sender);
+        listCloudExtensions(sender);
     }
 
     /** 追加 Java 扩展的列表；只列真正装进来的外部插件，不列内置提供者。 */
@@ -325,10 +330,13 @@ public final class LuaExtCommand implements CommandExecutor, TabCompleter {
     }
 
     private void usage(CommandSender sender) {
-        Utils.sendMessage(sender, plugin.prefix()
-                + "§c用法喵: §f/lban ext <list|reload|enable|disable> [扩展名]");
-        Utils.sendMessage(sender, plugin.prefix()
-                + "§c云端: §f/lban ext <refresh|market|install> [扩展名|all]");
+        Utils.sendMessage(sender, "§7--§b Lengbanlist 扩展管理 §7--");
+        Utils.sendMessage(sender, "§6/lban ext list §7- §3列出本地 + 云端扩展");
+        Utils.sendMessage(sender, "§6/lban ext refresh §7- §3拉取云端扩展索引");
+        Utils.sendMessage(sender, "§6/lban ext install <扩展名|all> §7- §3下载安装");
+        Utils.sendMessage(sender, "§6/lban ext reload §7- §3重新扫描 extensions/ 并全部重跑");
+        Utils.sendMessage(sender, "§6/lban ext enable <扩展名> §7- §3打开扩展");
+        Utils.sendMessage(sender, "§6/lban ext disable <扩展名> §7- §3关掉扩展");
     }
 
     @Override
