@@ -108,7 +108,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 File broadcastFile = new File(plugin.getDataFolder(), "broadcast.yml");
                 if (broadcastFile.exists()) {
                     try {
-                        plugin.getBroadcastFC().load(broadcastFile);
+                        plugin.reloadBroadcastConfig(broadcastFile);
                     } catch (Exception e) {
                         plugin.getLogger().warning("重载broadcast.yml失败: " + e.getMessage());
                     }

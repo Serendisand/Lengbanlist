@@ -1,18 +1,12 @@
 # 插件前缀
 prefix: "§f§l[§x§0§8§4§c§f§bL§x§1§9§5§d§f§be§x§2§9§6§d§f§bn§x§3§a§7§e§f§cg§x§4§a§8§f§f§cb§x§5§b§a§0§f§ca§x§6§b§b§0§f§cn§x§7§c§c§1§f§cl§x§8§c§d§2§f§di§x§9§d§e§2§f§ds§x§a§d§f§3§f§dt§f§l]"
 
-# ---------- 广播设置 ----------
-opensendtime: true   # 是否开启封禁人数循环广播
-sendtime: 5          # 循环广播间隔（分钟）
-
 # ---------- 角色模型 ----------
-Model: "Default"     # 当前模型（说话语气/风格），开启 model-auto-detect 时首次加载会自动设置
+Model: "Default"     # 当前模型
 model-auto-detect: true  # 首次加载时根据系统语言自动选择模型（zh→Default 中文，其他→English）
 
 # ---------- 帮助菜单 ----------
 help:
-  # 把「扩展提供的、模型文件里还没手工写过的」命令自动补进 /lban help（按权限过滤，
-  # 功能没开的不列）。内置命令不受影响——它们在模型文件里是手工编排的。
   extension-commands: true
 
 # ---------- 功能开关----------
@@ -48,10 +42,6 @@ features:
   # --- 广播 ---
   broadcast: true        # 广播封禁人数（/lban a、Web 面板触发）
 
-  # 已搬进扩展的功能在这里没有开关：Lua 扩展（/lban tp、/sc）在
-  # extensions/<扩展名>/config.yml；Java 扩展（punishpolicy）在
-  # plugins/Lengbanlist-Ext-PunishPolicy/config.yml。一个功能只有一个开关来源。
-
   # --- 聊天与过滤 ---
   chat-filter: true    # 违禁词过滤、自动禁言、可疑消息标记
   mute-command-block: true  # 禁言期间屏蔽 chatconfig.yml 中指定的指令
@@ -61,9 +51,6 @@ features:
   vpn-detection: true  # VPN/代理检测（登录时，配合 vpn-detection 配置段）
   alts: true           # 小号检测（/lban alts，配合 alts 配置段）
 
-  # --- 处罚提醒 ---
-  # 权重免疫与累犯升级已搬进 punishpolicy 扩展：开关在
-  # plugins/Lengbanlist-Ext-PunishPolicy/config.yml，这里不再保留键。
   expiry-reminder: true  # 封禁到期提醒（配合 expiry-reminder 配置段）
   offline-warn: true   # 离线警告（玩家上线时通知，配合 offline-warn 配置段）
 
