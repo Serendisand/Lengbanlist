@@ -3,6 +3,7 @@ package org.leng.gui;
 import org.bukkit.entity.Player;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.leng.Lengbanlist;
+import org.leng.service.ReportManager;
 import org.leng.util.IpMatcher;
 import org.leng.util.TimeUtils;
 import org.leng.util.Utils;
@@ -14,6 +15,7 @@ public class WizardManager {
     private static final String META_TARGET = "lengbanlist-target";
     private static final String META_TIME = "lengbanlist-time";
     private static final String META_SILENT = "lengbanlist-silent";
+    private static final String META_REPORT_ID = "lengbanlist-report-id";
 
     private static final String STEP_TARGET = "target";
     private static final String STEP_TIME = "time";
@@ -97,6 +99,63 @@ public class WizardManager {
         setMeta(player, META_ACTION, action);
     }
 
+    /**
+     * 举报 GUI 点玩家头颅后调用：玩家名已经确定，在聊天栏输入举报原因。
+     */
+    public void startReportReason(Player player, String target) {
+        if (!allowed(player, "lengbanlist.report", "report")) {
+            return;
+        }
+        String safeTarget = target == null ? "" : target.trim();
+        if (safeTarget.isEmpty()) {
+            Utils.sendMessage(player, plugin.prefix() + "§c玩家名不能为空喵。");
+            return;
+        }
+        if (safeTarget.equalsIgnoreCase(player.getName())) {
+            Utils.sendMessage(player, plugin.prefix() + "§c不能举报自己喵！");
+            return;
+        }
+        clear(player);
+        setMeta(player, META_ACTION, "report-submit");
+        setMeta(player, META_TARGET, safeTarget);
+        setMeta(player, META_STEP, STEP_REASON);
+        Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入对§f" + safeTarget
+                + "§e的举报原因" + CANCEL_HINT);
+    }
+
+    /**
+     * 举报管理 GUI 的「自定义警告原因」入口：警告完成后回到该举报详情。
+     */
+    public void startWarnTarget(Player player, String target, String reportId) {
+        if (!allowed(player, "lengbanlist.warn", "warn")) {
+            return;
+        }
+        String safeTarget = target == null ? "" : target.trim();
+        if (safeTarget.isEmpty()) {
+            Utils.sendMessage(player, plugin.prefix() + "§c玩家名不能为空喵。");
+            return;
+        }
+        clear(player);
+        setMeta(player, META_ACTION, "report-warn");
+        setMeta(player, META_TARGET, safeTarget);
+        setMeta(player, META_REPORT_ID, reportId == null ? "" : reportId);
+        setMeta(player, META_STEP, STEP_REASON);
+        Utils.sendMessage(player, plugin.prefix() + "§e请在聊天栏输入对§f" + safeTarget
+                + "§e的警告原因" + CANCEL_HINT);
+    }
+
+    private boolean allowed(Player player, String permission, String feature) {
+        if (!plugin.isFeatureActive(feature)) {
+            plugin.sendFeatureDisabled(player);
+            return false;
+        }
+        if (!player.hasPermission(permission)) {
+            Utils.sendMessage(player, plugin.prefix() + "§c不是你的工作喵！");
+            return false;
+        }
+        return true;
+    }
+
     public boolean isRunning(Player player) {
         return player.hasMetadata(META_ACTION);
     }
@@ -131,6 +190,38 @@ public class WizardManager {
             case "warn":
                 if (check(player, "lengbanlist.warn", "warn")) {
                     handleSingleStep(player, input, "lban warn");
+                }
+                break;
+            case "report-submit":
+                if (check(player, "lengbanlist.report", "report")) {
+                    String target = meta(player, META_TARGET, "");
+                    String reason = input.trim();
+                    if (reason.isEmpty()) {
+                        Utils.sendMessage(player, plugin.prefix() + "§c举报原因不能为空喵。");
+                        return;
+                    }
+                    clear(player);
+                    ReportManager manager = plugin.getReportManager();
+                    ReportManager.SubmitOutcome outcome =
+                            manager.submitReport(player, target, reason);
+                    manager.sendSubmitFeedback(player, outcome);
+                }
+                break;
+            case "report-warn":
+                if (check(player, "lengbanlist.warn", "warn")) {
+                    String target = meta(player, META_TARGET, "");
+                    String reportId = meta(player, META_REPORT_ID, "");
+                    String reason = input.trim();
+                    if (reason.isEmpty()) {
+                        Utils.sendMessage(player, plugin.prefix() + "§c警告原因不能为空喵。");
+                        return;
+                    }
+                    clear(player);
+                    plugin.getWarnManager().warnPlayer(target, player.getName(), reason);
+                    Utils.sendMessage(player, plugin.prefix() + "§a已警告玩家 " + target + "。");
+                    if (!reportId.isEmpty()) {
+                        plugin.getReportManageGui().openDetail(player, reportId);
+                    }
                 }
                 break;
             case "freeze":
@@ -246,5 +337,6 @@ public class WizardManager {
         player.removeMetadata(META_TARGET, plugin);
         player.removeMetadata(META_TIME, plugin);
         player.removeMetadata(META_SILENT, plugin);
+        player.removeMetadata(META_REPORT_ID, plugin);
     }
 }

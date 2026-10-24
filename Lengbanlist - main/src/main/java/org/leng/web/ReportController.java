@@ -7,6 +7,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.leng.Lengbanlist;
 import org.leng.object.ReportEntry;
+import org.leng.service.ReportManager;
 
 import java.io.IOException;
 import java.util.List;
@@ -68,24 +69,34 @@ public class ReportController extends WebController {
                 WebResponse.sendError(exchange, 404, "举报不存在");
                 return;
             }
+            String actor = authManager.resolveActor(extractToken(exchange));
+            ReportManager manager = plugin.getReportManager();
+            ReportManager.ActionResult result;
             if ("accept".equalsIgnoreCase(action)) {
-                report = report.withStatus("受理中");
-                plugin.getReportManager().updateReport(report);
-                plugin.getAuditManager().log("受理举报", authManager.resolveActor(extractToken(exchange)),
-                        report.target(), "编号: " + id + " - " + report.reason());
+                result = manager.acceptReport(id, actor);
             } else if ("close".equalsIgnoreCase(action)) {
-                report = report.withStatus("已关闭");
-                plugin.getReportManager().updateReport(report);
-                plugin.getAuditManager().log("关闭举报", authManager.resolveActor(extractToken(exchange)),
-                        report.target(), "编号: " + id + " - " + report.reason());
+                result = manager.closeReport(id, actor);
             } else {
                 WebResponse.sendError(exchange, 400, "未知 action: " + action);
                 return;
             }
-            JsonObject result = new JsonObject();
-            result.addProperty("success", true);
-            result.addProperty("message", "举报 " + id + " 处理完成");
-            WebResponse.sendJson(exchange, 200, result.toString());
+            if (result == ReportManager.ActionResult.NOT_FOUND) {
+                WebResponse.sendError(exchange, 404, "举报不存在");
+                return;
+            }
+            if (result == ReportManager.ActionResult.FINALIZED
+                    || result == ReportManager.ActionResult.ALREADY_ACCEPTED) {
+                WebResponse.sendError(exchange, 409, "举报已处理或已受理");
+                return;
+            }
+            if (result == ReportManager.ActionResult.DB_ERROR) {
+                WebResponse.sendError(exchange, 500, "数据库写入失败");
+                return;
+            }
+            JsonObject resultBody = new JsonObject();
+            resultBody.addProperty("success", true);
+            resultBody.addProperty("message", "举报 " + id + " 处理完成");
+            WebResponse.sendJson(exchange, 200, resultBody.toString());
         } catch (IOException e) {
             WebResponse.sendError(exchange, 413, e.getMessage());
         } catch (Exception e) {

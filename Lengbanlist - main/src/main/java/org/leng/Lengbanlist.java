@@ -17,6 +17,8 @@ import org.leng.extension.ExtensionRegistry;
 import org.leng.extension.PunishmentGate;
 import org.leng.extension.lua.LuaLoader;
 import org.leng.gui.GuiSessionManager;
+import org.leng.gui.ReportManageGui;
+import org.leng.gui.ReportSubmitGui;
 import org.leng.gui.WizardManager;
 import org.leng.integration.AutoUpdateManager;
 import org.leng.integration.GitHubUpdateChecker;
@@ -75,6 +77,8 @@ public class Lengbanlist extends JavaPlugin {
     private SchedulerUtils.SchedulerTask expiryReminderTask;
     private GuiSessionManager guiSessionManager;
     private GuiCommands.Gui guiCommand;
+    private ReportSubmitGui reportSubmitGui;
+    private ReportManageGui reportManageGui;
     private volatile ModelCloudManager modelCloudManager;
     private volatile ExtensionCloudManager extensionCloudManager;
     private GuiCommands.Alts altsCommand;
@@ -168,6 +172,8 @@ public void onLoad() {
     durationPolicy = new DurationPolicy(this);
     guiSessionManager = new GuiSessionManager();
     guiCommand = new GuiCommands.Gui(this);
+    reportSubmitGui = new ReportSubmitGui(this);
+    reportManageGui = new ReportManageGui(this);
     webServer = new WebServer(this);
     isBroadcast = getConfig().getBoolean("opensendtime");
 
@@ -314,6 +320,8 @@ public void onEnable() {
     getServer().getPluginManager().registerEvents(new MuteCommandBlockListener(this), Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new GuiCleanupListener(this), this);
     getServer().getPluginManager().registerEvents(guiCommand, Lengbanlist.this);
+    getServer().getPluginManager().registerEvents(reportSubmitGui, Lengbanlist.this);
+    getServer().getPluginManager().registerEvents(reportManageGui, Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new VanishListener(this), Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new FreezeListener(this), Lengbanlist.this);
 
@@ -682,6 +690,14 @@ void shutdownStorage() {
 
     public GuiCommands.Gui getGuiCommand() {
         return guiCommand;
+    }
+
+    public ReportSubmitGui getReportSubmitGui() {
+        return reportSubmitGui;
+    }
+
+    public ReportManageGui getReportManageGui() {
+        return reportManageGui;
     }
 
     public ModelCloudManager getModelCloudManager() {

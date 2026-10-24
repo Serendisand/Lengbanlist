@@ -325,10 +325,6 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 }
                 return new WarnCommands.Unwarn(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
             case "report":
-                if (!plugin.isFeatureEnabled("report")) {
-                    plugin.sendFeatureDisabled(sender);
-                    return true;
-                }
                 if (!(sender instanceof Player)) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c此命令只能由玩家执行。");
                     return true;
@@ -477,7 +473,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 showWebhookStatus(sender);
                 break;
             case "handle":
-                if (!plugin.isFeatureEnabled("report")) {
+                if (!plugin.isFeatureEnabled("admin")) {
                     plugin.sendFeatureDisabled(sender);
                     return true;
                 }

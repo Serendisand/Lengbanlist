@@ -17,7 +17,6 @@ import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.object.FreezeEntry;
 import org.leng.object.MuteEntry;
-import org.leng.object.ReportEntry;
 import org.leng.util.TimeUtils;
 import org.leng.util.Utils;
 import java.util.ArrayList;
@@ -50,7 +49,6 @@ public final class GuiCommands {
 
         private static final String PREFIX_COMMAND = "/";
         private static final String ACTION_SPONSOR = "ACTION_SPONSOR";
-        private static final String REPORT_PREFIX = "REPORT:";
 
         private final Lengbanlist plugin;
 
@@ -91,8 +89,8 @@ public final class GuiCommands {
             put(chest, player, 25, "lengbanlist.listmute", "mute",
                     createGuiItem(Material.GRAY_WOOL, "§c禁言列表", "VIEW_MUTES", "§7查看禁言玩家列表"));
 
-            put(chest, player, 28, "lengbanlist.admin", "report",
-                    createGuiItem(Material.PAPER, "§e举报列表", "VIEW_REPORTS", "§7查看待处理举报列表"));
+            put(chest, player, 28, "lengbanlist.admin", "admin",
+                    createGuiItem(Material.PAPER, "§e举报管理", "VIEW_REPORTS", "§7查看并处理待处理举报"));
             put(chest, player, 30, "lengbanlist.freeze", "freeze",
                     createGuiItem(Material.PACKED_ICE, "§b冻结列表", "VIEW_FREEZES", "§7查看当前被冻结的玩家"));
             put(chest, player, 32, "lengbanlist.freeze", "freeze",
@@ -202,21 +200,6 @@ public final class GuiCommands {
                             "§7理由：" + freeze.reason(),
                             "§7冻结时间：" + TimeUtils.timestampToReadable(freeze.time())));
                 }
-            } else if ("reports".equals(view)) {
-                List<ReportEntry> list = plugin.getReportManager().getPendingReports();
-                for (int s = 0; s < GUI_CONTENT_SLOTS.length; s++) {
-                    int index = start + s;
-                    if (index >= list.size()) {
-                        break;
-                    }
-                    ReportEntry report = list.get(index);
-                    inventory.setItem(GUI_CONTENT_SLOTS[s], createGuiItem(Material.PAPER,
-                            "§e举报编号：" + report.getId(),
-                            "§7" + REPORT_PREFIX + report.getId(),
-                            "§7被举报人：" + report.getTarget(),
-                            "§7举报人：" + report.getReporter(),
-                            "§7原因：" + report.getReason()));
-                }
             }
 
             int totalPages = guiTotalPages(view);
@@ -234,8 +217,6 @@ public final class GuiCommands {
                 size = plugin.getMuteManager().getMuteList().size();
             } else if ("freezes".equals(view)) {
                 size = plugin.getFreezeManager().count();
-            } else if ("reports".equals(view)) {
-                size = plugin.getReportManager().getPendingReports().size();
             } else {
                 size = 0;
             }
@@ -295,16 +276,6 @@ public final class GuiCommands {
                 return;
             }
 
-            if (command.startsWith(REPORT_PREFIX)) {
-                if (!Utils.canUse(plugin, player, "lengbanlist.admin", "report")) {
-                    Utils.sendMessage(player, plugin.prefix() + "§c不是你的工作喵！");
-                    return;
-                }
-                player.closeInventory();
-                player.performCommand("lban handle " + command.substring(REPORT_PREFIX.length()) + " auto");
-                return;
-            }
-
             switch (command) {
                 case "VIEW_BANS":
                     if (!Utils.canUse(plugin, player, "lengbanlist.list", "ban")) {
@@ -334,13 +305,12 @@ public final class GuiCommands {
                     renderGuiList(player, event.getView().getTopInventory(), "freezes");
                     return;
                 case "VIEW_REPORTS":
-                    if (!Utils.canUse(plugin, player, "lengbanlist.admin", "report")) {
+                    if (!Utils.canUse(plugin, player, "lengbanlist.admin", "admin")) {
                         Utils.sendMessage(player, plugin.prefix() + "§c不是你的工作喵！");
                         return;
                     }
-                    gui.setView(player.getUniqueId(), "reports");
-                    gui.setPage(player.getUniqueId(), "reports", 0);
-                    renderGuiList(player, event.getView().getTopInventory(), "reports");
+                    player.closeInventory();
+                    plugin.getReportManageGui().openList(player);
                     return;
                 case "VIEW_MENU":
                     gui.setView(player.getUniqueId(), "menu");
