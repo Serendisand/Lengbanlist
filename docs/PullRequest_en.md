@@ -297,6 +297,18 @@ mvn test                                   # tests
 `config.yml`; `ExtensionRegistryTest` and `LuaExtensionLoadTest` cover extension registration
 and Lua loading.
 
+### Release and API Distribution
+
+- Bump the version only in the root `pom.xml`; `.github/scripts/sync-pom-versions.sh` updates
+  the `<parent><version>` of `lengbanlist-api` and `Lengbanlist - main` to match.
+- A commit message starting with `release` triggers `.github/workflows/release.yml`: sync
+  versions → build → `mvn deploy` the parent POM and `lengbanlist-api` to GitHub Packages →
+  create the GitHub Release.
+- `.github/workflows/maven-ci.yml` runs the same sync script before every build, so a release
+  commit does not turn red merely because the child module parent versions lag behind.
+- To reproduce a release build locally, run `bash .github/scripts/sync-pom-versions.sh` first,
+  then `mvn clean install`.
+
 ## Testing Against a Real Database
 
 By default the whole test suite runs on a temporary SQLite database and needs nothing external:

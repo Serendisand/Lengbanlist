@@ -97,6 +97,9 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     return true;
                 }
                 plugin.reloadConfig();
+                if (plugin.getWarnManager() != null) {
+                    plugin.getWarnManager().reloadPolicy();
+                }
                 if (plugin.getLuaLoader() != null) {
                     plugin.getLuaLoader().reload();
                 }
@@ -105,7 +108,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 File broadcastFile = new File(plugin.getDataFolder(), "broadcast.yml");
                 if (broadcastFile.exists()) {
                     try {
-                        plugin.getBroadcastFC().load(broadcastFile);
+                        plugin.reloadBroadcastConfig(broadcastFile);
                     } catch (Exception e) {
                         plugin.getLogger().warning("重载broadcast.yml失败: " + e.getMessage());
                     }
@@ -322,10 +325,6 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 }
                 return new WarnCommands.Unwarn(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
             case "report":
-                if (!plugin.isFeatureEnabled("report")) {
-                    plugin.sendFeatureDisabled(sender);
-                    return true;
-                }
                 if (!(sender instanceof Player)) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c此命令只能由玩家执行。");
                     return true;
@@ -474,7 +473,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 showWebhookStatus(sender);
                 break;
             case "handle":
-                if (!plugin.isFeatureEnabled("report")) {
+                if (!plugin.isFeatureEnabled("admin")) {
                     plugin.sendFeatureDisabled(sender);
                     return true;
                 }

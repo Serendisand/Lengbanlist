@@ -43,9 +43,9 @@ public class DatabaseManager {
     private static final String BAN_INSERT =
             "INSERT INTO bans (target, uuid, staff, end_time, reason, is_auto, active, start_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
-    private static final String STATUS_PENDING = "未处理";
-    private static final String STATUS_CLOSED = "已关闭";
-    private static final String STATUS_HANDLED = "已处理";
+    private static final String STATUS_PENDING = ReportEntry.STATUS_PENDING;
+    private static final String STATUS_CLOSED = ReportEntry.STATUS_CLOSED;
+    private static final String STATUS_HANDLED = ReportEntry.STATUS_HANDLED;
 
     public enum WriteResult {
         APPLIED,

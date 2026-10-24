@@ -9,7 +9,14 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
     if: startsWith(github.event.head_commit.message, 'release')
-    
+    permissions:
+      contents: write
+      packages: write
+      issues: read
+      pull-requests: read
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -22,15 +29,26 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
         cache: maven
-    
+        server-id: github
+        server-username: GITHUB_ACTOR
+        server-password: GITHUB_TOKEN
+        overwrite-settings: true
+
+    - name: Sync child pom versions from root pom
+      id: sync_version
+      run: |
+        VERSION=$(bash .github/scripts/sync-pom-versions.sh)
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
     - name: Build with Maven
       run: mvn clean verify -B
-    
+
+    - name: Deploy lengbanlist-api to GitHub Packages
+      run: mvn -pl lengbanlist-api -am deploy -B -DskipTests
+
     - name: Get version from pom.xml
       id: get_version
-      run: |
-        VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
+      run: echo "version=${{ steps.sync_version.outputs.version }}" >> "$GITHUB_OUTPUT"
     
     - name: Find JAR file
       id: find_jar

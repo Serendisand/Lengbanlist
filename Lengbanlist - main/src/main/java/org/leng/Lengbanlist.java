@@ -3,7 +3,7 @@ package org.leng;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
-import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -17,6 +17,8 @@ import org.leng.extension.ExtensionRegistry;
 import org.leng.extension.PunishmentGate;
 import org.leng.extension.lua.LuaLoader;
 import org.leng.gui.GuiSessionManager;
+import org.leng.gui.ReportManageGui;
+import org.leng.gui.ReportSubmitGui;
 import org.leng.gui.WizardManager;
 import org.leng.integration.AutoUpdateManager;
 import org.leng.integration.GitHubUpdateChecker;
@@ -33,6 +35,7 @@ import org.leng.listener.MuteCommandBlockListener;
 import org.leng.listener.OpJoinListener;
 import org.leng.listener.PlayerJoinListener;
 import org.leng.listener.VanishListener;
+import org.leng.migration.ConfigMigrationManager;
 import org.leng.models.Model;
 import org.leng.net.DownloadService;
 import org.leng.net.DownloadSettings;
@@ -52,6 +55,7 @@ import org.leng.storage.DatabaseManager;
 import org.leng.storage.PlayerIdentityResolver;
 import org.leng.storage.StorageMigrationManager;
 import org.leng.util.ConsoleText;
+import org.leng.util.ErrorLog;
 import org.leng.util.Metrics;
 import org.leng.util.SchedulerUtils;
 import org.leng.util.Utils;
@@ -75,6 +79,8 @@ public class Lengbanlist extends JavaPlugin {
     private SchedulerUtils.SchedulerTask expiryReminderTask;
     private GuiSessionManager guiSessionManager;
     private GuiCommands.Gui guiCommand;
+    private ReportSubmitGui reportSubmitGui;
+    private ReportManageGui reportManageGui;
     private volatile ModelCloudManager modelCloudManager;
     private volatile ExtensionCloudManager extensionCloudManager;
     private GuiCommands.Alts altsCommand;
@@ -144,10 +150,7 @@ public void onLoad() {
         getLogger().info(consoleText("model-detected", "language", language, "model", detectedModel));
     }
 
-    if (!getConfig().contains("update-check.enabled")) {
-        getConfig().set("update-check.enabled", getConfig().getBoolean("features.update-check", true));
-        saveConfig();
-    }
+    new ConfigMigrationManager(this).migrateRootConfig();
 
     loadStorageConfig();
 
@@ -157,7 +160,7 @@ public void onLoad() {
         new StorageMigrationManager(this, databaseManager).migrateYamlIfNeeded();
         muteManager = new MuteManager(this);
     } catch (Exception e) {
-        org.leng.util.ErrorLog.record(this, "数据库初始化失败，插件将停止启用", e);
+        ErrorLog.record(this, "数据库初始化失败，插件将停止启用", e);
         initializationFailed = true;
         return;
     }
@@ -168,8 +171,9 @@ public void onLoad() {
     durationPolicy = new DurationPolicy(this);
     guiSessionManager = new GuiSessionManager();
     guiCommand = new GuiCommands.Gui(this);
+    reportSubmitGui = new ReportSubmitGui(this);
+    reportManageGui = new ReportManageGui(this);
     webServer = new WebServer(this);
-    isBroadcast = getConfig().getBoolean("opensendtime");
 
     File modelsDir = new File(getDataFolder(), "models");
     if (!modelsDir.exists()) {
@@ -203,6 +207,8 @@ public void onLoad() {
         saveResource("broadcast.yml", false);
     }
     broadcastFC = YamlConfiguration.loadConfiguration(broadcastFile);
+    new ConfigMigrationManager(this).migrateBroadcastConfig(broadcastFile);
+    isBroadcast = broadcastFC.getBoolean("opensendtime", true);
 
 }
 
@@ -212,37 +218,7 @@ private void loadStorageConfig() {
         saveResource("storage.yml", false);
     }
     storageConfig = YamlConfiguration.loadConfiguration(storageFile);
-    migrateLegacyStorageConfig(storageFile);
-}
-
-private void migrateLegacyStorageConfig(File storageFile) {
-    boolean migrated = false;
-    ConfigurationSection legacyDatabase = getConfig().getConfigurationSection("database");
-    if (legacyDatabase != null) {
-        for (String key : legacyDatabase.getKeys(true)) {
-            if (legacyDatabase.isConfigurationSection(key)) {
-                continue;
-            }
-            storageConfig.set("database." + key, legacyDatabase.get(key));
-        }
-        getConfig().set("database", null);
-        migrated = true;
-    }
-    if (getConfig().contains("history-retention-days")) {
-        storageConfig.set("database.retention.history-days", getConfig().getInt("history-retention-days", 7));
-        getConfig().set("history-retention-days", null);
-        migrated = true;
-    }
-    if (!migrated) {
-        return;
-    }
-    try {
-        storageConfig.save(storageFile);
-        saveConfig();
-        getLogger().info(consoleText("storage-migrated"));
-    } catch (IOException e) {
-        getLogger().warning(consoleText("storage-migrate-failed", "error", e.getMessage()));
-    }
+    new ConfigMigrationManager(this).migrateStorageConfig(storageFile);
 }
 
 public FileConfiguration getStorageConfig() {
@@ -314,6 +290,8 @@ public void onEnable() {
     getServer().getPluginManager().registerEvents(new MuteCommandBlockListener(this), Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new GuiCleanupListener(this), this);
     getServer().getPluginManager().registerEvents(guiCommand, Lengbanlist.this);
+    getServer().getPluginManager().registerEvents(reportSubmitGui, Lengbanlist.this);
+    getServer().getPluginManager().registerEvents(reportManageGui, Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new VanishListener(this), Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new FreezeListener(this), Lengbanlist.this);
 
@@ -408,7 +386,9 @@ public void reloadStorageConfig() {
 }
 
 public void restartScheduledTasks() {
-    isBroadcast = getConfig().getBoolean("opensendtime");
+    isBroadcast = broadcastFC != null
+            ? broadcastFC.getBoolean("opensendtime", true)
+            : getConfig().getBoolean("opensendtime", true);
     if (broadcastTask != null) {
         broadcastTask.cancel();
         broadcastTask = null;
@@ -490,8 +470,12 @@ void shutdownStorage() {
     }
 }
 
+    private int broadcastIntervalMinutes() {
+        return broadcastFC != null ? broadcastFC.getInt("sendtime", 5) : 5;
+    }
+
     private void startBroadcastTask() {
-        long interval = Math.max(getConfig().getInt("sendtime") * 1200L, 1200L);
+        long interval = Math.max(broadcastIntervalMinutes() * 1200L, 1200L);
         long delay = 200L;
         broadcastTask = SchedulerUtils.runTaskTimer(this,
                 getBroadCastManager(), delay, interval);
@@ -536,7 +520,10 @@ void shutdownStorage() {
         return getConfig().getString("prefix", "§b[Lengbanlist]§r ");
     }
 
-    private String consoleText(String key, String... placeholders) {
+    /**
+     * 取一条模型化的控制台文案。迁移器等内部组件也需要复用同一套文案。
+     */
+    public String consoleText(String key, String... placeholders) {
         Model model = ModelManager.getCurrentModel();
         String template = model == null ? "" : model.getConsole(key);
         if (template == null || template.isEmpty()) {
@@ -625,8 +612,13 @@ void shutdownStorage() {
 
     public void setBroadcastEnabled(boolean broadcastEnabled) {
         this.isBroadcast = broadcastEnabled;
-        getConfig().set("opensendtime", broadcastEnabled);
-        saveConfig();
+        if (broadcastFC != null) {
+            broadcastFC.set("opensendtime", broadcastEnabled);
+            saveBroadcastConfig();
+        } else {
+            getConfig().set("opensendtime", broadcastEnabled);
+            saveConfig();
+        }
         if (isBroadcast && isFeatureActive("broadcast")) {
             if (broadcastTask != null) {
                 broadcastTask.cancel();
@@ -682,6 +674,14 @@ void shutdownStorage() {
 
     public GuiCommands.Gui getGuiCommand() {
         return guiCommand;
+    }
+
+    public ReportSubmitGui getReportSubmitGui() {
+        return reportSubmitGui;
+    }
+
+    public ReportManageGui getReportManageGui() {
+        return reportManageGui;
     }
 
     public ModelCloudManager getModelCloudManager() {
@@ -845,6 +845,12 @@ void shutdownStorage() {
         return broadcastFC;
     }
 
+    public void reloadBroadcastConfig(File broadcastFile)
+            throws IOException, InvalidConfigurationException {
+        broadcastFC.load(broadcastFile);
+        new ConfigMigrationManager(this).migrateBroadcastConfig(broadcastFile);
+    }
+
     public FileConfiguration getChatConfig() {
         return chatConfig;
     }
@@ -853,7 +859,7 @@ void shutdownStorage() {
         try {
             broadcastFC.save(new File(getDataFolder(), "broadcast.yml"));
         } catch (IOException e) {
-            org.leng.util.ErrorLog.record(this, "保存 broadcast.yml 失败", e);
+            ErrorLog.record(this, "保存 broadcast.yml 失败", e);
         }
     }
 

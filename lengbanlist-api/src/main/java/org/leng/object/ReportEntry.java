@@ -16,8 +16,18 @@ public record ReportEntry(
         String status
 ) implements ConfigurationSerializable {
 
+    public static final String STATUS_PENDING = "未处理";
+    public static final String STATUS_ACCEPTED = "受理中";
+    public static final String STATUS_READ = "已读";
+    public static final String STATUS_CLOSED = "已关闭";
+    public static final String STATUS_HANDLED = "已处理";
+
     public ReportEntry(String target, String reporter, String reason, String id) {
-        this(target, reporter, reason, id, System.currentTimeMillis(), "未处理");
+        this(target, reporter, reason, id, System.currentTimeMillis(), STATUS_PENDING);
+    }
+
+    public static boolean isFinalized(String status) {
+        return STATUS_CLOSED.equals(status) || STATUS_HANDLED.equals(status);
     }
 
     public ReportEntry withStatus(String newStatus) {
