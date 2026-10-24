@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.leng</groupId>
-    <artifactId>Lengbanlist-Parent</artifactId>
+    <artifactId>lengbanlist-parent</artifactId>
     <version>2.1.8</version>
     <packaging>pom</packaging>
 

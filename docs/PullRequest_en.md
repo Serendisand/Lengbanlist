@@ -67,7 +67,7 @@ Pick one of the prefixes below — releases are grouped by them:
 
 ## Project Layout
 
-A multi-module Maven build, parent POM `Lengbanlist-Parent`:
+A multi-module Maven build, parent POM `lengbanlist-parent`:
 
 ```text
 Lengbanlist/

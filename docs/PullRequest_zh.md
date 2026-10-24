@@ -66,7 +66,7 @@ refactor: 拆分配置加载逻辑
 
 ## 工程结构
 
-多模块 Maven 工程，父工程 `Lengbanlist-Parent`：
+多模块 Maven 工程，父工程 `lengbanlist-parent`：
 
 ```text
 Lengbanlist/
