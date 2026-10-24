@@ -1,0 +1,43 @@
+name: 自动同步子模块版本
+
+# 根 pom.xml 的 <version> 是唯一版本来源。
+# 版本号变更后，自动把两个子模块的 <parent><version> 同步过来并提交，
+# 避免自动依赖提交（mvn validate）因为父 POM 版本对不上而失败。
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pom.xml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # 默认 GITHUB_TOKEN 推送不会触发后续 workflow；
+          # 想让 bot 提交也跑 CI，可配置 SYNC_BOT_TOKEN（PAT）
+          token: ${{ secrets.SYNC_BOT_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: 同步子模块 parent 版本
+        run: bash .github/scripts/sync-pom-versions.sh
+
+      - name: 校验 POM
+        run: mvn -B validate
+
+      - name: 提交变更
+        run: |
+          git config user.name "Lengbanlist Bot"
+          git config user.email "bot@lengbanlist.local"
+          git add lengbanlist-api/pom.xml "Lengbanlist - main/pom.xml"
+          if git diff --cached --quiet; then
+            echo "子模块版本已同步，无需提交"
+            exit 0
+          fi
+          git commit -m "chore: 同步子模块 parent 版本"
+          git push
