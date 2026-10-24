@@ -326,6 +326,12 @@ public void onEnable() {
             "server", Bukkit.getServer().getVersion()));
 
     metrics = new Metrics(this, 33262);
+    // bStats 自定义饼图：当前使用的模型（转小写即仓库 model-id），
+    // 模型仓库的月度精选走 REST API 读取这张图。网站需先建好同 ID 的 Simple Pie 图表。
+    metrics.addCustomChart(new Metrics.SimplePie("modelUsage", () -> {
+        String model = ModelManager.getCurrentModelName();
+        return model == null || model.isEmpty() ? "unknown" : model.toLowerCase(java.util.Locale.ROOT);
+    }));
 
     if (getConfig().getBoolean("features.auto-update", false)) {
         getLogger().info(consoleText("auto-update"));
