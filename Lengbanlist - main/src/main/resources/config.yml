@@ -44,7 +44,7 @@ features:
 
   # --- 玩家体验 ---
   model: true          # 角色模型切换（/lban model）
-  chest-ui: true       # 箱子 GUI 管理界面（/lban chest）
+  chest-ui: true       # 箱子 GUI 界面（/lban open、/report、/admin）
   # --- 广播 ---
   broadcast: true        # 广播封禁人数（/lban a、Web 面板触发）
 
@@ -127,6 +127,25 @@ preset-reasons:
   abuse: "言语辱骂/人身攻击"
   spam: "广告/刷屏"
   grief: "恶意破坏"
+
+# ---------- 警告自动封禁（LBAC） ----------
+# 只统计「未撤销」且在当前时间窗口内的警告。
+# 档位 = 有效警告数 / threshold（向下取整）：3 次触发第 1 档，6 次第 2 档……
+warn-escalation:
+  enabled: true                # 关掉后只记录警告，不自动封禁/解封
+  threshold: 3                 # 每累计多少次警告升一档
+  window: "30d"                # 统计窗口；填 "0" 表示不限时间
+  durations:                   # 第 1/2/3... 档时长；超出列表时沿用最后一项
+    - "1d"
+    - "7d"
+    - "30d"
+    - "90d"
+    - "180d"
+    - "365d"
+  auto-unban: true             # 有效警告低于 threshold 时自动解封
+  broadcast: true              # 自动封禁/解封是否全服广播
+  reason: "LBAC自动封禁（累计{warnings}次警告，第{trigger}次触发）"
+                               # 可用占位符：{warnings}、{trigger}
 
 # ---------- 举报 ----------
 report-cooldown-seconds: 86400  # 玩家举报冷却时间（秒）

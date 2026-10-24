@@ -97,6 +97,9 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     return true;
                 }
                 plugin.reloadConfig();
+                if (plugin.getWarnManager() != null) {
+                    plugin.getWarnManager().reloadPolicy();
+                }
                 if (plugin.getLuaLoader() != null) {
                     plugin.getLuaLoader().reload();
                 }

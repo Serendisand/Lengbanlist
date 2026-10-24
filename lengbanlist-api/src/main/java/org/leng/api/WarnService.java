@@ -8,8 +8,9 @@ import java.util.List;
 /**
  * 警告服务。
  *
- * <p>注意核心内置的 LBAC 规则：30 天内累计 3 次警告会自动封禁，时长随触发次数递增，
- * 且撤销警告至阈值以下时自动解封。走 {@link #warn} 就会自动享有这套逻辑。
+ * <p>核心内置的 LBAC 规则：默认 30 天内累计 3 次警告自动封禁，时长随触发次数递增，
+ * 且撤销警告至阈值以下时自动解封。阈值、时间窗口和时长阶梯可在 config.yml 的
+ * {@code warn-escalation} 段调整。走 {@link #warn} 就会自动享有这套逻辑。
  */
 public interface WarnService {
 
