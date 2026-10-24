@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# 提交前自动把子模块的 <parent><version> 同步成根 pom.xml 的版本。
+# 安装：bash scripts/install-git-hooks.sh
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+# 只有根 pom.xml 被暂存时才需要同步
+if git diff --cached --name-only --diff-filter=ACM | grep -qx 'pom.xml'; then
+    bash .github/scripts/sync-pom-versions.sh >/dev/null
+    git add lengbanlist-api/pom.xml "Lengbanlist - main/pom.xml"
+fi
