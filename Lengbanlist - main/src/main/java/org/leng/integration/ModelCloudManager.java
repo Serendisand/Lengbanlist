@@ -263,49 +263,6 @@ public class ModelCloudManager {
         } catch (Exception e) {
             plugin.getLogger().log(Level.FINE, "[ModelCloud] 记录安装统计失败", e);
         }
-        reportInstallAsync(id);
-    }
-
-    private String serverId() {
-        Path p = plugin.getDataFolder().toPath().resolve("models/.cache/server-id");
-        try {
-            if (Files.exists(p)) {
-                return Files.readString(p, StandardCharsets.UTF_8).trim();
-            }
-            String id = java.util.UUID.randomUUID().toString();
-            Files.createDirectories(p.getParent());
-            Files.writeString(p, id, StandardCharsets.UTF_8);
-            return id;
-        } catch (IOException e) {
-            return "unknown";
-        }
-    }
-
-    private boolean statsReportingEnabled() {
-        if (!plugin.getConfig().getBoolean("models-cloud.stats.enabled", true)) {
-            return false;
-        }
-        String url = plugin.getConfig().getString("models-cloud.stats.url", "");
-        return url != null && !url.trim().isEmpty();
-    }
-
-    private void reportInstallAsync(String modelId) {
-        if (!statsReportingEnabled()) {
-            return;
-        }
-        CompletableFuture.runAsync(() -> {
-            String url = plugin.getConfig().getString("models-cloud.stats.url", "");
-            try (DownloadService stats = new DownloadService(
-                    new DownloadSettings(5000, 5000, "Lengbanlist-Stats/1.0", true))) {
-                JsonObject payload = new JsonObject();
-                payload.addProperty("server", serverId());
-                payload.addProperty("model", modelId);
-                payload.addProperty("version", plugin.getPluginVersion());
-                stats.postJson(url, payload.toString());
-            } catch (Exception e) {
-                plugin.getLogger().log(Level.FINE, "[ModelCloud] 安装统计上报失败(不影响使用)", e);
-            }
-        });
     }
 
     public List<String[]> downloadStats() {

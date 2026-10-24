@@ -210,9 +210,6 @@ models-cloud:
   repo: "Serendisand/Lengbanlist-Models"
   branch: "main"
   mirrors: []
-  stats:               # 安装统计上报(用于月度精选自动评选)
-    enabled: true
-    url: "https://lengbanlist-stats.sanno.workers.dev/"
 
 # ---------- 云端扩展（extensions-cloud） ----------
 # 扩展市场：从 Lengbanlist-Extensions 仓库根目录的 index.json 拉取

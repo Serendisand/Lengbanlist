@@ -90,7 +90,7 @@ help:
   - "§2✦ §b/lban models unpin <必填>ID §7- §3解除锁定"
   - "§2✦ §b/lban models list §7- §3查看本地与云端模型"
   - "§2✦ §b/lban models install all §7- §3一键下载全部已上架模型"
-  - "§2✦ §b/lban models stats §7- §3查看本服安装统计(月度精选参考)"
+  - "§2✦ §b/lban models stats §7- §3查看本服安装统计"
   - "§2✦ §b/lban models featured §7- §3查看本月精选模型"
   - "§6§l◆ 杂项"
   - "§2✦ §b/lban list §7- §3查看封禁名单"
