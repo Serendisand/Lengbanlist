@@ -43,8 +43,8 @@
             <url>https://jitpack.io</url>
         </repository>
         <repository>
-            <id>extendedclip-repo</id>
-            <url>https://repo.extendedclip.com/releases/</url>
+            <id>placeholderapi-repo</id>
+            <url>https://repo.helpch.at/releases</url>
         </repository>
     </repositories>
 
