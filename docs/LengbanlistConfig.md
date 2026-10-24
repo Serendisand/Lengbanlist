@@ -7,7 +7,7 @@
 | `config.yml` | 功能开关、广播、冻结规则、Web 面板、更新检查、各功能参数 |
 | `storage.yml` | 数据库、数据保留策略、封禁缓存、本服标识 `server-name` |
 | `models/_base.yml` | 所有模型文案的全局默认（模型文件只写覆写部分） |
-| `broadcast.yml` / `chatconfig.yml` | 广播内容 / 违禁词与禁言规则 |
+| `broadcast.yml` / `chatconfig.yml` | 广播开关、间隔、模式与文案 / 违禁词与禁言规则 |
 | `eula.yml` | 使用前需要同意的许可 |
 
 旧版本写在 `config.yml` 里的 `database` 段与 `history-retention-days`，首次启动会自动迁移到 `storage.yml`。
@@ -18,8 +18,6 @@
 
 ```yaml
 prefix: "§f§l[§bLengbanlist§f§l]"   # 消息前缀
-opensendtime: true                  # 是否开启封禁人数循环广播
-sendtime: 5                         # 广播间隔（分钟）
 Model: "Default"                    # 当前模型（说话语气）
 model-auto-detect: true             # 首次加载按系统语言自动选模型（zh→Default，其它→English）
 
@@ -65,6 +63,20 @@ warn-escalation:
 - `/admin`、`/lban admin` 同样受 `features.chest-ui` 控制；关闭 GUI 开关时回退到原来的聊天栏管理列表。
 - 举报管理界面的“警告”按钮复用 `preset-reasons`；不填预设也可以选“自定义原因”走聊天输入。
 - 举报提交冷却仍是 `report-cooldown-seconds`。
+
+## broadcast.yml 主要字段
+
+```yaml
+opensendtime: true   # 是否开启封禁人数循环广播
+sendtime: 5          # 循环广播间隔（分钟）
+mode: random         # random = 随机抽取一条；orderly = 按列表顺序 1,2,3,4... 循环
+
+messages:            # 广播文案列表，占位符：%s 玩家数、%i IP 数、%t 总数
+  - "..."
+default-message: "..."  # messages 为空时使用
+```
+
+> 旧版本放在 `config.yml` 的 `opensendtime` / `sendtime` 会在启动时自动迁移到 `broadcast.yml`。
 
 ## storage.yml 主要字段
 

@@ -14,15 +14,27 @@ import org.leng.util.Utils;
 
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.IntSupplier;
 
 public class BroadcastManager implements Runnable {
+
+    public enum BroadcastMode {
+        RANDOM, ORDERLY;
+
+        public static BroadcastMode from(String raw) {
+            return raw != null && raw.equalsIgnoreCase("orderly") ? ORDERLY : RANDOM;
+        }
+    }
 
     private static final String HOVER_TITLE = "§a绳§b之§c于§d法§e！";
     private static final String BUTTON_TEXT = "§f【§b点§c击§d查§e看§f】";
     private static final String BUTTON_HOVER = "§a看看封禁列表§bawa";
 
     private final Lengbanlist plugin;
+    private final AtomicInteger orderlyCursor = new AtomicInteger();
     private volatile boolean warnedNoTemplate;
+    private volatile boolean warnedUnknownMode;
 
     public BroadcastManager(Lengbanlist plugin) {
         this.plugin = plugin;
@@ -69,9 +81,28 @@ public class BroadcastManager implements Runnable {
 
     private String pickTemplate() {
         List<String> messages = plugin.getBroadcastFC().getStringList("messages");
-        return messages.isEmpty()
-                ? plugin.getBroadcastFC().getString("default-message")
-                : messages.get(ThreadLocalRandom.current().nextInt(messages.size()));
+        String defaultMessage = plugin.getBroadcastFC().getString("default-message");
+        String rawMode = plugin.getBroadcastFC().getString("mode", "random");
+        BroadcastMode mode = BroadcastMode.from(rawMode);
+        if (mode == BroadcastMode.RANDOM && rawMode != null
+                && !rawMode.equalsIgnoreCase("random") && !warnedUnknownMode) {
+            warnedUnknownMode = true;
+            plugin.getLogger().warning("broadcast.yml 的 mode 只支持 random / orderly，已按 random 处理。");
+        }
+        return pickTemplate(messages, defaultMessage, mode, orderlyCursor,
+                () -> ThreadLocalRandom.current().nextInt(Math.max(1, messages.size())));
+    }
+
+    static String pickTemplate(List<String> messages, String defaultMessage, BroadcastMode mode,
+                               AtomicInteger cursor, IntSupplier randomIndex) {
+        if (messages == null || messages.isEmpty()) {
+            return defaultMessage;
+        }
+        if (mode == BroadcastMode.ORDERLY) {
+            int index = Math.floorMod(cursor.getAndIncrement(), messages.size());
+            return messages.get(index);
+        }
+        return messages.get(Math.floorMod(randomIndex.getAsInt(), messages.size()));
     }
 
     private String render(String template) {
