@@ -25,5 +25,8 @@ jobs:
         distribution: 'temurin'
         cache: maven
 
+    - name: Sync child pom versions from root pom
+      run: echo "项目版本：$(bash .github/scripts/sync-pom-versions.sh)"
+
     - name: Build & test with Maven
       run: mvn clean verify -B

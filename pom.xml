@@ -12,6 +12,15 @@
     <name>Lengbanlist Parent</name>
     <description>Lengbanlist 多模块构建父工程：契约模块（lengbanlist-api）与主插件（Lengbanlist）</description>
 
+    <!-- 发布到 GitHub Packages；子模块继承这份仓库配置 -->
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Lengbanlist Apache Maven Packages</name>
+            <url>https://maven.pkg.github.com/serendisand/Lengbanlist</url>
+        </repository>
+    </distributionManagement>
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>17</maven.compiler.source>

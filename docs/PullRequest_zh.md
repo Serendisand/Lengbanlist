@@ -277,6 +277,16 @@ mvn test                                   # 跑测试
 `CommandRegistryTest` 校验命令声明表与 `plugin.yml`、`config.yml` 的一致性；
 `ExtensionRegistryTest`、`LuaExtensionLoadTest` 覆盖扩展注册与 Lua 加载。
 
+### 发布与 API 分发
+
+- 版本号只需要改根目录 `pom.xml` 的 `<version>`；`.github/scripts/sync-pom-versions.sh`
+  会把 `lengbanlist-api` 与 `Lengbanlist - main` 的 `<parent><version>` 同步成同一版本。
+- 提交信息以 `release` 开头时触发 `.github/workflows/release.yml`：同步版本 → 构建 →
+  把父 POM 与 `lengbanlist-api` 一起 `mvn deploy` 到 GitHub Packages → 创建 GitHub Release。
+- `.github/workflows/maven-ci.yml` 在每次构建前也会执行同一个同步脚本，避免 release
+  提交因为子模块 parent 版本没跟上而红叉。
+- 本地想复现发布构建时，先执行 `bash .github/scripts/sync-pom-versions.sh`，再 `mvn clean install`。
+
 ## 验证数据库后端
 
 默认测试全部跑在临时 SQLite 上，不依赖任何外部服务：
