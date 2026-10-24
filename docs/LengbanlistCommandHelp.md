@@ -43,9 +43,12 @@
 |------|------|------|
 | `/lban getIP <玩家>` | 查询玩家IP | - |
 | `/kick <玩家> <原因>` | 踢出玩家 | - |
+| `/report` | 打开在线玩家举报 GUI | - |
+| `/report <玩家>` | 在聊天栏输入举报理由 | - |
 | `/report <玩家> <原因>` | 举报玩家 | - |
 | `/report accept <ID>` | 受理举报 | - |
 | `/report close <ID>` | 关闭举报 | - |
+| `/admin` / `/lban admin` | 打开举报管理 GUI | - |
 | `/history <玩家/IP/IP段>` | 查询处罚历史 | - |
 | **示例** | `/lban check 172.198.2.x` | - |
 
