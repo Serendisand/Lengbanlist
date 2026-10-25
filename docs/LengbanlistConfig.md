@@ -59,10 +59,11 @@ warn-escalation:
 
 ### 举报 GUI 说明
 
-- `/report`（无参数）只在 `features.chest-ui: true` 时打开在线玩家头颅列表；点击头颅后关闭界面，在聊天栏输入举报理由。
+- `/report`（无参数）只在 `features.chest-ui: true` 时打开在线玩家头颅列表；点击头颅进入预设理由界面，点理由直接提交（复用 `preset-reasons`，没配预设时回退聊天输入）。
 - `/admin`、`/lban admin` 同样受 `features.chest-ui` 控制；关闭 GUI 开关时回退到原来的聊天栏管理列表。
 - 举报管理界面的“警告”按钮复用 `preset-reasons`；不填预设也可以选“自定义原因”走聊天输入。
-- 举报提交冷却仍是 `report-cooldown-seconds`。
+- 举报管理界面的“处罚举报人”可以暂时禁用其举报功能（1h/1d/7d/30d）或直接封禁；禁用记录存数据库，重启不丢。
+- 举报提交冷却仍是 `report-cooldown-seconds`；另有 `report-rate-limit`（窗口内最多几条）防止刷举报。
 
 ## broadcast.yml 主要字段
 
