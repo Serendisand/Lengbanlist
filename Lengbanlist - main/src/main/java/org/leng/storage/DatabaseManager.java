@@ -8,6 +8,7 @@ import org.leng.object.BanIpEntry;
 import org.leng.object.FreezeEntry;
 import org.leng.object.MuteEntry;
 import org.leng.object.PlayerIdentity;
+import org.leng.object.ReportBanEntry;
 import org.leng.object.ReportEntry;
 import org.leng.object.SyncEvent;
 import org.leng.object.WarnEntry;
@@ -320,6 +321,7 @@ public class DatabaseManager {
         execute("CREATE TABLE IF NOT EXISTS freezes (target " + textPrimaryKey() + ", staff " + textType() + " NOT NULL, freeze_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL)");
         execute("CREATE TABLE IF NOT EXISTS warnings (id " + textPrimaryKey() + ", player " + textType() + " NOT NULL, staff " + textType() + " NOT NULL, warn_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, revoked " + booleanType() + " NOT NULL DEFAULT 0)");
         execute("CREATE TABLE IF NOT EXISTS reports (id " + textPrimaryKey() + ", target " + textType() + " NOT NULL, reporter " + textType() + " NOT NULL, reason " + textType() + " NOT NULL, status " + varcharType(32) + " NOT NULL DEFAULT '" + STATUS_PENDING + "', timestamp " + longType() + " NOT NULL)");
+        execute("CREATE TABLE IF NOT EXISTS report_bans (target " + textPrimaryKey() + ", staff " + textType() + " NOT NULL, end_time " + longType() + " NOT NULL, reason " + textType() + " NOT NULL, uuid " + varcharType(36) + " NOT NULL DEFAULT '')");
         execute("CREATE TABLE IF NOT EXISTS audit_log (id " + integerPrimaryKey() + ", timestamp " + longType() + " NOT NULL, actor " + textType() + " NOT NULL, action " + textType() + " NOT NULL, target " + textType() + " NOT NULL, reason " + textType() + " NOT NULL, success " + booleanType() + " NOT NULL DEFAULT 1, server " + textType() + " NOT NULL DEFAULT '')");
 
         addColumnIfMissing("audit_log", "server", textType() + " NOT NULL DEFAULT ''");
@@ -362,6 +364,7 @@ public class DatabaseManager {
         addColumnIfMissing("freezes", "uuid", varcharType(36) + " NOT NULL DEFAULT ''");
         addColumnIfMissing("reports", "target_uuid", varcharType(36) + " NOT NULL DEFAULT ''");
         addColumnIfMissing("reports", "reporter_uuid", varcharType(36) + " NOT NULL DEFAULT ''");
+        addColumnIfMissing("report_bans", "uuid", varcharType(36) + " NOT NULL DEFAULT ''");
         addColumnIfMissing("player_ips", "uuid", varcharType(36) + " NOT NULL DEFAULT ''");
         addColumnIfMissing("player_ip_history", "uuid", varcharType(36) + " NOT NULL DEFAULT ''");
 
@@ -370,6 +373,7 @@ public class DatabaseManager {
         createIndexIfMissing("reports", "idx_reports_reporter", indexTextColumn("reporter"));
         createIndexIfMissing("reports", "idx_reports_target_uuid", "target_uuid");
         createIndexIfMissing("reports", "idx_reports_reporter_uuid", "reporter_uuid");
+        createIndexIfMissing("report_bans", "idx_report_bans_uuid", "uuid");
         createIndexIfMissing("audit_log", "idx_audit_log_timestamp", "timestamp");
         createIndexIfMissing("audit_log", "idx_audit_log_actor", indexTextColumn("actor"));
         createIndexIfMissing("audit_log", "idx_audit_log_target", indexTextColumn("target"));
@@ -1159,6 +1163,48 @@ public class DatabaseManager {
         return query("SELECT id, target, reporter, reason, status, timestamp FROM reports WHERE " + reporterWhere
                         + " AND " + targetWhere + " ORDER BY timestamp DESC",
                 this::readReport, args.toArray());
+    }
+
+    /** 举报频率统计：时间窗口内该举报人的举报数与最早一条的时间戳。 */
+    public record ReporterReportStats(int count, long oldestTimestamp) {
+    }
+
+    public ReporterReportStats getReporterReportStatsSince(String reporter, long since) {
+        List<Object> args = new ArrayList<>();
+        String where = identityPredicate("reporter", "reporter_uuid", identityResolver.resolve(reporter), args);
+        args.add(since);
+        ReporterReportStats stats = queryOne(
+                "SELECT COUNT(*) AS report_count, MIN(timestamp) AS oldest_timestamp FROM reports WHERE "
+                        + where + " AND timestamp >= ?",
+                rs -> new ReporterReportStats(rs.getInt("report_count"), rs.getLong("oldest_timestamp")),
+                args.toArray());
+        return stats == null ? new ReporterReportStats(0, 0L) : stats;
+    }
+
+    public boolean upsertReportBan(ReportBanEntry entry) {
+        return executeUpdateAffected(upsertSql("report_bans", "target",
+                new String[]{"target", "staff", "end_time", "reason", "uuid"},
+                new String[]{"staff", "end_time", "reason", "uuid"}),
+                entry.target().toLowerCase(Locale.ROOT), entry.staff(), entry.endTime(), entry.reason(),
+                resolvedUuid(entry.target())) > 0;
+    }
+
+    public void deleteReportBan(String target) {
+        List<Object> args = new ArrayList<>();
+        String where = identityPredicate("target", "uuid", identityResolver.resolve(target), args);
+        executeUpdate("DELETE FROM report_bans WHERE " + where, args.toArray());
+    }
+
+    public ReportBanEntry getReportBan(String target) {
+        List<Object> args = new ArrayList<>();
+        String where = identityPredicate("target", "uuid", identityResolver.resolve(target), args);
+        return queryOne("SELECT target, staff, end_time, reason FROM report_bans WHERE " + where,
+                this::readReportBan, args.toArray());
+    }
+
+    private ReportBanEntry readReportBan(ResultSet rs) throws SQLException {
+        return new ReportBanEntry(value(rs, "target"), value(rs, "staff"),
+                rs.getLong("end_time"), value(rs, "reason"));
     }
 
     private static final String APPEAL_SELECT =

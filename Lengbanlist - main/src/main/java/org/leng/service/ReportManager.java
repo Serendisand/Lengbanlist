@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.api.events.LengbanlistReportEvent;
 import org.leng.object.BanEntry;
+import org.leng.object.ReportBanEntry;
 import org.leng.object.ReportEntry;
 import org.leng.storage.DatabaseManager;
 import org.leng.util.SchedulerUtils;
@@ -20,7 +21,7 @@ import java.util.UUID;
 public class ReportManager {
 
     public enum SubmitResult {
-        OK, COOLDOWN, SELF, INVALID, DB_ERROR
+        OK, COOLDOWN, RATE_LIMITED, REPORT_BANNED, SELF, INVALID, DB_ERROR
     }
 
     public record SubmitOutcome(SubmitResult result, ReportEntry report, long remainingMillis) {
@@ -93,9 +94,19 @@ public class ReportManager {
             return new SubmitOutcome(SubmitResult.SELF, null, 0L);
         }
 
+        long now = System.currentTimeMillis();
+        ReportBanEntry reportBan = getActiveReportBan(reporter.getName(), now);
+        if (reportBan != null) {
+            long remaining = reportBan.endTime() == Long.MAX_VALUE ? Long.MAX_VALUE : reportBan.endTime() - now;
+            return new SubmitOutcome(SubmitResult.REPORT_BANNED, null, Math.max(remaining, 0L));
+        }
+        long rateLimitRemaining = reportRateLimitRemaining(reporter.getName(), now);
+        if (rateLimitRemaining > 0L) {
+            return new SubmitOutcome(SubmitResult.RATE_LIMITED, null, rateLimitRemaining);
+        }
+
         int cooldownSeconds = reportCooldownSeconds();
         long cooldownMillis = Math.max(0L, (long) cooldownSeconds * 1000L);
-        long now = System.currentTimeMillis();
         long cutoff = now - cooldownMillis;
         long remaining = 0L;
         for (ReportEntry existing : getReportsByReporterAndTarget(reporter.getName(), safeTarget)) {
@@ -171,6 +182,10 @@ public class ReportManager {
             case COOLDOWN -> Utils.sendMessage(sender, plugin.prefix() + "§c你在"
                     + TimeUtils.formatDuration(outcome.remainingMillis())
                     + "内已举报过该玩家，且该举报尚未处理完毕，请耐心等待！");
+            case RATE_LIMITED -> Utils.sendMessage(sender, plugin.prefix() + "§c举报太频繁啦，请在"
+                    + TimeUtils.formatDuration(outcome.remainingMillis()) + "后再试喵！");
+            case REPORT_BANNED -> Utils.sendMessage(sender, plugin.prefix() + "§c你的举报功能已被禁用，剩余 "
+                    + TimeUtils.formatDuration(outcome.remainingMillis()) + "。");
             case SELF -> Utils.sendMessage(sender, plugin.prefix() + "§c不能举报自己喵！");
             case INVALID -> Utils.sendMessage(sender, plugin.prefix() + "§c举报玩家名和原因都不能为空喵！");
             case DB_ERROR -> Utils.sendMessage(sender, plugin.prefix() + "§c举报保存失败，请稍后再试或联系管理员。");
@@ -208,6 +223,109 @@ public class ReportManager {
             return 86400;
         }
         return plugin.getConfig().getInt("report-cooldown-seconds", 86400);
+    }
+
+    /**
+     * 举报频率限制：窗口内该举报人的举报数达到上限时，返回还要等多久（毫秒）。
+     * 返回 0 表示没有触发限制。
+     */
+    private long reportRateLimitRemaining(String reporter, long now) {
+        if (plugin.getConfig() == null
+                || !plugin.getConfig().getBoolean("report-rate-limit.enabled", true)) {
+            return 0L;
+        }
+        int maxReports = plugin.getConfig().getInt("report-rate-limit.max-reports", 5);
+        long windowMillis = Math.max(0L,
+                plugin.getConfig().getLong("report-rate-limit.window-seconds", 600L) * 1000L);
+        if (maxReports <= 0 || windowMillis <= 0L) {
+            return 0L;
+        }
+        DatabaseManager.ReporterReportStats stats =
+                plugin.getDatabaseManager().getReporterReportStatsSince(reporter, now - windowMillis);
+        if (stats == null || stats.count() < maxReports) {
+            return 0L;
+        }
+        long remaining = stats.oldestTimestamp() > 0L
+                ? stats.oldestTimestamp() + windowMillis - now
+                : windowMillis;
+        return Math.max(remaining, 1000L);
+    }
+
+    /** 查询玩家当前的举报禁用记录；已过期会顺手删掉，返回 null。 */
+    public ReportBanEntry getActiveReportBan(String target) {
+        return getActiveReportBan(target, System.currentTimeMillis());
+    }
+
+    private ReportBanEntry getActiveReportBan(String target, long now) {
+        if (target == null || target.isBlank()) {
+            return null;
+        }
+        ReportBanEntry entry = plugin.getDatabaseManager().getReportBan(target);
+        if (entry == null) {
+            return null;
+        }
+        if (!entry.isActive(now)) {
+            plugin.getDatabaseManager().deleteReportBan(target);
+            return null;
+        }
+        return entry;
+    }
+
+    /** 举报功能被禁用时发送提示并返回 true，调用方据此提前结束流程。 */
+    public boolean noticeReportBan(CommandSender sender) {
+        if (sender == null) {
+            return false;
+        }
+        ReportBanEntry ban = getActiveReportBan(sender.getName());
+        if (ban == null) {
+            return false;
+        }
+        sendReportBanFeedback(sender, ban);
+        return true;
+    }
+
+    public void sendReportBanFeedback(CommandSender sender, ReportBanEntry ban) {
+        if (sender == null || ban == null) {
+            return;
+        }
+        long remaining = ban.endTime() == Long.MAX_VALUE
+                ? Long.MAX_VALUE
+                : Math.max(0L, ban.endTime() - System.currentTimeMillis());
+        Utils.sendMessage(sender, plugin.prefix() + "§c你的举报功能已被禁用（剩余 "
+                + TimeUtils.formatDuration(remaining) + "），原因：" + ban.reason());
+    }
+
+    /** 管理员处罚举报人：在 endTime 之前禁止其提交举报。 */
+    public boolean disableReporting(String target, String staff, long endTime, String reason) {
+        if (target == null || target.isBlank()) {
+            return false;
+        }
+        String safeStaff = staff == null || staff.isBlank() ? "CONSOLE" : staff;
+        String safeReason = reason == null || reason.isBlank() ? "滥用举报" : reason.trim();
+        ReportBanEntry entry = new ReportBanEntry(target, safeStaff, endTime, safeReason);
+        if (!plugin.getDatabaseManager().upsertReportBan(entry)) {
+            return false;
+        }
+        plugin.getAuditManager().log("禁用举报", safeStaff, target, safeReason);
+        Player online = Bukkit.getPlayer(target);
+        if (online != null) {
+            SchedulerUtils.runSync(plugin, () -> Utils.sendMessage(online, plugin.prefix()
+                    + "§c你的举报功能已被管理员禁用，原因：" + safeReason
+                    + "，剩余 " + TimeUtils.formatDuration(
+                            endTime == Long.MAX_VALUE ? Long.MAX_VALUE : Math.max(0L, endTime - System.currentTimeMillis()))));
+        }
+        return true;
+    }
+
+    /** 解除举报禁用；当前没有生效的禁用记录时返回 false。 */
+    public boolean enableReporting(String target, String actor) {
+        ReportBanEntry active = getActiveReportBan(target);
+        if (active == null) {
+            return false;
+        }
+        plugin.getDatabaseManager().deleteReportBan(target);
+        plugin.getAuditManager().log("解除举报禁用", actor, target, active.reason());
+        return true;
     }
 
     private void notifyReporter(ReportEntry report, String message) {

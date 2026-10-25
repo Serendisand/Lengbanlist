@@ -102,6 +102,9 @@ public final class ReportCommands {
                         Utils.sendMessage(player, plugin.prefix() + "§c你没有权限使用此命令。");
                         return true;
                     }
+                    if (plugin.getReportManager().noticeReportBan(player)) {
+                        return true;
+                    }
                     String target = args[0];
                     if (args.length < 2) {
                         plugin.getWizardManager().startReportReason(player, target);

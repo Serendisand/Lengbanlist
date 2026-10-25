@@ -135,7 +135,14 @@ warn-escalation:
                                # 可用占位符：{warnings}、{trigger}
 
 # ---------- 举报 ----------
-report-cooldown-seconds: 86400  # 玩家举报冷却时间（秒）
+report-cooldown-seconds: 86400  # 同一举报人对同一玩家的举报冷却时间（秒）
+
+# 举报频率限制：防止刷举报。统计窗口内该举报人的所有举报（含已处理的）。
+# 管理员可以在举报详情里对举报人选择「暂时禁用举报」或「封禁」。
+report-rate-limit:
+  enabled: true
+  window-seconds: 600           # 统计窗口（秒）
+  max-reports: 5                # 窗口内最多提交多少条举报
 
 # ---------- 封禁申诉 ----------
 # 被封禁的玩家打不开游戏，所以申诉走网页：http://<面板地址>/appeal

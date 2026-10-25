@@ -53,6 +53,9 @@ public final class ReportSubmitGui implements Listener {
             plugin.sendFeatureDisabled(player);
             return;
         }
+        if (plugin.getReportManager().noticeReportBan(player)) {
+            return;
+        }
         Inventory inventory = Bukkit.createInventory(null, 54, PLAYER_TITLE);
         renderPlayerList(inventory, player, page);
         player.openInventory(inventory);

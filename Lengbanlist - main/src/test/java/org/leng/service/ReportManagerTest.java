@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.leng.Lengbanlist;
 import org.leng.api.events.LengbanlistReportEvent;
+import org.leng.object.ReportBanEntry;
 import org.leng.object.ReportEntry;
 import org.leng.storage.DatabaseManager;
 import org.mockito.Mock;
@@ -22,6 +23,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.contains;
@@ -178,6 +180,52 @@ class ReportManagerTest {
 
         assertEquals(ReportManager.ActionResult.DB_ERROR,
                 manager.acceptReport("id", "Admin"));
+    }
+
+    @Test
+    void rejectsReportsWhenReporterIsBanned() {
+        Player reporter = reporter("Alex");
+        when(db.getReportBan("Alex")).thenReturn(
+                new ReportBanEntry("Alex", "Admin", Long.MAX_VALUE, "滥用举报"));
+
+        ReportManager.SubmitOutcome outcome = manager.submitReport(reporter, "Steve", "cheat");
+
+        assertEquals(ReportManager.SubmitResult.REPORT_BANNED, outcome.result());
+        assertEquals(Long.MAX_VALUE, outcome.remainingMillis());
+        verify(db, never()).upsertReport(any());
+    }
+
+    @Test
+    void rejectsRateLimitedReporter() {
+        Player reporter = reporter("Alex");
+        YamlConfiguration config = configWithCooldown(86400);
+        config.set("report-rate-limit.enabled", true);
+        config.set("report-rate-limit.window-seconds", 600);
+        config.set("report-rate-limit.max-reports", 2);
+        when(plugin.getConfig()).thenReturn(config);
+        when(db.getReporterReportStatsSince(eq("Alex"), anyLong()))
+                .thenReturn(new DatabaseManager.ReporterReportStats(2, System.currentTimeMillis() - 1000L));
+
+        ReportManager.SubmitOutcome outcome = manager.submitReport(reporter, "Steve", "cheat");
+
+        assertEquals(ReportManager.SubmitResult.RATE_LIMITED, outcome.result());
+        assertTrue(outcome.remainingMillis() > 0L);
+        verify(db, never()).upsertReport(any());
+    }
+
+    @Test
+    void disablesAndEnablesReporting() {
+        when(db.upsertReportBan(any(ReportBanEntry.class))).thenReturn(true);
+        when(db.getReportBan("Alex")).thenReturn(
+                new ReportBanEntry("Alex", "Admin", Long.MAX_VALUE, "滥用举报"));
+
+        assertTrue(manager.disableReporting("Alex", "Admin", Long.MAX_VALUE, "滥用举报"));
+        verify(db).upsertReportBan(any(ReportBanEntry.class));
+        verify(audit).log(eq("禁用举报"), eq("Admin"), eq("Alex"), eq("滥用举报"));
+
+        assertTrue(manager.enableReporting("Alex", "Admin"));
+        verify(db).deleteReportBan("Alex");
+        verify(audit).log(eq("解除举报禁用"), eq("Admin"), eq("Alex"), eq("滥用举报"));
     }
 
     private Player reporter(String name) {
