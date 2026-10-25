@@ -4,19 +4,21 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.object.ReportEntry;
 import org.leng.service.ReportManager;
 import org.leng.util.Utils;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public final class ReportCommands {
 
     private ReportCommands() {}
 
-    public static final class Report implements CommandExecutor {
+    public static final class Report implements CommandExecutor, TabCompleter {
         private final Lengbanlist plugin;
 
         public Report(Lengbanlist plugin) {
@@ -115,6 +117,27 @@ public final class ReportCommands {
                     break;
             }
             return true;
+        }
+
+        @Override
+        public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+            // 只有第一个参数是玩家名；accept/close/ack 的编号补全不在这里管
+            if (args.length != 1) {
+                return List.of();
+            }
+            String prefix = args[0].toLowerCase();
+            String self = sender instanceof Player ? sender.getName() : null;
+            List<String> completions = new ArrayList<>();
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                // 自己举报自己会被拒，别让它出现在补全里
+                if (self != null && p.getName().equalsIgnoreCase(self)) {
+                    continue;
+                }
+                if (p.getName().toLowerCase().startsWith(prefix)) {
+                    completions.add(p.getName());
+                }
+            }
+            return completions;
         }
 
         private void handleAccept(Player player, String reportId) {
