@@ -88,7 +88,7 @@ Lengbanlist 起初只是台封禁广播机：谁被封了，全服喊一声。
 
 ## 支持这个项目 ❤️
 
-遇到问题、想聊新功能，来 [Discord](https://discord.gg/aeWjf7vD) 坐坐。
+遇到问题、想聊新功能，来 [QQ Group](https://qm.qq.com/q/Jo2x6Qy6Qw) 坐坐。
 
 如果这个插件对你有帮助，欢迎赞助支持。你的支持是我持续开发和维护的动力。
 
