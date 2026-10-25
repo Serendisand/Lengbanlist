@@ -11,7 +11,11 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.leng.Lengbanlist;
+import org.leng.object.BanEntry;
+import org.leng.object.ReportBanEntry;
 import org.leng.object.ReportEntry;
+import org.leng.service.BanManager;
+import org.leng.service.BanMutationFeedback;
 import org.leng.service.ReportManager;
 import org.leng.util.ErrorLog;
 import org.leng.util.IpMatcher;
@@ -33,12 +37,19 @@ public final class ReportManageGui implements Listener {
     private static final String CONFIRM_BAN_TITLE = "§bLengbanlist §8| §c确认封禁";
     private static final String CONFIRM_CLOSE_TITLE = "§bLengbanlist §8| §c确认关闭";
     private static final String WARN_REASON_TITLE = "§bLengbanlist §8| §e警告原因";
+    private static final String REPORTER_TITLE = "§bLengbanlist §8| §c处罚举报人";
+    private static final String REPORTER_DISABLE_TITLE = "§bLengbanlist §8| §c禁用举报时长";
+    private static final String REPORTER_BAN_TITLE = "§bLengbanlist §8| §c封禁举报人时长";
+    private static final String REPORTER_BAN_CONFIRM_TITLE = "§bLengbanlist §8| §c确认封禁举报人";
     private static final Set<String> TITLES = Set.of(
             LIST_TITLE, DETAIL_TITLE, DURATION_TITLE, CONFIRM_BAN_TITLE,
-            CONFIRM_CLOSE_TITLE, WARN_REASON_TITLE);
+            CONFIRM_CLOSE_TITLE, WARN_REASON_TITLE, REPORTER_TITLE,
+            REPORTER_DISABLE_TITLE, REPORTER_BAN_TITLE, REPORTER_BAN_CONFIRM_TITLE);
 
     private static final String VIEW_LIST = "report-manage";
     private static final Set<String> BAN_DURATIONS = Set.of("1d", "7d", "30d", "90d", "forever", "auto");
+    private static final List<String> REPORT_DISABLE_DURATIONS = List.of("1h", "1d", "7d", "30d");
+    private static final List<String> REPORTER_BAN_DURATIONS = List.of("1d", "7d", "30d", "90d", "forever");
 
     private static final String ACTION_DETAIL = "MANAGE_DETAIL";
     private static final String ACTION_ACCEPT = "MANAGE_ACCEPT";
@@ -50,6 +61,13 @@ public final class ReportManageGui implements Listener {
     private static final String ACTION_WARN = "MANAGE_WARN";
     private static final String ACTION_WARN_REASON = "MANAGE_WARN_REASON";
     private static final String ACTION_WARN_CUSTOM = "MANAGE_WARN_CUSTOM";
+    private static final String ACTION_REPORTER = "MANAGE_REPORTER";
+    private static final String ACTION_REPORTER_DISABLE = "MANAGE_REPORTER_DISABLE";
+    private static final String ACTION_REPORTER_DISABLE_EXECUTE = "MANAGE_REPORTER_DISABLE_EXECUTE";
+    private static final String ACTION_REPORTER_BAN_DURATION = "MANAGE_REPORTER_BAN_DURATION";
+    private static final String ACTION_REPORTER_BAN_CONFIRM = "MANAGE_REPORTER_BAN_CONFIRM";
+    private static final String ACTION_REPORTER_BAN_EXECUTE = "MANAGE_REPORTER_BAN_EXECUTE";
+    private static final String ACTION_REPORTER_ENABLE = "MANAGE_REPORTER_ENABLE";
     private static final String ACTION_TELEPORT = "MANAGE_TELEPORT";
     private static final String ACTION_REFRESH_LIST = "MANAGE_REFRESH_LIST";
     private static final String ACTION_BACK_LIST = "MANAGE_BACK_LIST";
@@ -200,6 +218,16 @@ public final class ReportManageGui implements Listener {
             inventory.setItem(25, kit.item(Material.PAPER, "§e警告被举报人",
                     List.of("§7选择原因并记录一次警告"), ACTION_WARN, report.getId()));
         }
+
+        ReportBanEntry reporterBan = plugin.getReportManager().getActiveReportBan(report.getReporter());
+        List<String> reporterLore = new ArrayList<>();
+        reporterLore.add("§7举报人：§f" + safe(report.getReporter()));
+        reporterLore.add(reporterBan == null
+                ? "§7可暂时禁用其举报功能或封禁"
+                : "§c举报功能已禁用（剩余 " + TimeUtils.formatRemaining(reporterBan.endTime()) + "）");
+        reporterLore.add("§e点击选择处罚方式");
+        inventory.setItem(32, kit.item(Material.NAME_TAG, "§c处罚举报人",
+                reporterLore, ACTION_REPORTER, report.getId()));
 
         Player target = Bukkit.getPlayer(report.getTarget());
         if (target != null && !target.getUniqueId().equals(player.getUniqueId())) {
@@ -373,6 +401,211 @@ public final class ReportManageGui implements Listener {
         return reasons;
     }
 
+    private void openReporterMenu(Player player, String reportId) {
+        if (!requireAdmin(player)) {
+            return;
+        }
+        ReportEntry report = requireReport(player, reportId);
+        if (report == null) {
+            return;
+        }
+        String reporter = safe(report.getReporter());
+        ReportBanEntry activeBan = plugin.getReportManager().getActiveReportBan(reporter);
+
+        Inventory inventory = Bukkit.createInventory(null, 54, REPORTER_TITLE);
+        GuiKit.fill(inventory, Material.GRAY_STAINED_GLASS_PANE, "§7 ");
+        inventory.setItem(11, kit.item(Material.BARRIER, "§c暂时禁用举报功能",
+                List.of("§7对象：§f" + reporter,
+                        activeBan == null
+                                ? "§7禁止其在指定时间内提交举报"
+                                : "§c当前已禁用（剩余 " + TimeUtils.formatRemaining(activeBan.endTime()) + "）",
+                        "§e点击选择禁用时长"),
+                ACTION_REPORTER_DISABLE, reportId));
+        inventory.setItem(15, kit.item(Material.IRON_AXE, "§c封禁举报人",
+                List.of("§7对象：§f" + reporter,
+                        "§7原因：§f滥用举报",
+                        "§e点击选择封禁时长"),
+                ACTION_REPORTER_BAN_DURATION, reportId));
+        if (activeBan != null) {
+            inventory.setItem(22, kit.item(Material.LIME_DYE, "§a解除举报禁用",
+                    List.of("§7对象：§f" + reporter,
+                            "§7解除后可以立即再次举报"),
+                    ACTION_REPORTER_ENABLE, reportId));
+        }
+        inventory.setItem(45, kit.item(Material.ARROW, "§e返回举报详情",
+                List.of("§7回到举报详情"), ACTION_DETAIL, reportId));
+        inventory.setItem(53, kit.item(Material.BARRIER, "§c关闭",
+                List.of("§7关闭界面"), ACTION_CLOSE, null));
+        player.openInventory(inventory);
+        plugin.getGuiSessionManager().setView(player.getUniqueId(), "report-reporter:" + reportId);
+    }
+
+    private void openReporterDisableDuration(Player player, String reportId) {
+        if (!requireAdmin(player)) {
+            return;
+        }
+        if (requireReport(player, reportId) == null) {
+            return;
+        }
+        Inventory inventory = Bukkit.createInventory(null, 54, REPORTER_DISABLE_TITLE);
+        GuiKit.fill(inventory, Material.GRAY_STAINED_GLASS_PANE, "§7 ");
+        int[] slots = {10, 12, 14, 16};
+        for (int i = 0; i < REPORT_DISABLE_DURATIONS.size() && i < slots.length; i++) {
+            String spec = REPORT_DISABLE_DURATIONS.get(i);
+            inventory.setItem(slots[i], reporterDurationItem(Material.CLOCK, durationLabel(spec), spec,
+                    reportId, ACTION_REPORTER_DISABLE_EXECUTE));
+        }
+        inventory.setItem(45, kit.item(Material.ARROW, "§e返回处罚菜单",
+                List.of("§7不修改举报禁用"), ACTION_REPORTER, reportId));
+        inventory.setItem(53, kit.item(Material.BARRIER, "§c关闭",
+                List.of("§7关闭界面"), ACTION_CLOSE, null));
+        player.openInventory(inventory);
+        plugin.getGuiSessionManager().setView(player.getUniqueId(), "report-reporter-disable:" + reportId);
+    }
+
+    private void openReporterBanDuration(Player player, String reportId) {
+        if (!requireAdmin(player)) {
+            return;
+        }
+        if (requireReport(player, reportId) == null) {
+            return;
+        }
+        Inventory inventory = Bukkit.createInventory(null, 54, REPORTER_BAN_TITLE);
+        GuiKit.fill(inventory, Material.GRAY_STAINED_GLASS_PANE, "§7 ");
+        int[] slots = {10, 12, 14, 16, 28};
+        for (int i = 0; i < REPORTER_BAN_DURATIONS.size() && i < slots.length; i++) {
+            String spec = REPORTER_BAN_DURATIONS.get(i);
+            Material material = "forever".equals(spec) ? Material.BEDROCK : Material.CLOCK;
+            inventory.setItem(slots[i], reporterDurationItem(material, durationLabel(spec), spec,
+                    reportId, ACTION_REPORTER_BAN_CONFIRM));
+        }
+        inventory.setItem(45, kit.item(Material.ARROW, "§e返回处罚菜单",
+                List.of("§7不封禁举报人"), ACTION_REPORTER, reportId));
+        inventory.setItem(53, kit.item(Material.BARRIER, "§c关闭",
+                List.of("§7关闭界面"), ACTION_CLOSE, null));
+        player.openInventory(inventory);
+        plugin.getGuiSessionManager().setView(player.getUniqueId(), "report-reporter-ban:" + reportId);
+    }
+
+    private void openConfirmReporterBan(Player player, String reportId, String durationSpec) {
+        if (!requireAdmin(player)) {
+            return;
+        }
+        if (!REPORTER_BAN_DURATIONS.contains(durationSpec)) {
+            Utils.sendMessage(player, plugin.prefix() + "§c无效的封禁时长。");
+            return;
+        }
+        ReportEntry report = requireReport(player, reportId);
+        if (report == null) {
+            return;
+        }
+        Inventory inventory = Bukkit.createInventory(null, 54, REPORTER_BAN_CONFIRM_TITLE);
+        GuiKit.fill(inventory, Material.GRAY_STAINED_GLASS_PANE, "§7 ");
+        inventory.setItem(20, kit.item(Material.LIME_WOOL, "§a确认封禁举报人",
+                List.of("§7举报人：§f" + safe(report.getReporter()),
+                        "§7时长：§f" + durationLabel(durationSpec),
+                        "§7原因：§f滥用举报",
+                        "§c不会改变这条举报的状态"),
+                ACTION_REPORTER_BAN_EXECUTE, reportId, durationSpec));
+        inventory.setItem(24, kit.item(Material.RED_WOOL, "§c取消",
+                List.of("§7返回处罚菜单"), ACTION_REPORTER, reportId));
+        player.openInventory(inventory);
+        plugin.getGuiSessionManager().setView(player.getUniqueId(), "report-reporter-ban-confirm:" + reportId);
+    }
+
+    private void executeReporterDisable(Player player, String reportId, String durationSpec) {
+        if (!REPORT_DISABLE_DURATIONS.contains(durationSpec)) {
+            Utils.sendMessage(player, plugin.prefix() + "§c无效的禁用时长。");
+            return;
+        }
+        ReportEntry report = requireReport(player, reportId);
+        if (report == null) {
+            return;
+        }
+        String reporter = report.getReporter();
+        if (!plugin.getPunishmentGate().canPunish(player, reporter)) {
+            Utils.sendMessage(player, plugin.getModelManager().getCurrentModel().getImmunityDenied(reporter));
+            return;
+        }
+        long duration = TimeUtils.parseDurationToMillis(durationSpec);
+        if (duration <= 0) {
+            Utils.sendMessage(player, plugin.prefix() + "§c无效的禁用时长。");
+            return;
+        }
+        long endTime = TimeUtils.calculateEndTime(duration);
+        if (plugin.getReportManager().disableReporting(reporter, player.getName(), endTime, "滥用举报")) {
+            Utils.sendMessage(player, plugin.prefix() + "§a已禁用举报人 " + reporter
+                    + " 的举报功能（" + durationLabel(durationSpec) + "）。");
+        } else {
+            Utils.sendMessage(player, plugin.prefix() + "§c操作失败，请稍后再试。");
+        }
+        openReporterMenu(player, reportId);
+    }
+
+    private void executeReporterBan(Player player, String reportId, String durationSpec) {
+        if (!REPORTER_BAN_DURATIONS.contains(durationSpec)) {
+            Utils.sendMessage(player, plugin.prefix() + "§c无效的封禁时长。");
+            return;
+        }
+        ReportEntry report = requireReport(player, reportId);
+        if (report == null) {
+            return;
+        }
+        String reporter = report.getReporter();
+        if (!plugin.getPunishmentGate().canPunish(player, reporter)) {
+            Utils.sendMessage(player, plugin.getModelManager().getCurrentModel().getImmunityDenied(reporter));
+            return;
+        }
+        long endTime;
+        if ("forever".equals(durationSpec)) {
+            endTime = Long.MAX_VALUE;
+        } else {
+            long duration = TimeUtils.parseDurationToMillis(durationSpec);
+            if (duration <= 0) {
+                Utils.sendMessage(player, plugin.prefix() + "§c无效的封禁时长。");
+                return;
+            }
+            endTime = TimeUtils.calculateEndTime(duration);
+        }
+        BanEntry entry = new BanEntry(reporter, player.getName(), endTime, "滥用举报", false);
+        BanManager.BanMutationResult result = plugin.getBanManager().tryBanPlayer(entry, false);
+        if (!result.isApplied()) {
+            BanMutationFeedback.sendFailure(player, result, reporter, false);
+            return;
+        }
+        Utils.sendMessage(player, plugin.prefix() + "§a已封禁举报人 " + reporter
+                + "（" + durationLabel(durationSpec) + "），原因：滥用举报。");
+        openDetail(player, reportId);
+    }
+
+    private void executeReporterEnable(Player player, String reportId) {
+        ReportEntry report = requireReport(player, reportId);
+        if (report == null) {
+            return;
+        }
+        if (plugin.getReportManager().enableReporting(report.getReporter(), player.getName())) {
+            Utils.sendMessage(player, plugin.prefix() + "§a已解除 " + report.getReporter() + " 的举报禁用。");
+        } else {
+            Utils.sendMessage(player, plugin.prefix() + "§e该举报人当前没有生效的举报禁用。");
+        }
+        openReporterMenu(player, reportId);
+    }
+
+    private ReportEntry requireReport(Player player, String reportId) {
+        ReportEntry report = plugin.getReportManager().getReport(reportId);
+        if (report == null) {
+            Utils.sendMessage(player, plugin.prefix() + "§c未找到举报编号: " + reportId);
+            openList(player);
+        }
+        return report;
+    }
+
+    private ItemStack reporterDurationItem(Material material, String label, String spec,
+                                           String reportId, String action) {
+        return kit.item(material, "§e" + label,
+                List.of("§7时长：§f" + label, "§7点击确认"), action, reportId, spec);
+    }
+
     @EventHandler
     public void onClick(InventoryClickEvent event) {
         if (!TITLES.contains(event.getView().getTitle())) {
@@ -466,6 +699,13 @@ public final class ReportManageGui implements Listener {
                 player.closeInventory();
                 plugin.getWizardManager().startWarnTarget(player, report.getTarget(), data);
             }
+            case ACTION_REPORTER -> openReporterMenu(player, data);
+            case ACTION_REPORTER_DISABLE -> openReporterDisableDuration(player, data);
+            case ACTION_REPORTER_DISABLE_EXECUTE -> executeReporterDisable(player, data, extra);
+            case ACTION_REPORTER_BAN_DURATION -> openReporterBanDuration(player, data);
+            case ACTION_REPORTER_BAN_CONFIRM -> openConfirmReporterBan(player, data, extra);
+            case ACTION_REPORTER_BAN_EXECUTE -> executeReporterBan(player, data, extra);
+            case ACTION_REPORTER_ENABLE -> executeReporterEnable(player, data);
             case ACTION_TELEPORT -> {
                 ReportEntry report = plugin.getReportManager().getReport(data);
                 Player target = report == null ? null : Bukkit.getPlayer(report.getTarget());
@@ -512,6 +752,7 @@ public final class ReportManageGui implements Listener {
 
     private static String durationLabel(String spec) {
         return switch (spec) {
+            case "1h" -> "1 小时";
             case "1d" -> "1 天";
             case "7d" -> "7 天";
             case "30d" -> "30 天";
