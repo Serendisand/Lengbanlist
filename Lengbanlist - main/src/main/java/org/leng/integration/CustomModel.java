@@ -103,11 +103,16 @@ public class CustomModel implements Model {
     private static final String HELP_FOOTER_MARKER = "╚";
 
     /**
-     * 把<b>用户装的扩展</b>提供的命令补进帮助列表。
+     * 把<b>用户装的扩展</b>提供的命令归入"扩展"分区。
      *
      * <p>模型文件里的 help 列表是给核心命令手工编排的，而扩展作者改不了别人的模型文件——
-     * 不自动补的话，装完扩展谁也不知道多了哪些命令。四条过滤：手工写过的（同一个功能键）
-     * 不重复、功能没开的不列、发送者没权限的不显示、内置命令不碰（那份编排是刻意的）。
+     * 不自动补的话，装完扩展谁也不知道多了哪些命令。
+     *
+     * <p>模型里已经<b>手工写过</b>的扩展命令行（典型是功能从核心搬进扩展后留下的旧行）
+     * 不能简单当成"已记录"跳过，否则它会一直躺在原来的类目下（比如 {@code /lban tp}
+     * 留在"杂项"）。这里把这类行从原位置摘走、原样挪进"扩展"分区，既修正了归类，
+     * 又保留模型作者写的文案与本地化。过滤规则：功能没开的不列、发送者没权限的不显示、
+     * 内置提供者手工编排的照旧不碰。
      */
     private List<String> appendExtensionCommands(List<String> lines, CommandSender sender) {
         Lengbanlist plugin = Lengbanlist.getInstance();
@@ -115,34 +120,51 @@ public class CustomModel implements Model {
                 || !plugin.getConfig().getBoolean("help.extension-commands", true)) {
             return lines;
         }
-        // 已经手工写进帮助的功能键：这些命令有人写过描述了，不再自动补
-        Set<String> documented = new HashSet<>();
+        // 手工编排过的内置功能键：这些行是刻意的，不重复也不挪动
+        Set<String> builtinDocumented = new HashSet<>();
+        // 扩展功能键 -> 模型里的旧行（可能不止一行，比如带别名的写法）
+        Map<String, List<String>> staleLines = new HashMap<>();
+        List<String> kept = new ArrayList<>(lines.size());
         for (String line : lines) {
             String feature = plugin.getCommandRegistry().featureForUsage(commandUsageOf(line));
-            if (feature != null) {
-                documented.add(feature);
+            if (feature == null) {
+                kept.add(line);
+            } else if (plugin.getExtensionRegistry().isBuiltinProvided(feature)) {
+                builtinDocumented.add(feature);
+                kept.add(line);
+            } else {
+                staleLines.computeIfAbsent(feature, key -> new ArrayList<>()).add(line);
             }
         }
+
+        List<String> moved = new ArrayList<>();
         List<String> generated = new ArrayList<>();
+        Set<String> seen = new HashSet<>(builtinDocumented);
         for (CommandSpec spec : plugin.getExtensionRegistry().commandSpecs()) {
-            if (documented.contains(spec.feature())
-                    || plugin.getExtensionRegistry().isBuiltinProvided(spec.feature())
-                    || !plugin.isFeatureActive(spec.feature())) {
+            if (plugin.getExtensionRegistry().isBuiltinProvided(spec.feature())
+                    || !plugin.isFeatureActive(spec.feature())
+                    || !seen.add(spec.feature())) {
                 continue;
             }
             if (!spec.permission().isEmpty() && !sender.hasPermission(spec.permission())) {
                 continue;
             }
-            generated.add(applyHelpBullet(DEFAULT_HELP_BULLET + "§b" + spec.usage()
-                    + " §7- §3" + spec.description()));
+            List<String> manual = staleLines.get(spec.feature());
+            if (manual != null) {
+                moved.addAll(manual);
+            } else {
+                generated.add(applyHelpBullet(DEFAULT_HELP_BULLET + "§b" + spec.usage()
+                        + " §7- §3" + spec.description()));
+            }
         }
-        if (generated.isEmpty()) {
-            return lines;
+        if (moved.isEmpty() && generated.isEmpty()) {
+            return kept;
         }
         List<String> additions = new ArrayList<>();
         additions.add("§6§l◆ 扩展");
+        additions.addAll(moved);
         additions.addAll(generated);
-        return insertBeforeFooter(lines, additions);
+        return insertBeforeFooter(kept, additions);
     }
 
     /** 把新增行插在底部边框之前；模型没画边框就追加到末尾。 */
