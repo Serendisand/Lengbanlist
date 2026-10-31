@@ -72,10 +72,11 @@ public final class ExtensionRegistry {
         if (byId.containsKey(id)) {
             throw new ExtensionLoadException("扩展 id 已被占用: " + id);
         }
-        String coreVersion = plugin.getPluginVersion();
-        if (!ApiVersion.satisfies(extension.requiredApi(), coreVersion)) {
+        // 契约版本与插件版本解耦：插件发 3.0 不会把按 2.x 契约写的扩展全部挡掉
+        String apiVersion = ApiVersion.CONTRACT_VERSION;
+        if (!ApiVersion.satisfies(extension.requiredApi(), apiVersion)) {
             throw new ExtensionLoadException("扩展 " + id + " 需要的契约版本 " + extension.requiredApi()
-                    + " 与当前核心 " + coreVersion + " 不兼容");
+                    + " 与当前契约 " + apiVersion + " 不兼容");
         }
 
         Registration reg = new Registration(extension);

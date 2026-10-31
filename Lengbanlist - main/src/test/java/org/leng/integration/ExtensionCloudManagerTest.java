@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 /**
  * 云端扩展市场：Lua 落位、jar 落位、sha256 校验与"不覆盖已有配置"。
@@ -147,6 +148,58 @@ class ExtensionCloudManagerTest {
         assertEquals(ExtensionCloudManager.InstallResult.NOT_READY, manager.install("soon").result());
     }
 
+    /** minCore 是"最低版本"，不是精确版本：核心 2.1.9 必须能满足 2.1.6。 */
+    @Test
+    void newerCoreSatisfiesMinCore() throws IOException {
+        byte[] script = "leng.name(\"T\")\n".getBytes(StandardCharsets.UTF_8);
+        FILES.put("/tp.lua", script);
+        FILES.put("/index.json", index(
+                luaEntry("tp", "1.0.0", "tp.lua", sha256(script), "tp/config.yml", "2.1.6"))
+                .getBytes(StandardCharsets.UTF_8));
+        when(plugin.getPluginVersion()).thenReturn("2.1.9");
+
+        assertEquals(ExtensionCloudManager.InstallResult.INSTALLED, manager.install("tp").result());
+    }
+
+    @Test
+    void olderCoreFailsMinCore() throws IOException {
+        byte[] script = "leng.name(\"T\")\n".getBytes(StandardCharsets.UTF_8);
+        FILES.put("/tp.lua", script);
+        FILES.put("/index.json", index(
+                luaEntry("tp", "1.0.0", "tp.lua", sha256(script), "tp/config.yml", "2.2.0"))
+                .getBytes(StandardCharsets.UTF_8));
+        when(plugin.getPluginVersion()).thenReturn("2.1.9");
+
+        ExtensionCloudManager.InstallOutcome outcome = manager.install("tp");
+
+        assertEquals(ExtensionCloudManager.InstallResult.INCOMPATIBLE, outcome.result());
+        assertFalse(Files.exists(extensionsDir.resolve("tp.lua")), "版本不满足不得落盘");
+    }
+
+    /** requiredApi 比的是契约版本，不是插件版本：插件 3.0 不该挡住按 2.x 契约写的扩展。 */
+    @Test
+    void requiredApiUsesContractVersionNotPluginVersion() throws IOException {
+        byte[] script = "leng.name(\"T\")\n".getBytes(StandardCharsets.UTF_8);
+        FILES.put("/tp.lua", script);
+        FILES.put("/index.json", index(
+                luaEntry("tp", "1.0.0", "tp.lua", sha256(script), "tp/config.yml", "2.1.6", "[2.0,3.0)"))
+                .getBytes(StandardCharsets.UTF_8));
+        when(plugin.getPluginVersion()).thenReturn("3.0.0");
+
+        assertEquals(ExtensionCloudManager.InstallResult.INSTALLED, manager.install("tp").result());
+    }
+
+    @Test
+    void incompatibleRequiredApiIsRejected() throws IOException {
+        byte[] script = "leng.name(\"T\")\n".getBytes(StandardCharsets.UTF_8);
+        FILES.put("/tp.lua", script);
+        FILES.put("/index.json", index(
+                luaEntry("tp", "1.0.0", "tp.lua", sha256(script), "tp/config.yml", "2.1.6", "[3.0,4.0)"))
+                .getBytes(StandardCharsets.UTF_8));
+
+        assertEquals(ExtensionCloudManager.InstallResult.INCOMPATIBLE, manager.install("tp").result());
+    }
+
     // ------------------------------------------------------------ helpers
 
     private static String index(String entry) {
@@ -154,8 +207,20 @@ class ExtensionCloudManagerTest {
     }
 
     private static String luaEntry(String id, String version, String file, String sha, String config) {
+        return luaEntry(id, version, file, sha, config, "2.1.6");
+    }
+
+    private static String luaEntry(String id, String version, String file, String sha, String config,
+                                   String minCore) {
+        return luaEntry(id, version, file, sha, config, minCore, null);
+    }
+
+    private static String luaEntry(String id, String version, String file, String sha, String config,
+                                   String minCore, String requiredApi) {
+        String api = requiredApi == null ? "" : ",\"requiredApi\":\"" + requiredApi + "\"";
         return "{\"id\":\"" + id + "\",\"type\":\"lua\",\"name\":\"" + id + "\",\"author\":\"t\","
-                + "\"version\":\"" + version + "\",\"minCore\":\"2.1.6\",\"file\":\"" + file + "\","
+                + "\"version\":\"" + version + "\",\"minCore\":\"" + minCore + "\"" + api
+                + ",\"file\":\"" + file + "\","
                 + "\"config\":\"" + config + "\",\"sha256\":\"" + sha + "\"}";
     }
 

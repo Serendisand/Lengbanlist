@@ -37,6 +37,9 @@ public interface LengbanlistExtension {
     /**
      * 所需的契约版本范围，语义化范围写法，例如 {@code [2.0,3.0)}。
      *
+     * <p>比较对象是 {@link LengbanlistCore#apiVersion()}（{@link ApiVersion#CONTRACT_VERSION}），
+     * <b>不是插件版本</b>——核心从 2.x 发到 3.0 不会影响这里的判断。
+     *
      * <p>留空表示不校验。核心在 {@link LengbanlistCore#enable} 时会校验，
      * 不满足则拒绝启用并给出可读原因，而不是等到运行时抛 {@code NoSuchMethodError}。
      */

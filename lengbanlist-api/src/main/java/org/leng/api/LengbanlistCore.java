@@ -21,7 +21,12 @@ import java.util.Set;
  */
 public interface LengbanlistCore {
 
-    /** 核心提供的契约版本，形如 {@code 2.1.6}。 */
+    /**
+     * 核心提供的契约版本，形如 {@code 2.1.9}。
+     *
+     * <p>与插件版本（{@code plugin.yml} 里的版本号）是两件事：插件发新版本不会改变它，
+     * 只有扩展契约本身增删能力时才调整。扩展的 {@code requiredApi()} 就是跟它比较。
+     */
     String apiVersion();
 
     /**

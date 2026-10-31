@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.leng.Lengbanlist;
+import org.leng.api.ApiVersion;
 import org.leng.api.CommandSpec;
 import org.leng.api.ExtensionContext;
 import org.leng.api.ExtensionLoadException;
@@ -46,7 +47,7 @@ import static org.mockito.Mockito.withSettings;
 @ExtendWith(MockitoExtension.class)
 class ExtensionRegistryTest {
 
-    private static final String CORE_VERSION = "2.1.6";
+    private static final String API_VERSION = ApiVersion.CONTRACT_VERSION;
 
     @Mock Lengbanlist plugin;
 
@@ -55,7 +56,6 @@ class ExtensionRegistryTest {
     @BeforeEach
     void setUp() {
         lenient().when(plugin.getLogger()).thenReturn(Logger.getGlobal());
-        lenient().when(plugin.getPluginVersion()).thenReturn(CORE_VERSION);
         registry = new ExtensionRegistry(plugin);
     }
 
@@ -157,13 +157,23 @@ class ExtensionRegistryTest {
                 () -> registry.register(ext));
 
         assertTrue(error.getMessage().contains("[3.0,4.0)"), "原因里要写清要求的范围: " + error.getMessage());
-        assertTrue(error.getMessage().contains(CORE_VERSION), "原因里要写清当前核心版本");
+        assertTrue(error.getMessage().contains(API_VERSION), "原因里要写清当前契约版本");
         assertFalse(registry.isRegistered("webpanel"));
     }
 
     @Test
     void compatibleApiRangeIsAccepted() throws Exception {
         registry.register(new FakeExtension("sync", "[2.0,3.0)"));
+        assertTrue(registry.isRegistered("sync"));
+    }
+
+    /** 契约判断跟插件版本脱钩：插件发 3.0 不该把按 2.x 契约写的扩展挡掉。 */
+    @Test
+    void pluginVersionDoesNotAffectContractCheck() throws Exception {
+        lenient().when(plugin.getPluginVersion()).thenReturn("3.0.0");
+
+        registry.register(new FakeExtension("sync", "[2.0,3.0)"));
+
         assertTrue(registry.isRegistered("sync"));
     }
 

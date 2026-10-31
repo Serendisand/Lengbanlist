@@ -26,6 +26,24 @@ import java.util.Locale;
  */
 public final class ApiVersion {
 
+    /**
+     * 当前核心实现的契约版本。
+     *
+     * <p>它是<b>扩展契约</b>的版本，不是插件版本：插件修 bug、甚至从 2.x 发到 3.0，
+     * 只要 {@code org.leng.api} 的接口没变，这里就不动。扩展的
+     * {@link LengbanlistExtension#requiredApi()} 与云端索引的 {@code requiredApi}
+     * 都跟它比较，因此不会被插件版本号误伤。
+     *
+     * <p>何时调整：
+     *
+     * <ul>
+     *   <li>只新增方法/类/字段（向后兼容）→ 次版本号 +1，如 {@code 2.1.9 → 2.2.0}</li>
+     *   <li>改签名、删方法或改语义（不兼容）→ 主版本号 +1，如 {@code 2.1.9 → 3.0.0}</li>
+     *   <li>插件自身发版（含插件 3.0）→ <b>不动</b></li>
+     * </ul>
+     */
+    public static final String CONTRACT_VERSION = "2.1.9";
+
     private ApiVersion() {
     }
 

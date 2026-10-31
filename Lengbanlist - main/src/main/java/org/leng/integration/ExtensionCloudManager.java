@@ -429,13 +429,17 @@ public final class ExtensionCloudManager {
     }
 
     private String incompatibility(ExtensionInfo info) {
-        String coreVersion = plugin.getPluginVersion();
+        // requiredApi 比的是契约版本；minCore 比的是插件版本（核心发布日期线），两者不能混用
+        String apiVersion = ApiVersion.CONTRACT_VERSION;
         if (info.requiredApi() != null && !info.requiredApi().isBlank()
-                && !ApiVersion.satisfies(info.requiredApi(), coreVersion)) {
-            return "需要契约 " + info.requiredApi() + "，当前核心 " + coreVersion;
+                && !ApiVersion.satisfies(info.requiredApi(), apiVersion)) {
+            return "需要契约 " + info.requiredApi() + "，当前契约 " + apiVersion;
         }
+        // minCore 是"最低核心版本"，不是精确版本：2.1.6 必须放行 2.1.9。
+        // 这里不能用 satisfies——三位数版本在它那里是精确匹配。
+        String coreVersion = plugin.getPluginVersion();
         if (info.minCore() != null && !info.minCore().isBlank()
-                && !ApiVersion.satisfies(info.minCore(), coreVersion)) {
+                && ApiVersion.compare(coreVersion, info.minCore()) < 0) {
             return "需要核心 " + info.minCore() + " 及以上，当前 " + coreVersion;
         }
         return null;

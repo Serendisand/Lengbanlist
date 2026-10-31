@@ -260,7 +260,7 @@ public final class LuaExtCommand implements CommandExecutor, TabCompleter {
             case NOT_READY -> Utils.sendMessage(sender, plugin.prefix()
                     + "§e扩展 " + id + " 云端尚未上架，过阵子再来看看喵。");
             case INCOMPATIBLE -> Utils.sendMessage(sender, plugin.prefix()
-                    + "§c扩展 " + id + " 与当前核心不兼容：" + outcome.detail());
+                    + "§c扩展 " + id + " 与当前版本不兼容：" + outcome.detail());
             case NOT_FOUND -> Utils.sendMessage(sender, plugin.prefix()
                     + "§c云端没有找到扩展 " + id + "，试试 §f/lban ext list");
             default -> Utils.sendMessage(sender, plugin.prefix()

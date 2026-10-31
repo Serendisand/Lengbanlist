@@ -100,4 +100,11 @@ class ApiVersionTest {
         assertFalse(ApiVersion.satisfies("[2.0,3.0", CORE), "缺少右括号应判为不满足，而不是放行");
         assertFalse(ApiVersion.satisfies("[2.0-3.0)", CORE), "缺少逗号应判为不满足");
     }
+
+    /** 契约版本必须能被文档推荐的写法接受，否则等于把所有扩展都拒之门外。 */
+    @Test
+    void contractVersionMatchesRecommendedDeclarations() {
+        assertTrue(ApiVersion.satisfies("[2.0,3.0)", ApiVersion.CONTRACT_VERSION));
+        assertTrue(ApiVersion.satisfies("2.x", ApiVersion.CONTRACT_VERSION));
+    }
 }

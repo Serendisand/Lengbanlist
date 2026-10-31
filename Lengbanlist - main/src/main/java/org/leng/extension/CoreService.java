@@ -1,6 +1,7 @@
 package org.leng.extension;
 
 import org.leng.Lengbanlist;
+import org.leng.api.ApiVersion;
 import org.leng.api.ExtensionContext;
 import org.leng.api.ExtensionLoadException;
 import org.leng.api.LengbanlistCore;
@@ -27,7 +28,7 @@ public final class CoreService implements LengbanlistCore {
 
     @Override
     public String apiVersion() {
-        return plugin.getPluginVersion();
+        return ApiVersion.CONTRACT_VERSION;
     }
 
     @Override
