@@ -21,12 +21,18 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.leng.integration.ModelManager;
 
 public class Metrics {
+    public static final int SERVICE_ID = 33262;
+
     private final Plugin plugin;
 
     private final MetricsBase metricsBase;
 
+    public Metrics(Plugin plugin) {
+        this(plugin, SERVICE_ID);
+    }
 
     public Metrics(Plugin plugin, int serviceId) {
         this.plugin = plugin;
@@ -97,6 +103,14 @@ public class Metrics {
 
     public void addCustomChart(CustomChart chart) {
         metricsBase.addCustomChart(chart);
+    }
+
+    /** 当前模型使用情况饼图；模型名转小写即仓库 model-id。 */
+    public void addModelUsageChart() {
+        addCustomChart(new SimplePie("modelUsage", () -> {
+            String model = ModelManager.getCurrentModelName();
+            return model == null || model.isEmpty() ? "unknown" : model.toLowerCase(Locale.ROOT);
+        }));
     }
 
     private void appendPlatformData(JsonObjectBuilder builder) {

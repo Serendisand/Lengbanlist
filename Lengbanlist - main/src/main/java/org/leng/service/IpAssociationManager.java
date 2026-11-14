@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -22,7 +23,15 @@ public class IpAssociationManager {
     private static final DownloadSettings VPN_SETTINGS =
             new DownloadSettings(3000, 3000, "Lengbanlist-VPNCheck/1.0", true);
 
+    /** 同一 IP 的 VPN 查询结果缓存 10 分钟；查询失败只缓存 1 分钟，避免狂刷外部接口。 */
+    private static final long VPN_CACHE_TTL_MS = 10 * 60 * 1000L;
+    private static final long VPN_FAILURE_TTL_MS = 60 * 1000L;
+    private static final int VPN_CACHE_LIMIT = 2048;
+
+    private record VpnResult(boolean vpn, boolean success, long expiresAt) {}
+
     private final Lengbanlist plugin;
+    private final Map<String, VpnResult> vpnCache = new ConcurrentHashMap<>();
     private volatile DownloadService vpnClient;
 
     public IpAssociationManager(Lengbanlist plugin) {
@@ -150,18 +159,21 @@ public class IpAssociationManager {
         return others;
     }
 
-    public boolean hasSuspiciousLogin(Player player) {
-        return !getOtherPlayersOnIp(player).isEmpty();
-    }
-
-    public List<String> getSuspiciousLoginDetails(Player player) {
-        return getOtherPlayersOnIp(player);
-    }
-
     public boolean isVpnIp(String ip) {
         if (ip == null || !IP_LITERAL.matcher(ip).matches()) {
             return false;
         }
+        long now = System.currentTimeMillis();
+        VpnResult cached = vpnCache.get(ip);
+        if (cached != null) {
+            if (cached.expiresAt() > now) {
+                return cached.vpn();
+            }
+            vpnCache.remove(ip, cached);
+        }
+
+        boolean vpn = false;
+        boolean success = false;
         try {
             String apiUrl = "https://ip-api.com/json/" + ip + "?fields=status,proxy,hosting";
             String response = vpnClient().get(apiUrl, "*/*");
@@ -169,12 +181,25 @@ public class IpAssociationManager {
             if ("success".equals(json.get("status").getAsString())) {
                 boolean proxy = json.has("proxy") && json.get("proxy").getAsBoolean();
                 boolean hosting = json.has("hosting") && json.get("hosting").getAsBoolean();
-                return proxy || hosting;
+                vpn = proxy || hosting;
+                success = true;
             }
         } catch (Exception e) {
             plugin.getLogger().warning("VPN检测请求失败: " + e.getMessage());
         }
-        return false;
+        rememberVpnResult(ip, vpn, success, now);
+        return vpn;
+    }
+
+    private void rememberVpnResult(String ip, boolean vpn, boolean success, long now) {
+        if (vpnCache.size() >= VPN_CACHE_LIMIT) {
+            vpnCache.entrySet().removeIf(entry -> entry.getValue().expiresAt() <= now);
+            if (vpnCache.size() >= VPN_CACHE_LIMIT) {
+                vpnCache.clear();
+            }
+        }
+        long ttl = success ? VPN_CACHE_TTL_MS : VPN_FAILURE_TTL_MS;
+        vpnCache.put(ip, new VpnResult(vpn, success, now + ttl));
     }
 
     public static boolean isRealIp(String ip) {

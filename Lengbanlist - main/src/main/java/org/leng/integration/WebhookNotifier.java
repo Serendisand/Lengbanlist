@@ -113,11 +113,8 @@ public class WebhookNotifier {
             if (!plugin.isFeatureEnabled("webhook-events")) {
                 return;
             }
-            if (!isEnabled() || resolveUrl().isEmpty()) {
-                return;
-            }
-            List<String> eventTypes = eventTypes();
-            if (!eventTypes.isEmpty() && !eventTypes.contains(action)) {
+            DeliveryConfig config = deliveryConfig();
+            if (!isEnabled() || config.url().isEmpty() || !config.accepts(action)) {
                 return;
             }
             ensureStarted();
@@ -292,11 +289,12 @@ public class WebhookNotifier {
             if (!plugin.isFeatureEnabled("webhook-events") || !isEnabled()) {
                 return;
             }
-            String url = resolveUrl();
+            DeliveryConfig config = deliveryConfig();
+            String url = config.url();
             if (url.isEmpty()) {
                 return;
             }
-            awaitRateLimit();
+            awaitRateLimit(config.minIntervalMs());
             if (!running) {
                 return;
             }
@@ -360,9 +358,8 @@ public class WebhookNotifier {
         return local;
     }
 
-    private void awaitRateLimit() {
+    private void awaitRateLimit(long interval) {
         synchronized (rateLock) {
-            long interval = Math.max(0L, configLong("webhook.min-interval-ms", DEFAULT_MIN_INTERVAL_MS));
             long wait = nextAllowedAt - System.currentTimeMillis();
             if (wait > 0) {
                 sleepInterruptibly(wait);
@@ -466,6 +463,23 @@ public class WebhookNotifier {
             return "";
         }
         return trimmed;
+    }
+
+    /**
+     * 投递前的一次性配置快照：URL、事件白名单和请求速率间隔只读一次。
+     *
+     * <p>以前每次投递 + 每次重试都要重新读 4~5 个配置键，而 {@code FileConfiguration} 的
+     * 查找是同步的深度读取，投递线程上白白多出一堆锁竞争。
+     */
+    private record DeliveryConfig(String url, List<String> eventTypes, long minIntervalMs) {
+        boolean accepts(String action) {
+            return eventTypes.isEmpty() || eventTypes.contains(action);
+        }
+    }
+
+    private DeliveryConfig deliveryConfig() {
+        return new DeliveryConfig(resolveUrl(), eventTypes(),
+                Math.max(0L, configLong("webhook.min-interval-ms", DEFAULT_MIN_INTERVAL_MS)));
     }
 
     private List<String> eventTypes() {

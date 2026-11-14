@@ -1,4 +1,4 @@
-package org.leng.command;
+package org.leng.gui;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -439,7 +439,7 @@ public final class GuiCommands {
                 return true;
             }
             String target = args[0];
-            if (target.contains(".")) {
+            if (org.leng.util.IpMatcher.looksLikeIp(target)) {
                 Utils.sendMessage(sender, plugin.prefix() + "§c§l参数应为玩家名，不能是 IP：/alts <玩家名>");
                 return true;
             }

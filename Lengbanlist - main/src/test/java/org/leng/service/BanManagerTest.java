@@ -8,9 +8,6 @@ import org.leng.object.BanIpEntry;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Arrays;
-import java.util.Collections;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 import org.leng.storage.DatabaseManager;
@@ -59,6 +56,13 @@ class BanManagerTest {
     }
 
     @Test
+    void isValidIp_ipv6_returnsTrue() {
+        assertTrue(manager.isValidIp("::1"));
+        assertTrue(manager.isValidIp("2001:db8::1"));
+        assertFalse(manager.isValidIp("abc:def"));
+    }
+
+    @Test
     void mapWriteResult_appliedReturnsApplied() {
 
         when(db.replaceActiveBan(org.mockito.ArgumentMatchers.any()))
@@ -91,29 +95,26 @@ class BanManagerTest {
     @Test
     void getMatchingIpBan_exactMatch_returnsEntry() {
         BanIpEntry entry = new BanIpEntry("192.168.1.100", "staff", Long.MAX_VALUE, "reason", false);
-        when(db.getIpBans()).thenReturn(Collections.singletonList(entry));
+        when(db.findMatchingIpBan("192.168.1.100")).thenReturn(entry);
         assertSame(entry, manager.getMatchingIpBan("192.168.1.100"));
     }
 
     @Test
     void getMatchingIpBan_noMatch_returnsNull() {
-        BanIpEntry entry = new BanIpEntry("10.0.0.1", "staff", Long.MAX_VALUE, "reason", false);
-        when(db.getIpBans()).thenReturn(Collections.singletonList(entry));
         assertNull(manager.getMatchingIpBan("8.8.8.8"));
     }
 
     @Test
     void getMatchingIpBan_cidrMatch_returnsEntry() {
         BanIpEntry entry = new BanIpEntry("192.168.1.0/24", "staff", Long.MAX_VALUE, "reason", false);
-        when(db.getIpBans()).thenReturn(Collections.singletonList(entry));
+        when(db.findMatchingIpBan("192.168.1.42")).thenReturn(entry);
         assertSame(entry, manager.getMatchingIpBan("192.168.1.42"));
     }
 
     @Test
     void getMatchingIpBan_firstMatchWins() {
         BanIpEntry exact = new BanIpEntry("192.168.1.100", "staff1", Long.MAX_VALUE, "reason1", false);
-        BanIpEntry cidr = new BanIpEntry("192.168.1.0/24", "staff2", Long.MAX_VALUE, "reason2", false);
-        when(db.getIpBans()).thenReturn(Arrays.asList(exact, cidr));
+        when(db.findMatchingIpBan("192.168.1.100")).thenReturn(exact);
         assertSame(exact, manager.getMatchingIpBan("192.168.1.100"));
     }
 }

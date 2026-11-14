@@ -51,11 +51,9 @@ public final class BanCommands {
             }
 
 
-            boolean silent = false;
-            if (args.length > 0 && args[0].equalsIgnoreCase("-s")) {
-                silent = true;
-                args = Arrays.copyOfRange(args, 1, args.length);
-            }
+            CommandSupport.Args parsed = CommandSupport.parseSilent(args);
+            boolean silent = parsed.silent();
+            args = parsed.values();
 
             if (args.length < 3) {
                 sendUsage(sender);
@@ -65,7 +63,7 @@ public final class BanCommands {
             String target = args[0];
             String timeArg = args[1];
             String rawReason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
-            String reason = resolvePresetReason(rawReason);
+            String reason = CommandSupport.presetReason(plugin, rawReason);
 
 
             if (!plugin.getPunishmentGate().canPunish(sender, target)) {
@@ -89,7 +87,7 @@ public final class BanCommands {
             } else {
                 banDuration = TimeUtils.parseDurationToMillis(timeArg);
                 if (banDuration <= 0) {
-                    showTimeFormatError(sender);
+                    CommandSupport.sendTimeFormat(sender, "", "封禁");
                     return false;
                 }
 
@@ -153,25 +151,6 @@ public final class BanCommands {
             return null;
         }
 
-        private void showTimeFormatError(CommandSender sender) {
-            Utils.sendMessage(sender, "§c时间格式错误喵，请使用以下格式:");
-            Utils.sendMessage(sender, "§c - 10s: 秒 (10 秒)");
-            Utils.sendMessage(sender, "§c - 5m: 分钟 (5 分钟)");
-            Utils.sendMessage(sender, "§c - 2h: 小时 (2 小时)");
-            Utils.sendMessage(sender, "§c - 7d: 天 (7 天)");
-            Utils.sendMessage(sender, "§c - 1w: 周 (1 周，等于 7 天)");
-            Utils.sendMessage(sender, "§c - 1M: 月 (1 月，按 30 天计算)");
-            Utils.sendMessage(sender, "§c - 1y: 年 (1 年，按 365 天计算)");
-            Utils.sendMessage(sender, "§c - forever: 永久封禁");
-            Utils.sendMessage(sender, "§c - auto: 自动计算封禁时间");
-        }
-
-        private String resolvePresetReason(String input) {
-            if (input == null || !plugin.getConfig().isConfigurationSection("preset-reasons")) return input;
-            String value = plugin.getConfig().getString("preset-reasons." + input.toLowerCase());
-            return value != null ? value : input;
-        }
-
     }
 
     public static final class BanIp implements CommandExecutor, TabCompleter {
@@ -196,11 +175,9 @@ public final class BanCommands {
                 }
             }
 
-            boolean silent = false;
-            if (args.length > 0 && args[0].equalsIgnoreCase("-s")) {
-                silent = true;
-                args = Arrays.copyOfRange(args, 1, args.length);
-            }
+            CommandSupport.Args parsed = CommandSupport.parseSilent(args);
+            boolean silent = parsed.silent();
+            args = parsed.values();
 
             if (args.length < 3) {
                 Utils.sendMessage(sender, "§c用法错误喵: /ban-ip <IP> <时间/auto> <原因>");
@@ -210,18 +187,21 @@ public final class BanCommands {
                 return false;
             }
 
-            if (!isValidIp(args[0])) {
+            // 通配符（1.2.x.x）必须转成 CIDR 再入库：匹配逻辑只认精确 IP 或 CIDR，
+            // 原样存进去的 "1.2.x.x" 永远不会命中，封禁等于没封。
+            String ip = IpMatcher.normalizeIpOrCidr(args[0]);
+            if (ip == null) {
                 Utils.sendMessage(sender, "§c无效的IP地址或不允许封禁此IP");
                 return false;
             }
 
-            if (!plugin.getPunishmentGate().canPunishTarget(plugin.getPunishmentGate().staffWeight(sender), args[0])) {
-                Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(args[0]));
+            if (!plugin.getPunishmentGate().canPunishTarget(plugin.getPunishmentGate().staffWeight(sender), ip)) {
+                Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().getImmunityDenied(ip));
                 return false;
             }
 
-            if (plugin.getBanManager().isIpBanned(args[0])) {
-                Utils.sendMessage(sender, "§cIP " + args[0] + " 已经被封禁");
+            if (plugin.getBanManager().isIpBanned(ip)) {
+                Utils.sendMessage(sender, "§cIP " + ip + " 已经被封禁");
                 return false;
             }
 
@@ -230,38 +210,34 @@ public final class BanCommands {
             DurationPolicyHook.Decision escalationResult = null;
 
             if (isAuto) {
-                escalationResult = plugin.getDurationPolicy().autoIpBan(args[0]);
+                escalationResult = plugin.getDurationPolicy().autoIpBan(ip);
                 banDuration = escalationResult.durationMillis();
             } else {
                 banDuration = TimeUtils.parseDurationToMillis(args[1]);
                 if (banDuration <= 0) {
-                    showTimeFormatError(sender);
+                    CommandSupport.sendTimeFormat(sender, "", "封禁");
                     return false;
                 }
             }
 
             long banEndTime = TimeUtils.calculateEndTime(banDuration);
             String rawReason = String.join(" ", Arrays.copyOfRange(args, 2, args.length));
-            String reason = resolvePresetReason(rawReason);
+            String reason = CommandSupport.presetReason(plugin, rawReason);
 
             BanManager.BanMutationResult result = plugin.getBanManager().tryBanIp(
-                    new org.leng.object.BanIpEntry(args[0], Utils.getSenderName(sender), banEndTime, reason, isAuto),
+                    new BanIpEntry(ip, Utils.getSenderName(sender), banEndTime, reason, isAuto),
                     silent
             );
             if (!result.isApplied()) {
-                BanMutationFeedback.sendFailure(sender, result, args[0], true);
+                BanMutationFeedback.sendFailure(sender, result, ip, true);
                 return true;
             }
 
             if (escalationResult != null && escalationResult.offenseCount() > 0) {
                 Utils.sendMessage(sender, plugin.getModelManager().getCurrentModel().onEscalatedBan(
-                        args[0], escalationResult.offenseCount(), TimeUtils.formatDuration(banDuration, TimeUtils.isEnglishLocale())));
+                        ip, escalationResult.offenseCount(), TimeUtils.formatDuration(banDuration, TimeUtils.isEnglishLocale())));
             }
             return true;
-        }
-
-        private boolean isValidIp(String ip) {
-            return IpMatcher.isValidIpOrCidrOrWildcard(ip);
         }
 
         @Override
@@ -287,27 +263,9 @@ public final class BanCommands {
             return null;
         }
 
-        private void showTimeFormatError(CommandSender sender) {
-            Utils.sendMessage(sender, "§c时间格式错误喵，请使用以下格式:");
-            Utils.sendMessage(sender, "§c - 10s: 秒 (10 秒)");
-            Utils.sendMessage(sender, "§c - 5m: 分钟 (5 分钟)");
-            Utils.sendMessage(sender, "§c - 2h: 小时 (2 小时)");
-            Utils.sendMessage(sender, "§c - 7d: 天 (7 天)");
-            Utils.sendMessage(sender, "§c - 1w: 周 (1 周，等于 7 天)");
-            Utils.sendMessage(sender, "§c - 1M: 月 (1 月，按 30 天计算)");
-            Utils.sendMessage(sender, "§c - 1y: 年 (1 年，按 365 天计算)");
-            Utils.sendMessage(sender, "§c - auto: 自动计算封禁时间");
-        }
-
         @Override
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
             return execute(sender, label, args);
-        }
-
-        private String resolvePresetReason(String input) {
-            if (input == null || !plugin.getConfig().isConfigurationSection("preset-reasons")) return input;
-            String value = plugin.getConfig().getString("preset-reasons." + input.toLowerCase());
-            return value != null ? value : input;
         }
 
     }
@@ -336,18 +294,16 @@ public final class BanCommands {
             }
 
 
-            boolean silent = false;
-            if (args.length > 0 && args[0].equalsIgnoreCase("-s")) {
-                silent = true;
-                args = java.util.Arrays.copyOfRange(args, 1, args.length);
-            }
+            CommandSupport.Args parsed = CommandSupport.parseSilent(args);
+            boolean silent = parsed.silent();
+            args = parsed.values();
 
             if (args.length < 1) {
                 Utils.sendMessage(sender, "§c用法错误喵: /unban [-s] <玩家名/IP>");
                 return false;
             }
 
-            if (args[0].contains(".")) {
+            if (IpMatcher.looksLikeIp(args[0])) {
                 String normalized = IpMatcher.normalizeIpOrCidr(args[0]);
                 if (normalized == null) {
                     Utils.sendMessage(sender, "§c无效的IP地址");
@@ -412,7 +368,15 @@ public final class BanCommands {
             BanManager banManager = plugin.getBanManager();
 
 
-            boolean isIp = banManager.isValidIpOrCidr(target);
+            boolean isIp = IpMatcher.looksLikeIp(target);
+            if (isIp) {
+                String normalizedIp = IpMatcher.normalizeIpOrCidr(target);
+                if (normalizedIp == null) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c无效的IP地址");
+                    return true;
+                }
+                target = normalizedIp;
+            }
 
 
             if (!isIp && !plugin.getPunishmentGate().canPunish(sender, target)) {
@@ -447,7 +411,7 @@ public final class BanCommands {
             } else {
                 banDuration = TimeUtils.parseDurationToMillis(timeArg);
                 if (banDuration <= 0) {
-                    showTimeFormatError(sender);
+                    CommandSupport.sendTimeFormat(sender, plugin.prefix(), "封禁");
                     return true;
                 }
             }
@@ -513,19 +477,6 @@ public final class BanCommands {
             Utils.sendMessage(sender, plugin.prefix() + "§c使用 'forever' 表示永久封禁，使用 'auto' 自动计算封禁时间喵（基于警告次数）");
         }
 
-        private void showTimeFormatError(CommandSender sender) {
-            Utils.sendMessage(sender, plugin.prefix() + "§c时间格式错误喵，请使用以下格式:");
-            Utils.sendMessage(sender, plugin.prefix() + "§c - 10s: 秒 (10 秒)");
-            Utils.sendMessage(sender, plugin.prefix() + "§c - 5m: 分钟 (5 分钟)");
-            Utils.sendMessage(sender, plugin.prefix() + "§c - 2h: 小时 (2 小时)");
-            Utils.sendMessage(sender, plugin.prefix() + "§c - 7d: 天 (7 天)");
-            Utils.sendMessage(sender, plugin.prefix() + "§c - 1w: 周 (1 周，等于 7 天)");
-            Utils.sendMessage(sender, plugin.prefix() + "§c - 1M: 月 (1 月，按 30 天计算)");
-            Utils.sendMessage(sender, plugin.prefix() + "§c - 1y: 年 (1 年，按 365 天计算)");
-            Utils.sendMessage(sender, plugin.prefix() + "§c - forever: 永久封禁");
-            Utils.sendMessage(sender, plugin.prefix() + "§c - auto: 自动计算封禁时间");
-        }
-
         @Override
         public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
             List<String> completions = new ArrayList<>();
@@ -575,11 +526,9 @@ public final class BanCommands {
             }
             LAST_KICK.put(senderKey, now);
 
-            boolean silent = false;
-            if (args.length > 0 && args[0].equalsIgnoreCase("-s")) {
-                silent = true;
-                args = Arrays.copyOfRange(args, 1, args.length);
-            }
+            CommandSupport.Args parsed = CommandSupport.parseSilent(args);
+            boolean silent = parsed.silent();
+            args = parsed.values();
 
             if (args.length < 1) {
                 Utils.sendMessage(sender, plugin.prefix() + "§c用法喵: /kick [-s] <玩家> [原因]");

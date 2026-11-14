@@ -57,7 +57,7 @@ public final class PunishmentGate {
         if (hook == null) {
             return true;
         }
-        boolean ipTarget = target != null && target.contains(".");
+        boolean ipTarget = org.leng.util.IpMatcher.looksLikeIp(target);
         return operatorWeight > (ipTarget ? hook.ipWeight(target) : hook.playerWeight(target));
     }
 

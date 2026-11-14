@@ -22,6 +22,7 @@ import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.leng.Lengbanlist;
 import org.leng.object.FreezeEntry;
+import org.leng.util.SchedulerUtils;
 import org.leng.util.Utils;
 
 import java.util.List;
@@ -36,19 +37,28 @@ public class FreezeListener implements Listener {
 
     private final Lengbanlist plugin;
     private final Map<UUID, Long> lastNotice = new ConcurrentHashMap<>();
+    private volatile List<String> allowedCommands;
 
     public FreezeListener(Lengbanlist plugin) {
         this.plugin = plugin;
     }
 
+    /** 配置重载后调用；下一次命令检查会重新读取允许列表。 */
+    public void invalidateConfigCache() {
+        allowedCommands = null;
+    }
+
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        FreezeEntry entry = plugin.getFreezeManager().get(player);
-        if (entry == null) {
-            return;
-        }
-        plugin.getFreezeManager().notify(player, entry.reason());
+        // 冻结缓存未命中时会查身份层（数据库），放到异步线程；
+        // notify() 自己会切回玩家的调度器。
+        SchedulerUtils.runAsync(plugin, () -> {
+            FreezeEntry entry = plugin.getFreezeManager().get(player);
+            if (entry != null) {
+                plugin.getFreezeManager().notify(player, entry.reason());
+            }
+        });
     }
 
     @EventHandler
@@ -159,8 +169,17 @@ public class FreezeListener implements Listener {
         blocked(player, event);
     }
 
+    private List<String> allowedCommands() {
+        List<String> cached = allowedCommands;
+        if (cached == null) {
+            cached = List.copyOf(plugin.getConfig().getStringList("freeze.allowed-commands"));
+            allowedCommands = cached;
+        }
+        return cached;
+    }
+
     private boolean allowedCommand(String message) {
-        List<String> allowed = plugin.getConfig().getStringList("freeze.allowed-commands");
+        List<String> allowed = allowedCommands();
         if (allowed.isEmpty()) {
             return false;
         }

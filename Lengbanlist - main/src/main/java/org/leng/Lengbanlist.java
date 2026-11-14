@@ -1,5 +1,7 @@
 package org.leng;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
@@ -8,7 +10,6 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.leng.command.CommandRegistry;
-import org.leng.command.GuiCommands;
 import org.leng.command.LengbanlistCommand;
 import org.leng.extension.BuiltinExtensions;
 import org.leng.extension.CoreService;
@@ -16,6 +17,7 @@ import org.leng.extension.DurationPolicy;
 import org.leng.extension.ExtensionRegistry;
 import org.leng.extension.PunishmentGate;
 import org.leng.extension.lua.LuaLoader;
+import org.leng.gui.GuiCommands;
 import org.leng.gui.GuiSessionManager;
 import org.leng.gui.ReportManageGui;
 import org.leng.gui.ReportSubmitGui;
@@ -91,12 +93,11 @@ public class Lengbanlist extends JavaPlugin {
     private DurationPolicy durationPolicy;
     private LuaLoader luaLoader;
     private boolean isBroadcast;
-    private FileConfiguration broadcastFC;
-    private FileConfiguration chatConfig;
+    private volatile FileConfiguration broadcastFC;
+    private volatile FileConfiguration chatConfig;
     private ModelChoiceListener modelChoiceListener;
     private ChatListener chatListener;
     private String hitokoto;
-    private ModelManager modelManager;
     private DatabaseManager databaseManager;
     private volatile ThemeManager themeManager;
     private volatile VanishManager vanishManager;
@@ -106,7 +107,7 @@ public class Lengbanlist extends JavaPlugin {
     private volatile WebhookNotifier webhookNotifier;
     private volatile AppealManager appealManager;
     private FileConfiguration eulaFC;
-    private FileConfiguration storageConfig;
+    private volatile FileConfiguration storageConfig;
     private Metrics metrics;
 
     private boolean eulaAgreed = false;
@@ -192,8 +193,7 @@ public void onLoad() {
         }
     }
 
-    modelManager = ModelManager.getInstance();
-
+    ModelManager.getInstance();
     File chatConfigFile = new File(getDataFolder(), "chatconfig.yml");
     if (!chatConfigFile.exists()) {
         chatConfigFile.getParentFile().mkdirs();
@@ -259,10 +259,6 @@ public void onEnable() {
         return;
     }
 
-    if (!Lengbanlist.this.isEnabled()) {
-        return;
-    }
-
     consoleMessage("loading");
     SchedulerUtils.runAsync(this, () -> {
         String fetchedHitokoto = getHitokoto();
@@ -325,13 +321,8 @@ public void onEnable() {
             "model", ModelManager.getInstance().getCurrentModelName(),
             "server", Bukkit.getServer().getVersion()));
 
-    metrics = new Metrics(this, 33262);
-    // bStats 自定义饼图：当前使用的模型（转小写即仓库 model-id），
-    // 模型仓库的月度精选走 REST API 读取这张图。网站需先建好同 ID 的 Simple Pie 图表。
-    metrics.addCustomChart(new Metrics.SimplePie("modelUsage", () -> {
-        String model = ModelManager.getCurrentModelName();
-        return model == null || model.isEmpty() ? "unknown" : model.toLowerCase(java.util.Locale.ROOT);
-    }));
+    metrics = new Metrics(this);
+    metrics.addModelUsageChart();
 
     if (getConfig().getBoolean("features.auto-update", false)) {
         getLogger().info(consoleText("auto-update"));
@@ -861,6 +852,13 @@ void shutdownStorage() {
         return chatConfig;
     }
 
+    /** 重建而不是原地 load，避免聊天异步线程读到半加载的配置。 */
+    public void reloadChatConfig(File chatConfigFile) throws IOException, InvalidConfigurationException {
+        FileConfiguration loaded = new YamlConfiguration();
+        loaded.load(chatConfigFile);
+        chatConfig = loaded;
+    }
+
     public void saveBroadcastConfig() {
         try {
             broadcastFC.save(new File(getDataFolder(), "broadcast.yml"));
@@ -873,9 +871,13 @@ void shutdownStorage() {
         try (DownloadService downloads = new DownloadService(
                 new DownloadSettings(3000, 3000, "Mozilla/5.0", true))) {
             String jsonResponse = downloads.get("https://v1.hitokoto.cn/", "*/*");
-            String hitokoto = jsonResponse.split("\"hitokoto\":\"")[1].split("\"")[0];
-            String from = jsonResponse.split("\"from\":\"")[1].split("\"")[0];
-            return hitokoto + " —— " + from;
+            JsonObject json = JsonParser.parseString(jsonResponse).getAsJsonObject();
+            String text = json.has("hitokoto") ? json.get("hitokoto").getAsString() : "";
+            String from = json.has("from") ? json.get("from").getAsString() : "";
+            if (text.isEmpty()) {
+                return "我不说了，嘿嘿~";
+            }
+            return from.isEmpty() ? text : text + " —— " + from;
         } catch (Exception e) {
             return "我不说了，嘿嘿~";
         }

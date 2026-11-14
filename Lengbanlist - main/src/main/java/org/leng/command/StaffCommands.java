@@ -18,6 +18,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
+import java.time.DateTimeException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 public final class StaffCommands {
 
@@ -88,6 +92,7 @@ public final class StaffCommands {
                 Utils.sendMessage(sender, plugin.prefix() + "§c你没有权限使用此命令。");
                 return true;
             }
+            prunePending();
             if (args.length < 1) {
                 sendUsage(sender, label);
                 return true;
@@ -177,40 +182,42 @@ public final class StaffCommands {
 
         private record PendingRollback(long at) {}
 
+        /** 顺手清掉过期确认，避免 PENDING 随着没人确认的预览无限增长。 */
+        private static void prunePending() {
+            long now = System.currentTimeMillis();
+            PENDING.entrySet().removeIf(entry -> now - entry.getValue().at() > CONFIRM_WINDOW_MS);
+            if (PENDING.size() > 1000) {
+                PENDING.clear();
+            }
+        }
+
         private Long parseTime(String text, boolean isStart) {
             if (text == null || text.trim().isEmpty()) {
                 return null;
             }
             String trimmed = text.trim();
-            Matcher dt = DATETIME.matcher(trimmed);
-            if (dt.matches()) {
-                try {
-                    java.util.Calendar cal = java.util.Calendar.getInstance();
-                    cal.clear();
-                    cal.set(parseInt(dt.group(1)), parseInt(dt.group(2)) - 1, parseInt(dt.group(3)),
-                            parseInt(dt.group(4)), parseInt(dt.group(5)), dt.group(6) != null ? parseInt(dt.group(6)) : 0);
-                    return cal.getTimeInMillis();
-                } catch (Exception e) {
-                    return null;
+            try {
+                Matcher dt = DATETIME.matcher(trimmed);
+                if (dt.matches()) {
+                    LocalDateTime value = LocalDateTime.of(
+                            Integer.parseInt(dt.group(1)), Integer.parseInt(dt.group(2)),
+                            Integer.parseInt(dt.group(3)), Integer.parseInt(dt.group(4)),
+                            Integer.parseInt(dt.group(5)),
+                            dt.group(6) != null ? Integer.parseInt(dt.group(6)) : 0);
+                    return value.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
                 }
-            }
-            Matcher d = DATE_ONLY.matcher(trimmed);
-            if (d.matches()) {
-                try {
-                    java.util.Calendar cal = java.util.Calendar.getInstance();
-                    cal.clear();
-                    cal.set(parseInt(d.group(1)), parseInt(d.group(2)) - 1, parseInt(d.group(3)),
-                            isStart ? 0 : 23, isStart ? 0 : 59, isStart ? 0 : 59);
-                    return cal.getTimeInMillis();
-                } catch (Exception e) {
-                    return null;
+                Matcher d = DATE_ONLY.matcher(trimmed);
+                if (d.matches()) {
+                    LocalDate date = LocalDate.of(
+                            Integer.parseInt(d.group(1)), Integer.parseInt(d.group(2)),
+                            Integer.parseInt(d.group(3)));
+                    LocalDateTime value = isStart ? date.atStartOfDay() : date.atTime(23, 59, 59);
+                    return value.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
                 }
+            } catch (DateTimeException | NumberFormatException e) {
+                return null;
             }
             return null;
-        }
-
-        private int parseInt(String s) {
-            return Integer.parseInt(s);
         }
 
         private void sendUsage(CommandSender sender, String label) {

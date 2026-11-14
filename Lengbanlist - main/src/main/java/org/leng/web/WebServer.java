@@ -10,6 +10,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -20,7 +22,10 @@ public class WebServer {
     private HttpServer server;
     private ExecutorService executor;
     private AuthManager authManager;
-    private boolean running;
+    private volatile boolean running;
+
+    /** jar 内静态资源在运行期不会变化，首次读取后缓存，避免每个请求都解压 jar。 */
+    private final Map<String, byte[]> resourceCache = new ConcurrentHashMap<>();
 
     public WebServer(Lengbanlist plugin) {
         this.plugin = plugin;
@@ -147,9 +152,8 @@ public class WebServer {
             if (path == null || path.equals("/")) path = "/index.html";
 
             String resourcePath = "web" + path;
-            InputStream stream = plugin.getResource(resourcePath);
-            if (stream != null) {
-                byte[] bytes = readAllBytes(stream);
+            byte[] bytes = resourceBytes(resourcePath);
+            if (bytes != null) {
                 exchange.getResponseHeaders().set("Content-Type", getMimeType(path));
                 exchange.sendResponseHeaders(200, bytes.length);
                 exchange.getResponseBody().write(bytes);
@@ -179,12 +183,11 @@ public class WebServer {
             return;
         }
         try {
-            InputStream stream = plugin.getResource("web/appeal.html");
-            if (stream == null) {
+            byte[] bytes = resourceBytes("web/appeal.html");
+            if (bytes == null) {
                 sendError(exchange, 404, "申诉页不存在");
                 return;
             }
-            byte[] bytes = readAllBytes(stream);
             exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
             exchange.sendResponseHeaders(200, bytes.length);
             exchange.getResponseBody().write(bytes);
@@ -192,6 +195,24 @@ public class WebServer {
             sendError(exchange, 500, "申诉页读取失败");
         } finally {
             exchange.close();
+        }
+    }
+
+    private byte[] resourceBytes(String resourcePath) {
+        byte[] cached = resourceCache.get(resourcePath);
+        if (cached != null) {
+            return cached;
+        }
+        try (InputStream stream = plugin.getResource(resourcePath)) {
+            if (stream == null) {
+                return null;
+            }
+            byte[] bytes = readAllBytes(stream);
+            resourceCache.put(resourcePath, bytes);
+            return bytes;
+        } catch (IOException e) {
+            plugin.getLogger().warning("读取 Web 静态资源失败: " + resourcePath);
+            return null;
         }
     }
 

@@ -8,6 +8,7 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.integration.ModelManager;
+import org.leng.listener.ChatListener;
 import org.leng.service.WarnManager;
 import org.leng.util.IpMatcher;
 import org.leng.util.Utils;
@@ -43,11 +44,9 @@ public final class WarnCommands {
             }
 
 
-            boolean silent = false;
-            if (args.length > 0 && args[0].equalsIgnoreCase("-s")) {
-                silent = true;
-                args = Arrays.copyOfRange(args, 1, args.length);
-            }
+            CommandSupport.Args parsed = CommandSupport.parseSilent(args);
+            boolean silent = parsed.silent();
+            args = parsed.values();
 
             if (args.length < 2) {
                 Utils.sendMessage(sender, plugin.prefix() + "§c用法错误喵: /warn [-s] <玩家名/IP> <原因>");
@@ -56,11 +55,11 @@ public final class WarnCommands {
 
             String target = args[0];
             String rawReason = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
-            String reason = resolvePresetReason(rawReason);
+            String reason = CommandSupport.presetReason(plugin, rawReason);
             WarnManager warnManager = plugin.getWarnManager();
 
 
-            boolean isIp = target.contains(".");
+            boolean isIp = IpMatcher.looksLikeIp(target);
 
 
             if (!isIp && !plugin.getPunishmentGate().canPunish(sender, target)) {
@@ -73,21 +72,14 @@ public final class WarnCommands {
                     Utils.sendMessage(sender, plugin.prefix() + "§c无效的IP地址");
                     return false;
                 }
-
                 String normalized = IpMatcher.normalizeIpOrCidr(target);
                 if (normalized != null) target = normalized;
-                warnManager.warnPlayer(target, Utils.getSenderName(sender), reason);
-                if (!silent) {
-                    Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addWarn(target, reason));
-                }
-                return true;
             }
 
             warnManager.warnPlayer(target, Utils.getSenderName(sender), reason);
             if (!silent) {
                 Utils.sendMessage(sender, ModelManager.getInstance().getCurrentModel().addWarn(target, reason));
             }
-
             return true;
         }
 
@@ -120,12 +112,6 @@ public final class WarnCommands {
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
             return execute(sender, label, args);
         }
-
-        private String resolvePresetReason(String input) {
-            if (input == null || !plugin.getConfig().isConfigurationSection("preset-reasons")) return input;
-            String value = plugin.getConfig().getString("preset-reasons." + input.toLowerCase());
-            return value != null ? value : input;
-        }
     }
 
     public static final class Unwarn implements CommandExecutor {
@@ -149,11 +135,9 @@ public final class WarnCommands {
                 }
             }
 
-            boolean silent = false;
-            if (args.length > 0 && args[0].equalsIgnoreCase("-s")) {
-                silent = true;
-                args = java.util.Arrays.copyOfRange(args, 1, args.length);
-            }
+            CommandSupport.Args parsed = CommandSupport.parseSilent(args);
+            boolean silent = parsed.silent();
+            args = parsed.values();
 
             if (args.length < 1) {
                 Utils.sendMessage(sender, plugin.prefix() + "§c用法错误喵: /unwarn [-s] <玩家名/IP> [警告ID]");
@@ -175,44 +159,29 @@ public final class WarnCommands {
 
                 if (args.length > 1) {
                     int warnId = parseWarnId(args[1], allWarnings);
-                    if (warnId != -1) {
-                        WarnEntry entry = allWarnings.get(warnId - 1);
-                        if (!entry.isRevoked()) {
-                            entry = entry.revoke();
-                            plugin.getDatabaseManager().updateWarningRevoked(entry.getId(), true, target);
-                            plugin.getAuditManager().log("取消警告", Utils.getSenderName(sender), target, "警告ID: " + entry.getId());
-                            if (!silent) {
-                                Utils.sendMessage(sender, plugin.prefix() + "§a警告 #" + warnId + " 已移除");
-                            }
-
-                            warnManager.checkUnbanIfNecessary(target);
-                        } else {
-                            Utils.sendMessage(sender, plugin.prefix() + "§c警告 #" + warnId + " 已经被移除");
-                        }
-                    } else {
+                    if (warnId == -1) {
                         Utils.sendMessage(sender, plugin.prefix() + "§c警告ID无效");
+                        return true;
+                    }
+                    if (allWarnings.get(warnId - 1).isRevoked()) {
+                        Utils.sendMessage(sender, plugin.prefix() + "§c警告 #" + warnId + " 已经被移除");
+                        return true;
+                    }
+                    if (!warnManager.unwarnPlayer(target, warnId, sender)) {
+                        Utils.sendMessage(sender, plugin.prefix() + "§c警告 #" + warnId + " 移除失败");
+                        return true;
+                    }
+                    if (!silent) {
+                        Utils.sendMessage(sender, plugin.prefix() + "§a警告 #" + warnId + " 已移除");
                     }
                 } else {
-
-                    StringBuilder reasonBuilder = new StringBuilder();
-                    for (WarnEntry warning : allWarnings) {
-                        if (warning.isRevoked()) {
-                            continue;
-                        }
-                        warning = warning.revoke();
-                        plugin.getDatabaseManager().updateWarningRevoked(warning.getId(), true, target);
-                        if (reasonBuilder.length() > 0) {
-                            reasonBuilder.append(",");
-                        }
-                        reasonBuilder.append("警告ID: ").append(warning.getId());
+                    if (warnManager.unwarnAll(target, sender) == 0) {
+                        Utils.sendMessage(sender, plugin.prefix() + "§c玩家 " + target + " 没有可移除的警告。");
+                        return true;
                     }
-                    String reason = reasonBuilder.length() == 0 ? "全部警告" : reasonBuilder.toString();
-                    plugin.getAuditManager().log("取消警告", Utils.getSenderName(sender), target, reason);
                     if (!silent) {
                         Utils.sendMessage(sender, plugin.prefix() + "§a已移除玩家 " + target + " 的所有警告");
                     }
-
-                    warnManager.checkUnbanIfNecessary(target);
                 }
             } catch (Exception e) {
 
@@ -275,6 +244,11 @@ public final class WarnCommands {
 
 
             plugin.getWarnManager().warnPlayer(target.getName(), Utils.getSenderName(sender), "消息违规");
+            // 判定违规后丢弃待放行消息，避免之后误点【正常】又把原消息广播出去
+            ChatListener chatListener = plugin.getChatListener();
+            if (chatListener != null) {
+                chatListener.takePendingChat(target.getName());
+            }
             target.sendMessage(plugin.prefix() + "§c你因消息违规被警告一次。");
             sender.sendMessage(plugin.prefix() + "§a已警告玩家 " + target.getName() + "。");
             return true;

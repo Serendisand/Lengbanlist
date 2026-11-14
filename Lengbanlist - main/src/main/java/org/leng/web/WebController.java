@@ -3,7 +3,6 @@ package org.leng.web;
 import com.google.gson.Gson;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import org.bukkit.entity.Entity;
 import org.leng.Lengbanlist;
 
 import java.util.concurrent.CountDownLatch;
@@ -81,45 +80,6 @@ public abstract class WebController {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             timedOut.set(true);
-            WebResponse.sendError(exchange, 500, "操作被中断");
-            return false;
-        }
-        if (error.get() != null) {
-            WebResponse.sendError(exchange, 500, "操作失败");
-            return false;
-        }
-        return true;
-    }
-
-    protected boolean runSync(HttpExchange exchange, Entity entity, Runnable task) {
-        CountDownLatch latch = new CountDownLatch(1);
-        AtomicReference<Throwable> error = new AtomicReference<>();
-        AtomicBoolean timedOut = new AtomicBoolean(false);
-        Runnable wrapped = () -> {
-            try {
-                if (timedOut.get()) return;
-                task.run();
-            } catch (Throwable t) {
-                error.set(t);
-            } finally {
-                latch.countDown();
-            }
-        };
-        org.leng.util.SchedulerUtils.SchedulerTask scheduled =
-                entity != null && org.leng.util.SchedulerUtils.isFolia()
-                        ? org.leng.util.SchedulerUtils.runTask(plugin, entity, wrapped)
-                        : org.leng.util.SchedulerUtils.runTask(plugin, wrapped);
-        try {
-            if (!latch.await(5, TimeUnit.SECONDS)) {
-                timedOut.set(true);
-                scheduled.cancel();
-                WebResponse.sendError(exchange, 504, "主线程繁忙,操作可能已在后台执行,请在管理列表确认结果后再决定是否重试,避免重复提交");
-                return false;
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            timedOut.set(true);
-            scheduled.cancel();
             WebResponse.sendError(exchange, 500, "操作被中断");
             return false;
         }

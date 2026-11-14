@@ -938,6 +938,11 @@ public class DatabaseManager {
         return banCache.getIpBan(ip);
     }
 
+    /** 精确 IP 或 CIDR 命中；登录检查与踢人循环用它，避免每次都复制排序整张 IP 封禁表。 */
+    public BanIpEntry findMatchingIpBan(String ip) {
+        return banCache.findMatchingIpBan(ip);
+    }
+
     public List<BanIpEntry> getIpBans() {
         return banCache.getUnexpiredIpBans();
     }

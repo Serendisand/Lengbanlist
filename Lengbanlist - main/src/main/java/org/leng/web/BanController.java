@@ -54,28 +54,34 @@ public class BanController extends WebController {
             if (durationMs <= 0) durationMs = TimeUtils.daysToMillis(7);
             long endTime = TimeUtils.calculateEndTime(durationMs);
 
-            String feature = target.contains(".") ? "ban-ip" : "ban";
+            String feature = org.leng.util.IpMatcher.looksLikeIp(target) ? "ban-ip" : "ban";
             if (!requireFeature(exchange, feature)) return;
 
-            if (target.contains(".") && !org.leng.util.IpMatcher.isValidIpOrCidrOrWildcard(target)) {
-                WebResponse.sendError(exchange, 400, "无效的 IP 或 CIDR 格式");
-                return;
+            boolean isIp = org.leng.util.IpMatcher.looksLikeIp(target);
+            String resolvedTarget = target;
+            if (isIp) {
+                resolvedTarget = org.leng.util.IpMatcher.normalizeIpOrCidr(target);
+                if (resolvedTarget == null) {
+                    WebResponse.sendError(exchange, 400, "无效的 IP 或 CIDR 格式");
+                    return;
+                }
             }
+            final String finalTarget = resolvedTarget;
 
             AtomicReference<Boolean> permissionDenied = new AtomicReference<>(false);
             AtomicReference<BanManager.BanMutationResult> mutationResult =
                     new AtomicReference<>(BanManager.BanMutationResult.DATABASE_ERROR);
             boolean completed = runSync(exchange, () -> {
-                if (!plugin.getPunishmentGate().canPunishTarget(plugin.getPunishmentGate().webOperatorWeight(), target)) {
+                if (!plugin.getPunishmentGate().canPunishTarget(plugin.getPunishmentGate().webOperatorWeight(), finalTarget)) {
                     permissionDenied.set(true);
                     return;
                 }
-                if (target.contains(".")) {
+                if (isIp) {
                     mutationResult.set(plugin.getBanManager().tryBanIp(
-                            new BanIpEntry(target, finalStaff, endTime, reason, false), false));
+                            new BanIpEntry(finalTarget, finalStaff, endTime, reason, false), false));
                 } else {
                     mutationResult.set(plugin.getBanManager().tryBanPlayer(
-                            new BanEntry(target, finalStaff, endTime, reason, false), false));
+                            new BanEntry(finalTarget, finalStaff, endTime, reason, false), false));
                 }
             });
             if (!completed) return;
@@ -83,11 +89,11 @@ public class BanController extends WebController {
                 WebResponse.sendError(exchange, 403, "目标权重高于操作者,无法执行");
                 return;
             }
-            if (WebResponse.sendMutationFailure(exchange, mutationResult.get(), target)) return;
+            if (WebResponse.sendMutationFailure(exchange, mutationResult.get(), finalTarget)) return;
 
             JsonObject result = new JsonObject();
             result.addProperty("success", true);
-            result.addProperty("message", target + " 已被封禁,时长: " + TimeUtils.formatDuration(durationMs));
+            result.addProperty("message", finalTarget + " 已被封禁,时长: " + TimeUtils.formatDuration(durationMs));
             WebResponse.sendJson(exchange, 200, result.toString());
         } catch (IOException e) {
             WebResponse.sendError(exchange, 413, e.getMessage());
@@ -111,24 +117,33 @@ public class BanController extends WebController {
             JsonObject json = JsonParser.parseString(WebResponse.readBody(exchange)).getAsJsonObject();
             String target = json.get("target").getAsString();
             String staff = authManager.resolveActor(extractToken(exchange));
-            boolean isIp = target.contains(".") && org.leng.util.IpMatcher.isValidIpOrCidrOrWildcard(target);
+            boolean isIp = org.leng.util.IpMatcher.looksLikeIp(target);
+            String resolvedTarget = target;
+            if (isIp) {
+                resolvedTarget = org.leng.util.IpMatcher.normalizeIpOrCidr(target);
+                if (resolvedTarget == null) {
+                    WebResponse.sendError(exchange, 400, "无效的 IP 或 CIDR 格式");
+                    return;
+                }
+            }
+            final String finalTarget = resolvedTarget;
 
             if (!requireFeature(exchange, "unban")) return;
 
             AtomicReference<BanManager.BanMutationResult> result = new AtomicReference<>();
             boolean completed = runSync(exchange, () -> {
                 if (isIp) {
-                    result.set(plugin.getBanManager().tryUnbanIp(target, staff, false));
+                    result.set(plugin.getBanManager().tryUnbanIp(finalTarget, staff, false));
                 } else {
-                    result.set(plugin.getBanManager().tryUnbanPlayer(target, staff, false));
+                    result.set(plugin.getBanManager().tryUnbanPlayer(finalTarget, staff, false));
                 }
             });
             if (!completed) return;
-            if (WebResponse.sendMutationFailure(exchange, result.get(), target)) return;
+            if (WebResponse.sendMutationFailure(exchange, result.get(), finalTarget)) return;
 
             JsonObject resp = new JsonObject();
             resp.addProperty("success", true);
-            resp.addProperty("message", target + " 已被解封");
+            resp.addProperty("message", finalTarget + " 已被解封");
             WebResponse.sendJson(exchange, 200, resp.toString());
         } catch (IOException e) {
             WebResponse.sendError(exchange, 413, e.getMessage());

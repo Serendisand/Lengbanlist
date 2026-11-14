@@ -210,7 +210,17 @@ public class BanManager {
     }
 
     public void checkBanOnJoin(Player player) {
-        if (plugin.isFeatureEnabled("ban")) {
+        checkBanOnJoin(player, plugin.isFeatureEnabled("ban"), plugin.isFeatureEnabled("ban-ip"));
+    }
+
+    /**
+     * 登录封禁检查。配置开关由调用方在主线程读好再传进来，方法本身只碰缓存与数据库，
+     * 可以在异步线程执行——避免封禁缓存过期时把一次数据库查询压在登录主线程上。
+     *
+     * @return 是否已判定为需要拦截并安排了踢出
+     */
+    public boolean checkBanOnJoin(Player player, boolean banEnabled, boolean banIpEnabled) {
+        if (banEnabled) {
             BanEntry nameBan = getBanEntry(player.getName());
             BanEntry ban = nameBan != null ? nameBan : getBanEntryByUuid(
                     player.getUniqueId() == null ? "" : player.getUniqueId().toString());
@@ -223,12 +233,12 @@ public class BanManager {
                     }
                 } else {
                     SchedulerUtils.runTask(plugin, player, () -> player.kickPlayer("您仍处于封禁状态，原因：" + ban.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(ban.getTime()) + appealHint()));
-                    return;
+                    return true;
                 }
             }
         }
 
-        if (plugin.isFeatureEnabled("ban-ip") && player.getAddress() != null && player.getAddress().getAddress() != null) {
+        if (banIpEnabled && player.getAddress() != null && player.getAddress().getAddress() != null) {
             String ip = player.getAddress().getAddress().getHostAddress();
             BanIpEntry banIp = getMatchingIpBan(ip);
             if (banIp != null) {
@@ -240,9 +250,11 @@ public class BanManager {
                     }
                 } else {
                     SchedulerUtils.runTask(plugin, player, () -> player.kickPlayer("您的 IP 仍处于封禁状态，原因：" + banIp.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(banIp.getTime())));
+                    return true;
                 }
             }
         }
+        return false;
     }
 
     public BanEntry getBanEntry(String target) {
@@ -301,18 +313,7 @@ public class BanManager {
     }
 
     public boolean isValidIp(String ip) {
-        if (ip == null || ip.isEmpty()) return false;
-        String[] parts = ip.split("\\.");
-        if (parts.length != 4) return ip.contains(":");
-        for (String part : parts) {
-            try {
-                int num = Integer.parseInt(part);
-                if (num < 0 || num > 255) return false;
-            } catch (NumberFormatException e) {
-                return false;
-            }
-        }
-        return true;
+        return IpMatcher.isIp(ip);
     }
 
     public boolean isValidIpOrCidr(String value) {
@@ -321,11 +322,7 @@ public class BanManager {
 
     public BanIpEntry getMatchingIpBan(String ip) {
         if (ip == null) return null;
-        for (BanIpEntry entry : getBanIpList()) {
-            if (entry.getIp().equals(ip)) return entry;
-            if (IpMatcher.cidrMatches(ip, entry.getIp())) return entry;
-        }
-        return null;
+        return db.findMatchingIpBan(ip);
     }
 
     public boolean isIpBannedByCidr(String ip) {

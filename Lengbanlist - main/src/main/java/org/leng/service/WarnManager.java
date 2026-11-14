@@ -51,7 +51,7 @@ public class WarnManager {
         plugin.getAuditManager().log("警告", staff, player, reason);
         Bukkit.getPluginManager().callEvent(new LengbanlistWarnEvent(entry));
         checkAutoBan(player);
-        if (plugin.isFeatureEnabled("offline-warn") && !player.contains(".")) {
+        if (plugin.isFeatureEnabled("offline-warn") && !IpMatcher.looksLikeIp(player)) {
             Player targetPlayer = plugin.getServer().getPlayer(player);
             if (targetPlayer == null) {
                 Player staffPlayer = plugin.getServer().getPlayer(staff);
@@ -95,6 +95,31 @@ public class WarnManager {
             }
         }
         return false;
+    }
+
+    /** 撤销目标全部未撤销警告，返回实际撤销条数。 */
+    public int unwarnAll(String target, CommandSender actor) {
+        String actorName = Utils.getSenderName(actor);
+        StringBuilder reason = new StringBuilder();
+        int revoked = 0;
+        for (WarnEntry warning : getAllWarnings(target)) {
+            if (warning.isRevoked()) {
+                continue;
+            }
+            WarnEntry entry = warning.revoke();
+            db.updateWarningRevoked(entry.getId(), true, target);
+            Bukkit.getPluginManager().callEvent(new LengbanlistUnwarnEvent(target, entry.getId(), actorName));
+            if (reason.length() > 0) {
+                reason.append(',');
+            }
+            reason.append("警告ID: ").append(entry.getId());
+            revoked++;
+        }
+        if (revoked > 0) {
+            plugin.getAuditManager().log("取消警告", actorName, target, reason.toString());
+            checkUnbanIfNecessary(target);
+        }
+        return revoked;
     }
 
     private void checkAutoBan(String player) {

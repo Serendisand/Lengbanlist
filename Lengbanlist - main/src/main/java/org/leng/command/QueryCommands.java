@@ -179,7 +179,7 @@ public final class QueryCommands {
 
         private void checkIpInfo(CommandSender sender, String ip) {
 
-            if (!IpMatcher.isValidIpOrCidrOrWildcard(ip) && !ip.contains(":")) {
+            if (!IpMatcher.isValidIpOrCidrOrWildcard(ip)) {
                 Utils.sendMessage(sender, plugin.prefix() + "§c这不是合法的 IP 地址: §f" + ip);
                 return;
             }
@@ -187,7 +187,7 @@ public final class QueryCommands {
             if (normalized != null) ip = normalized;
 
             boolean isBanned = plugin.getBanManager().isIpBanned(ip);
-            if (IpMatcher.isIpv4(ip) && plugin.getBanManager().isIpBannedByCidr(ip)) {
+            if (IpMatcher.isIp(ip) && plugin.getBanManager().isIpBannedByCidr(ip)) {
                 isBanned = true;
             }
             List<String> associatedPlayers = plugin.getDatabaseManager().getPlayersByIpFromHistory(ip);
@@ -196,9 +196,9 @@ public final class QueryCommands {
             Utils.sendMessage(sender, plugin.prefix() + "§bIP: " + ip);
             Utils.sendMessage(sender, plugin.prefix() + "§b是否封禁: " + (isBanned ? "是" : "否"));
 
-            if (IpMatcher.isIpv4(ip)) {
+            if (IpMatcher.isIp(ip)) {
                 for (BanIpEntry entry : plugin.getBanManager().getBanIpList()) {
-                    if (IpMatcher.isCidr(entry.getIp()) && IpMatcher.cidrMatches(ip, entry.getIp())) {
+                    if (IpMatcher.isCidrLike(entry.getIp()) && IpMatcher.cidrMatches(ip, entry.getIp())) {
                         Utils.sendMessage(sender, plugin.prefix() + "§c命中网段封禁: §f" + entry.getIp() + " §7原因: " + entry.getReason() + " §7解封时间: " + TimeUtils.timestampToReadable(entry.getTime()));
                     }
                 }
@@ -273,7 +273,7 @@ public final class QueryCommands {
 
             List<HistoryEntry> raw = new ArrayList<>();
 
-            boolean isIp = target.contains(".");
+            boolean isIp = IpMatcher.looksLikeIp(target);
 
             if (!isIp) {
                 showKnownNames(sender, target);
@@ -470,22 +470,14 @@ public final class QueryCommands {
         }
 
         private boolean isLocalIp(String ip) {
-            if (ip == null) return true;
-            if (ip.equals("127.0.0.1") || ip.equals("0:0:0:0:0:0:0:1") || ip.equals("::1")) return true;
-            if (ip.startsWith("10.") || ip.startsWith("172.") || ip.startsWith("192.168.")) return true;
-            if (ip.startsWith("fd") || ip.startsWith("fc")) return true;
-            return false;
+            return ip == null || IpMatcher.isPrivateOrReserved(ip);
         }
 
-        private void getPlayerLocationAsync(String ip, CommandSender sender, LocationInfoCallback callback) {
+        private void getPlayerLocationAsync(String ip, CommandSender sender, java.util.function.Consumer<String> callback) {
             SchedulerUtils.runAsync(plugin, () -> {
                 String locationInfo = ipGeoLookup.lookup(ip);
-                SchedulerUtils.runTask(plugin, sender, () -> callback.onLocationInfoReceived(locationInfo));
+                SchedulerUtils.runTask(plugin, sender, () -> callback.accept(locationInfo));
             });
-        }
-
-        public interface LocationInfoCallback {
-            void onLocationInfoReceived(String locationInfo);
         }
     }
 
@@ -509,11 +501,11 @@ public final class QueryCommands {
             }
 
             String serverVersion = plugin.getServer().getVersion();
-            String serverCore = getServerCoreName();
+            String serverCore = plugin.getServer().getName();
             long usedMemory = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
             long totalMemory = Runtime.getRuntime().totalMemory();
             int onlinePlayers = plugin.getServer().getOnlinePlayers().size();
-            double cpuLoad = getSystemCpuLoad();
+            double cpuLoad = getCpuLoad();
 
             StringBuilder infoMessage = new StringBuilder();
             infoMessage.append("§b§lLengbanlist 插件信息 §b§l").append(plugin.getDescription().getVersion()).append("\n");
@@ -529,18 +521,20 @@ public final class QueryCommands {
                     .append(" §7| §b冻结中：§b").append(plugin.getFreezeManager().count()).append("\n");
 
             if (plugin.isUpdateCheckEnabled()) {
-                GitHubUpdateChecker.getLatestReleaseVersionAsync(plugin).thenAccept(latestVersion -> {
-                    String message;
-                    if (latestVersion == null) {
-                        message = "§c检查更新失败，请检查网络连接或稍后再试。\n";
-                    } else if (GitHubUpdateChecker.compareVersions(plugin.getDescription().getVersion(), latestVersion) < 0) {
-                        message = "§a发现新版本：§e" + latestVersion + "§a，当前版本：§e" + plugin.getDescription().getVersion() + "\n" +
-                                 "§b更新地址：§e" + GitHubUpdateChecker.RELEASES_URL + "\n";
-                    } else {
-                        message = "§a你正在使用最新版本：§e" + plugin.getDescription().getVersion() + "\n";
-                    }
-                    Utils.sendMessage(sender, infoMessage.toString() + message);
-                });
+                GitHubUpdateChecker.getLatestReleaseVersionAsync(plugin).thenAccept(latestVersion ->
+                        // 回调在 CompletableFuture 的线程上，回消息前必须切回发送者所属线程
+                        SchedulerUtils.runTask(plugin, sender, () -> {
+                            String message;
+                            if (latestVersion == null) {
+                                message = "§c检查更新失败，请检查网络连接或稍后再试。\n";
+                            } else if (GitHubUpdateChecker.compareVersions(plugin.getDescription().getVersion(), latestVersion) < 0) {
+                                message = "§a发现新版本：§e" + latestVersion + "§a，当前版本：§e" + plugin.getDescription().getVersion() + "\n" +
+                                         "§b更新地址：§e" + GitHubUpdateChecker.RELEASES_URL + "\n";
+                            } else {
+                                message = "§a你正在使用最新版本：§e" + plugin.getDescription().getVersion() + "\n";
+                            }
+                            Utils.sendMessage(sender, infoMessage.toString() + message);
+                        }));
             } else {
                 infoMessage.append("§a更新检查已禁用\n");
                 Utils.sendMessage(sender, infoMessage.toString());
@@ -549,24 +543,12 @@ public final class QueryCommands {
             return true;
         }
 
-        private String getServerCoreName() {
-            try {
-                String serverPackage = plugin.getServer().getClass().getPackage().getName();
-                if (serverPackage.contains("spigot")) return "Spigot";
-                else if (serverPackage.contains("paper")) return "Paper";
-                else if (serverPackage.contains("leaves")) return "Leaves";
-                else if (serverPackage.contains("bukkit")) return "Bukkit";
-                else return "Unknown";
-            } catch (Exception e) {
-                return "Unknown";
-            }
-        }
-
-        private double getSystemCpuLoad() {
+        private double getCpuLoad() {
             try {
                 com.sun.management.OperatingSystemMXBean osBean =
                     (com.sun.management.OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
-                return osBean.getSystemCpuLoad() * 100;
+                double load = osBean.getCpuLoad();
+                return load < 0 ? 0.0 : load * 100;
             } catch (Exception e) {
                 return 0.0;
             }

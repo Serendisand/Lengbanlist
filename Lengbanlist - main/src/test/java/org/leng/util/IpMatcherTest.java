@@ -123,8 +123,12 @@ class IpMatcherTest {
     @Test
     void isPrivateOrReserved_blocksIPv6Ula() {
 
-        assertFalse(IpMatcher.isPrivateOrReserved("fc00::1"));
-        assertFalse(IpMatcher.isPrivateOrReserved("fd12::1"));
+        assertTrue(IpMatcher.isPrivateOrReserved("fc00::1"));
+        assertTrue(IpMatcher.isPrivateOrReserved("fd12::1"));
+        assertTrue(IpMatcher.isPrivateOrReserved("fe80::1"));
+        assertTrue(IpMatcher.isPrivateOrReserved("::1"));
+        assertTrue(IpMatcher.isPrivateOrReserved("::ffff:192.168.1.1"));
+        assertFalse(IpMatcher.isPrivateOrReserved("2001:db8::1"));
     }
 
     @Test
@@ -165,5 +169,63 @@ class IpMatcherTest {
     void isLoopback_rejectsPublic() {
         assertFalse(IpMatcher.isLoopback("8.8.8.8"));
         assertFalse(IpMatcher.isLoopback(null));
+    }
+
+    @Test
+    void isIpv6_acceptsValidAddresses() {
+        assertTrue(IpMatcher.isIpv6("::1"));
+        assertTrue(IpMatcher.isIpv6("2001:db8::1"));
+        assertTrue(IpMatcher.isIpv6("2001:0db8:0000:0000:0000:0000:0000:0001"));
+        assertTrue(IpMatcher.isIpv6("[::1]"));
+        assertTrue(IpMatcher.isIpv6("::ffff:192.168.1.1"));
+        assertTrue(IpMatcher.isIpv6("fe80::1%eth0"));
+    }
+
+    @Test
+    void isIpv6_rejectsInvalid() {
+        assertFalse(IpMatcher.isIpv6(null));
+        assertFalse(IpMatcher.isIpv6(""));
+        assertFalse(IpMatcher.isIpv6("1.2.3.4"));
+        assertFalse(IpMatcher.isIpv6("abc:def"));
+        assertFalse(IpMatcher.isIpv6("1:2:3:4:5:6:7:8:9"));
+        assertFalse(IpMatcher.isIpv6("1:2:3:4:5:6:7"));
+        assertFalse(IpMatcher.isIpv6("1:::2"));
+        assertFalse(IpMatcher.isIpv6("gggg::1"));
+    }
+
+    @Test
+    void isIpv6Cidr_acceptsValid() {
+        assertTrue(IpMatcher.isIpv6Cidr("2001:db8::/32"));
+        assertTrue(IpMatcher.isIpv6Cidr("::1/128"));
+        assertFalse(IpMatcher.isIpv6Cidr("2001:db8::/129"));
+        assertFalse(IpMatcher.isIpv6Cidr("1.2.3.4/24"));
+    }
+
+    @Test
+    void normalizeIpOrCidr_canonicalizesIpv6() {
+        assertEquals("2001:db8:0:0:0:0:0:1", IpMatcher.normalizeIpOrCidr("2001:DB8::1"));
+        assertEquals("0:0:0:0:0:0:0:1", IpMatcher.normalizeIpOrCidr("::1"));
+        assertEquals("2001:db8:0:0:0:0:0:0/32", IpMatcher.normalizeIpOrCidr("2001:db8::/32"));
+    }
+
+    @Test
+    void cidrMatches_ipv6() {
+        assertTrue(IpMatcher.cidrMatches("2001:db8::1", "2001:db8::/32"));
+        assertTrue(IpMatcher.cidrMatches("::1", "::1/128"));
+        assertFalse(IpMatcher.cidrMatches("2001:db9::1", "2001:db8::/32"));
+    }
+
+    @Test
+    void sameIp_handlesBothFamilies() {
+        assertTrue(IpMatcher.sameIp("192.168.1.1", "192.168.001.1"));
+        assertTrue(IpMatcher.sameIp("2001:db8::1", "2001:0db8:0:0:0:0:0:1"));
+        assertFalse(IpMatcher.sameIp("2001:db8::1", "2001:db8::2"));
+    }
+
+    @Test
+    void isLoopback_detectsIpv6Loopback() {
+        assertTrue(IpMatcher.isLoopback("::1"));
+        assertTrue(IpMatcher.isLoopback("0:0:0:0:0:0:0:1"));
+        assertFalse(IpMatcher.isLoopback("2001:db8::1"));
     }
 }

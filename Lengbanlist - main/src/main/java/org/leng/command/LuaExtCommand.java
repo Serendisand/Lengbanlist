@@ -182,29 +182,6 @@ public final class LuaExtCommand implements CommandExecutor, TabCompleter {
         });
     }
 
-    /** 云端条目：和 {@code /lban models list} 一样，同一个 list 里看本地 + 云端。 */
-    private void listCloudExtensions(CommandSender sender) {
-        ExtensionCloudManager cloud = plugin.getExtensionCloudManager();
-        if (!cloud.enabled()) {
-            return;
-        }
-        Utils.sendMessage(sender, plugin.prefix() + "§6§l云端扩展 §7(市场)");
-        runOffThread(sender, cloud::getIndex, result -> {
-            if (result.isEmpty()) {
-                Utils.sendMessage(sender, "§7  索引不可用，输入 §f/lban ext refresh §7重试");
-                return;
-            }
-            for (ExtensionCloudManager.ExtensionInfo info : result.get().extensions()) {
-                String type = info.kind() == ExtensionCloudManager.Kind.JAR ? "§b[Jar]" : "§d[Lua]";
-                String state = !info.ready() ? "§7[未上架]"
-                        : cloud.isInstalled(info) ? "§a[已安装]" : "§7[未安装]";
-                String name = info.name() == null || info.name().isBlank() ? info.id() : info.name();
-                Utils.sendMessage(sender, type + " " + state + " §f" + name
-                        + " §7(" + info.id() + " v" + info.version() + ")");
-            }
-        });
-    }
-
     private void cmdInstall(CommandSender sender, LuaLoader loader, String[] args) {
         if (args.length < 2) {
             Utils.sendMessage(sender, plugin.prefix() + "§c用法喵: §f/lban ext install <扩展名|all>");

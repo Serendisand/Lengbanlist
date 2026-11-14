@@ -257,7 +257,7 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
         if (args.length <= 1) {
-            String prefix = args[0].toLowerCase();
+            String prefix = args.length == 0 ? "" : args[0].toLowerCase();
             for (String sub : new String[]{"refresh", "list", "install", "pin", "unpin", "featured", "stats"}) {
                 if (sub.startsWith(prefix)) completions.add(sub);
             }

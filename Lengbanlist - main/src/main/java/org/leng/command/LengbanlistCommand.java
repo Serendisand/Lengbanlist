@@ -7,6 +7,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
+import org.leng.gui.GuiCommands;
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.object.AuditEntry;
@@ -21,24 +22,22 @@ import org.leng.models.Model;
 import org.leng.util.TimeUtils;
 import org.leng.util.Utils;
 import org.leng.util.IpMatcher;
-import org.leng.integration.IpGeoLookup;
 
 import java.io.File;
 import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
 public class LengbanlistCommand extends Command implements CommandExecutor, TabCompleter {
 
     private final Lengbanlist plugin;
-    private final IpGeoLookup ipGeoLookup;
     private final GuiCommands.Gui guiCommand;
 
     public LengbanlistCommand(String name, Lengbanlist plugin) {
         super(name);
         this.plugin = plugin;
-        this.ipGeoLookup = new IpGeoLookup(plugin);
         this.guiCommand = new GuiCommands.Gui(plugin);
     }
 
@@ -46,6 +45,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
     public boolean execute(CommandSender sender, String label, String[] args) {
         Model currentModel = ModelManager.getInstance().getCurrentModel();
         if (args.length == 0) {
+            if (!sender.hasPermission("lengbanlist.help")) {
+                Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                return true;
+            }
             currentModel.showHelp(sender);
             return true;
         }
@@ -116,7 +119,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 File chatConfigFile = new File(plugin.getDataFolder(), "chatconfig.yml");
                 if (chatConfigFile.exists()) {
                     try {
-                        plugin.getChatConfig().load(chatConfigFile);
+                        plugin.reloadChatConfig(chatConfigFile);
                     } catch (Exception e) {
                         plugin.getLogger().warning("重载chatconfig.yml失败: " + e.getMessage());
                     }
@@ -155,7 +158,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 break;
             case "add": {
                 int probeOffset = (args.length >= 2 && args[1].equalsIgnoreCase("-s")) ? 2 : 1;
-                if (args.length > probeOffset && args[probeOffset].contains(".")) {
+                if (args.length > probeOffset && IpMatcher.looksLikeIp(args[probeOffset])) {
                     if (!plugin.isFeatureEnabled("ban-ip")) {
                         plugin.sendFeatureDisabled(sender);
                         return true;
@@ -196,7 +199,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 }
                 return new BanCommands.Unban(plugin).onCommand(sender, null, label, Arrays.copyOfRange(args, 1, args.length));
             case "help":
-
+                if (!sender.hasPermission("lengbanlist.help")) {
+                    Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
+                    return true;
+                }
                 currentModel.showHelp(sender);
                 break;
             case "open":
@@ -237,30 +243,18 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 }
                 if (args.length < 2) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c§l命令格式不对喵，正确格式/lban model <模型名称>");
-                    StringBuilder availableModels = new StringBuilder("§6§l可用模型： §b");
-                    for (String modelName : ModelManager.getInstance().getModels().keySet()) {
-                        availableModels.append(modelName).append(" ");
-                    }
-                    Utils.sendMessage(sender, availableModels.toString());
+                    Utils.sendMessage(sender, availableModelsText());
                     return true;
                 }
-                String modelName = args[1].toLowerCase();
-                boolean found = false;
-                for (String name : ModelManager.getInstance().getModels().keySet()) {
-                    if (name.equalsIgnoreCase(modelName)) {
-                        ModelManager.switchModel(name);
-                        Utils.sendMessage(sender, plugin.prefix() + "§a已切换到模型: " + name);
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
+                String modelName = args[1];
+                Model selected = ModelManager.getInstance().getModels()
+                        .get(modelName.toLowerCase(java.util.Locale.ROOT));
+                if (selected != null) {
+                    ModelManager.switchModel(modelName);
+                    Utils.sendMessage(sender, plugin.prefix() + "§a已切换到模型: " + selected.getName());
+                } else {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不认识这个模型喵。");
-                    StringBuilder availableModels = new StringBuilder("§6§l可用模型： §b");
-                    for (String name : ModelManager.getInstance().getModels().keySet()) {
-                        availableModels.append(name).append(" ");
-                    }
-                    Utils.sendMessage(sender, availableModels.toString());
+                    Utils.sendMessage(sender, availableModelsText());
                 }
                 break;
             case "models":
@@ -507,7 +501,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     if (args[2].equalsIgnoreCase("forever")) {
                         handleEndTime = Long.MAX_VALUE;
                     } else if (handleAuto) {
-                        handleEscalationResult = handleTarget.contains(".")
+                        handleEscalationResult = IpMatcher.isValidIpOrCidrOrWildcard(handleTarget)
                                 ? plugin.getDurationPolicy().autoIpBan(handleTarget)
                                 : plugin.getDurationPolicy().autoBan(handleTarget);
                         handleEndTime = TimeUtils.calculateEndTime(handleEscalationResult.durationMillis());
@@ -523,7 +517,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     BanManager.BanMutationResult handleResult = plugin.getReportManager().tryBanFromReport(
                             handleReport, Utils.getSenderName(sender), handleEndTime, handleReason, handleAuto);
                     if (!handleResult.isApplied()) {
-                        BanMutationFeedback.sendFailure(sender, handleResult, handleTarget, handleTarget.contains("."));
+                        BanMutationFeedback.sendFailure(sender, handleResult, handleTarget, IpMatcher.isValidIpOrCidrOrWildcard(handleTarget));
                         break;
                     }
                     if (handleEscalationResult != null && handleEscalationResult.offenseCount() > 0) {
@@ -554,7 +548,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     Utils.sendMessage(sender, plugin.prefix() + "§c§l命令格式不对喵，正确格式: /lban alts <玩家名>");
                     return true;
                 }
-                if (args[1].contains(".")) {
+                if (IpMatcher.looksLikeIp(args[1])) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c§l参数应为玩家名，不能是 IP：/lban alts <玩家名>");
                     return true;
                 }
@@ -569,7 +563,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
                     return true;
                 }
-                new org.leng.service.SyncManager(plugin).execute(sender);
+                plugin.getSyncManager().execute(sender);
                 break;
             case "rollback":
                 if (!plugin.isFeatureEnabled("rollback")) {
@@ -725,7 +719,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
      * 于是"提示里有、补全里没有"，或者更糟——提示里列着已经搬走的命令。
      */
     private List<String> subcommandSuggestions() {
-        java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>(BUILTIN_SUBCOMMANDS);
+        LinkedHashSet<String> names = new LinkedHashSet<>(BUILTIN_SUBCOMMANDS);
         if (plugin.getCommandRegistry() != null) {
             names.addAll(plugin.getCommandRegistry().subcommandNames());
         }
@@ -763,6 +757,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
         if (total > LIST_DISPLAY_LIMIT) {
             Utils.sendMessage(sender, "§7仅显示前 " + LIST_DISPLAY_LIMIT + " 条，共 " + total + " 条。完整列表：§f/lban open §7或 Web 面板。");
         }
+    }
+
+    private String availableModelsText() {
+        return "§6§l可用模型： §b" + String.join(" ", ModelManager.getInstance().getModels().keySet());
     }
 
     private void showWebhookStatus(CommandSender sender) {

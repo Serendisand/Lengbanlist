@@ -27,12 +27,16 @@ public class PlayerJoinListener implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        boolean banEnabled = plugin.isFeatureEnabled("ban");
+        boolean banIpEnabled = plugin.isFeatureEnabled("ban-ip");
 
-        if (plugin.isFeatureEnabled("ban") || plugin.isFeatureEnabled("ban-ip")) {
-            plugin.getBanManager().checkBanOnJoin(player);
-        }
-
-        SchedulerUtils.runAsync(plugin, () -> prepareJoin(player));
+        // 封禁检查会读封禁缓存；缓存过期时那是一次数据库查询，绝不能压在登录主线程上。
+        SchedulerUtils.runAsync(plugin, () -> {
+            if ((banEnabled || banIpEnabled) && plugin.getBanManager().checkBanOnJoin(player, banEnabled, banIpEnabled)) {
+                return;
+            }
+            prepareJoin(player);
+        });
 
         if (plugin.isFeatureEnabled("vpn-detection") && player.getAddress() != null && player.getAddress().getAddress() != null) {
             String ip = player.getAddress().getAddress().getHostAddress();
@@ -75,7 +79,8 @@ public class PlayerJoinListener implements Listener {
             }
         }
 
-        if (plugin.getAppealManager() != null && plugin.getAppealManager().isEnabled()) {
+        if (plugin.isFeatureEnabled("appeal")
+                && plugin.getConfig().getBoolean("appeal.enabled", true)) {
             org.leng.object.AppealEntry appeal = plugin.getAppealManager().pendingResultFor(player.getName());
             if (appeal != null) {
                 plugin.getAppealManager().markNotified(appeal.id());
@@ -109,7 +114,7 @@ public class PlayerJoinListener implements Listener {
 
     private void handleVpnDetection(Player player, String ip, String action) {
         String prefix = plugin.prefix();
-        switch (action.toLowerCase()) {
+        switch (action.toLowerCase(java.util.Locale.ROOT)) {
             case "ban":
                 String banDurationStr = plugin.getConfig().getString("vpn-detection.ban-duration", "7d");
                 String banReason = plugin.getConfig().getString("vpn-detection.ban-reason", "使用代理/VPN 登录");

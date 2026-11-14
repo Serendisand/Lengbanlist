@@ -11,6 +11,7 @@ import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
 import org.leng.object.MuteEntry;
 import org.leng.object.WarnEntry;
+import org.leng.util.IpMatcher;
 import org.leng.util.TimeUtils;
 
 import java.io.IOException;
@@ -50,7 +51,7 @@ public class PlayerController extends WebController {
 
             JsonObject result = new JsonObject();
             result.addProperty("query", query);
-            if (query.contains(".") || query.contains(":")) {
+            if (IpMatcher.looksLikeIp(query)) {
                 result.addProperty("type", "ip");
                 JsonArray players = new JsonArray();
                 for (String name : plugin.getDatabaseManager().getPlayersByIpFromHistory(query)) {

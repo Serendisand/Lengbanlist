@@ -2,6 +2,7 @@ package org.leng.storage;
 
 import org.leng.object.BanEntry;
 import org.leng.object.BanIpEntry;
+import org.leng.util.IpMatcher;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -240,6 +241,28 @@ final class BanCache {
     boolean isIpBanned(String ip) {
         BanIpEntry ban = getIpBan(ip);
         return ban != null && ban.getTime() > System.currentTimeMillis();
+    }
+
+    /**
+     * 精确匹配 + CIDR 兜底。直接扫快照里的列表，不走 {@link #getUnexpiredIpBans()}
+     * 的复制与排序——这个方法在登录检查和踢人循环里会被反复调用。
+     */
+    BanIpEntry findMatchingIpBan(String ip) {
+        if (ip == null) {
+            return null;
+        }
+        ensureFresh();
+        long now = System.currentTimeMillis();
+        BanIpEntry exact = snapshot.ipBansByIp.get(ip);
+        if (exact != null && exact.getTime() > now) {
+            return exact;
+        }
+        for (BanIpEntry ban : snapshot.ipBans) {
+            if (ban.getTime() > now && (IpMatcher.cidrMatches(ip, ban.getIp()) || IpMatcher.sameIp(ip, ban.getIp()))) {
+                return ban;
+            }
+        }
+        return null;
     }
 
     int countUnexpiredBans() {

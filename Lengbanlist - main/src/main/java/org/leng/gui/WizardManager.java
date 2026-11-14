@@ -178,7 +178,7 @@ public class WizardManager {
                 }
                 break;
             case "ipban":
-                if (check(player, "lengbanlist.banip", "ban-ip") && validIpv4(player, input)) {
+                if (check(player, "lengbanlist.banip", "ban-ip") && validIp(player, input)) {
                     handlePunish(player, input, "lban add", "封禁");
                 }
                 break;
@@ -309,11 +309,11 @@ public class WizardManager {
         return false;
     }
 
-    private boolean validIpv4(Player player, String input) {
-        if (IpMatcher.isIpv4(input)) {
+    private boolean validIp(Player player, String input) {
+        if (IpMatcher.isValidIpOrCidrOrWildcard(input)) {
             return true;
         }
-        Utils.sendMessage(player, plugin.prefix() + "§cIP格式无效喵，请输入合法的 IPv4 地址。");
+        Utils.sendMessage(player, plugin.prefix() + "§cIP格式无效喵，请输入合法的 IPv4/IPv6 地址、CIDR 或通配符。");
         return false;
     }
 
