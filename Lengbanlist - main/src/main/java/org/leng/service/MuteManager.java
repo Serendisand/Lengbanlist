@@ -202,13 +202,13 @@ public class MuteManager {
             long now = System.currentTimeMillis();
             for (MuteEntry entry : db.loadMutesForCache()) {
                 if (entry.getTime() == Long.MAX_VALUE || entry.getTime() > now) {
-                    String targetKey = entry.getTarget().toLowerCase();
+                    String targetKey = entry.getTarget().toLowerCase(Locale.ROOT);
                     loadedMutes.put(targetKey, entry.getTime());
                     if (isIpTarget(targetKey)) {
                         loadedIpMutes.put(targetKey, entry.getTime());
                     }
                 } else {
-                    db.deleteMuteIfExpiresAt(entry.getTarget().toLowerCase(), entry.getTime());
+                    db.deleteMuteIfExpiresAt(entry.getTarget().toLowerCase(Locale.ROOT), entry.getTime());
                 }
             }
 
@@ -242,7 +242,9 @@ public class MuteManager {
         }
         String normalized = target.toLowerCase(Locale.ROOT);
         Long expired = null;
+        long generationBeforeRead;
         synchronized (muteLock) {
+            generationBeforeRead = mutationGeneration;
             Long cached = muteCache.get(normalized);
             if (cached != null) {
                 if (cached == Long.MAX_VALUE || cached > System.currentTimeMillis()) {
@@ -260,7 +262,14 @@ public class MuteManager {
         if (isKnownUnmuted(normalized)) {
             return null;
         }
-        MuteEntry entry = db.getMute(identityOf(normalized));
+        MuteEntry entry;
+        try {
+            entry = db.getMuteOrThrow(identityOf(normalized));
+        } catch (SQLException e) {
+            // 查询失败不能当成“未禁言”缓存，否则数据库瞬断会放行被禁言玩家。
+            org.leng.util.ErrorLog.record(plugin, "查询禁言状态失败，本次不缓存未禁言结果", e);
+            return null;
+        }
         if (entry == null) {
             rememberUnmuted(normalized);
             return null;
@@ -268,7 +277,10 @@ public class MuteManager {
         long endTime = entry.getTime();
         if (endTime == Long.MAX_VALUE || endTime > System.currentTimeMillis()) {
             synchronized (muteLock) {
-                muteCache.put(normalized, endTime);
+                // 读库期间可能已经解禁；此时不能把旧记录写回缓存，否则会“复活”禁言。
+                if (mutationGeneration == generationBeforeRead) {
+                    muteCache.put(normalized, endTime);
+                }
             }
             return endTime;
         }
@@ -284,7 +296,9 @@ public class MuteManager {
         }
         String normalized = playerName.toLowerCase(Locale.ROOT);
         Long expired = null;
+        long generationBeforeRead;
         synchronized (muteLock) {
+            generationBeforeRead = mutationGeneration;
             Long cached = muteCache.get(normalized);
             if (cached != null) {
                 if (cached == Long.MAX_VALUE || cached > System.currentTimeMillis()) {
@@ -302,7 +316,14 @@ public class MuteManager {
         if (isKnownUnmuted(normalized)) {
             return false;
         }
-        MuteEntry entry = db.getMute(identityOf(normalized));
+        MuteEntry entry;
+        try {
+            entry = db.getMuteOrThrow(identityOf(normalized));
+        } catch (SQLException e) {
+            // 查询失败不能当成“未禁言”缓存，否则数据库瞬断会放行被禁言玩家。
+            org.leng.util.ErrorLog.record(plugin, "查询禁言状态失败，本次不缓存未禁言结果", e);
+            return false;
+        }
         if (entry == null) {
             rememberUnmuted(normalized);
             return false;
@@ -310,7 +331,10 @@ public class MuteManager {
         long endTime = entry.getTime();
         if (endTime == Long.MAX_VALUE || endTime > System.currentTimeMillis()) {
             synchronized (muteLock) {
-                muteCache.put(normalized, endTime);
+                // 读库期间可能已经解禁；此时不能把旧记录写回缓存，否则会“复活”禁言。
+                if (mutationGeneration == generationBeforeRead) {
+                    muteCache.put(normalized, endTime);
+                }
             }
             return true;
         }
