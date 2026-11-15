@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 
 public final class FreezeCommands {
 
@@ -100,12 +101,12 @@ public final class FreezeCommands {
             if (args.length != 1) {
                 return completions;
             }
-            String prefix = args[0].toLowerCase();
+            String prefix = args[0].toLowerCase(Locale.ROOT);
             if ("list".startsWith(prefix)) {
                 completions.add("list");
             }
             for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player.getName().toLowerCase().startsWith(prefix)) {
+                if (player.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) {
                     completions.add(player.getName());
                 }
             }
@@ -171,12 +172,12 @@ public final class FreezeCommands {
             if (args.length != 1) {
                 return completions;
             }
-            String prefix = args[0].toLowerCase();
+            String prefix = args[0].toLowerCase(Locale.ROOT);
             if ("all".startsWith(prefix)) {
                 completions.add("all");
             }
             for (FreezeEntry entry : plugin.getFreezeManager().all()) {
-                if (entry.player().toLowerCase().startsWith(prefix)) {
+                if (entry.player().toLowerCase(Locale.ROOT).startsWith(prefix)) {
                     completions.add(entry.player());
                 }
             }

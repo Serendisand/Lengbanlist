@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.Locale;
 
 public class ModelsCommand implements CommandExecutor, TabCompleter {
 
@@ -33,7 +34,7 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
             sendHelp(sender);
             return true;
         }
-        switch (args[0].toLowerCase()) {
+        switch (args[0].toLowerCase(Locale.ROOT)) {
             case "refresh":
                 cmdRefresh(sender);
                 break;
@@ -120,7 +121,7 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
             Utils.sendMessage(sender, plugin.prefix() + "§c用法喵: /lban models install <模型ID|all>");
             return;
         }
-        String id = args[1].toLowerCase();
+        String id = args[1].toLowerCase(Locale.ROOT);
         if (id.equals("all")) {
             cmdInstallAll(sender);
             return;
@@ -165,7 +166,7 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
             Utils.sendMessage(sender, plugin.prefix() + "§c用法喵: /lban models " + (pin ? "pin" : "unpin") + " <模型ID>");
             return;
         }
-        String id = args[1].toLowerCase();
+        String id = args[1].toLowerCase(Locale.ROOT);
         if (pin) {
 
             if (!cloud.isInstalled(id)) {
@@ -257,13 +258,13 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
         if (args.length <= 1) {
-            String prefix = args.length == 0 ? "" : args[0].toLowerCase();
+            String prefix = args.length == 0 ? "" : args[0].toLowerCase(Locale.ROOT);
             for (String sub : new String[]{"refresh", "list", "install", "pin", "unpin", "featured", "stats"}) {
                 if (sub.startsWith(prefix)) completions.add(sub);
             }
         } else if (args.length == 2) {
-            String sub = args[0].toLowerCase();
-            String prefix = args[1].toLowerCase();
+            String sub = args[0].toLowerCase(Locale.ROOT);
+            String prefix = args[1].toLowerCase(Locale.ROOT);
             if (sub.equals("pin") || sub.equals("unpin") || sub.equals("install")) {
 
                 if ("all".startsWith(prefix)) {
@@ -279,7 +280,7 @@ public class ModelsCommand implements CommandExecutor, TabCompleter {
                             if (cloud.isInstalled(info.id()) && info.id().startsWith(prefix)) {
                                 completions.add(info.id());
                             }
-                        } else if (up && info.id().toLowerCase().startsWith(prefix)) {
+                        } else if (up && info.id().toLowerCase(Locale.ROOT).startsWith(prefix)) {
                             completions.add(info.id());
                         }
                     }

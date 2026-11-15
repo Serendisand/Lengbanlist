@@ -13,6 +13,7 @@ import org.leng.util.Utils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public final class ReportCommands {
 
@@ -50,7 +51,7 @@ public final class ReportCommands {
                 return true;
             }
 
-            switch (args[0].toLowerCase()) {
+            switch (args[0].toLowerCase(Locale.ROOT)) {
                 case "accept":
                     if (!plugin.isFeatureEnabled("admin")) {
                         plugin.sendFeatureDisabled(player);
@@ -125,7 +126,7 @@ public final class ReportCommands {
             if (args.length != 1) {
                 return List.of();
             }
-            String prefix = args[0].toLowerCase();
+            String prefix = args[0].toLowerCase(Locale.ROOT);
             String self = sender instanceof Player ? sender.getName() : null;
             List<String> completions = new ArrayList<>();
             for (Player p : Bukkit.getOnlinePlayers()) {
@@ -133,7 +134,7 @@ public final class ReportCommands {
                 if (self != null && p.getName().equalsIgnoreCase(self)) {
                     continue;
                 }
-                if (p.getName().toLowerCase().startsWith(prefix)) {
+                if (p.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) {
                     completions.add(p.getName());
                 }
             }

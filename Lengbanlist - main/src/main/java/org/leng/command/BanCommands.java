@@ -21,6 +21,7 @@ import org.leng.object.BanIpEntry;
 import org.leng.object.PlayerIdentity;
 import org.leng.models.Model;
 import org.leng.util.SchedulerUtils;
+import java.util.Locale;
 
 public final class BanCommands {
 
@@ -127,16 +128,16 @@ public final class BanCommands {
         public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
             int offset = (args.length > 0 && args[0].equalsIgnoreCase("-s")) ? 1 : 0;
             if (args.length - offset == 1) {
-                String prefix = args[offset].toLowerCase();
+                String prefix = args[offset].toLowerCase(Locale.ROOT);
                 List<String> completions = new ArrayList<>();
                 if (offset == 0 && "-s".startsWith(prefix)) completions.add("-s");
                 for (Player p : Bukkit.getOnlinePlayers()) {
-                    if (p.getName().toLowerCase().startsWith(prefix)) completions.add(p.getName());
+                    if (p.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) completions.add(p.getName());
                 }
                 return completions;
             }
             if (args.length - offset == 3) {
-                String prefix = args[offset + 2].toLowerCase();
+                String prefix = args[offset + 2].toLowerCase(Locale.ROOT);
                 List<String> presets = plugin.getConfig().getStringList("preset-reasons");
 
                 if (presets.isEmpty() && plugin.getConfig().isConfigurationSection("preset-reasons")) {
@@ -144,7 +145,7 @@ public final class BanCommands {
                 }
                 List<String> completions = new ArrayList<>();
                 for (String key : presets) {
-                    if (key.toLowerCase().startsWith(prefix)) completions.add(key);
+                    if (key.toLowerCase(Locale.ROOT).startsWith(prefix)) completions.add(key);
                 }
                 return completions;
             }
@@ -245,18 +246,18 @@ public final class BanCommands {
             int offset = (args.length > 0 && args[0].equalsIgnoreCase("-s")) ? 1 : 0;
             if (args.length - offset == 1) {
                 List<String> completions = new ArrayList<>();
-                if (offset == 0 && "-s".startsWith(args[0].toLowerCase())) completions.add("-s");
+                if (offset == 0 && "-s".startsWith(args[0].toLowerCase(Locale.ROOT))) completions.add("-s");
                 return completions;
             }
             if (args.length - offset == 3) {
-                String prefix = args[offset + 2].toLowerCase();
+                String prefix = args[offset + 2].toLowerCase(Locale.ROOT);
                 List<String> presets = new ArrayList<>();
                 if (plugin.getConfig().isConfigurationSection("preset-reasons")) {
                     presets.addAll(plugin.getConfig().getConfigurationSection("preset-reasons").getKeys(false));
                 }
                 List<String> completions = new ArrayList<>();
                 for (String key : presets) {
-                    if (key.toLowerCase().startsWith(prefix)) completions.add(key);
+                    if (key.toLowerCase(Locale.ROOT).startsWith(prefix)) completions.add(key);
                 }
                 return completions;
             }
@@ -481,12 +482,12 @@ public final class BanCommands {
         public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
             List<String> completions = new ArrayList<>();
             if (args.length == 1) {
-                String prefix = args[0].toLowerCase();
+                String prefix = args[0].toLowerCase(Locale.ROOT);
                 for (BanEntry e : plugin.getBanManager().getBanList()) {
-                    if (e.getTarget().toLowerCase().startsWith(prefix)) completions.add(e.getTarget());
+                    if (e.getTarget().toLowerCase(Locale.ROOT).startsWith(prefix)) completions.add(e.getTarget());
                 }
                 for (BanIpEntry e : plugin.getBanManager().getBanIpList()) {
-                    if (e.getIp().toLowerCase().startsWith(prefix)) completions.add(e.getIp());
+                    if (e.getIp().toLowerCase(Locale.ROOT).startsWith(prefix)) completions.add(e.getIp());
                 }
             }
             return completions;
@@ -562,9 +563,9 @@ public final class BanCommands {
         public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
             List<String> completions = new ArrayList<>();
             if (args.length == 1) {
-                String prefix = args[0].toLowerCase();
+                String prefix = args[0].toLowerCase(Locale.ROOT);
                 for (Player p : Bukkit.getOnlinePlayers()) {
-                    if (p.getName().toLowerCase().startsWith(prefix)) completions.add(p.getName());
+                    if (p.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) completions.add(p.getName());
                 }
             }
             return completions;

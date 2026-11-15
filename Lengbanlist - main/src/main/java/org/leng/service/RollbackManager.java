@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 
 public class RollbackManager {
 
@@ -42,7 +43,7 @@ public class RollbackManager {
             if (type != null && !type.trim().isEmpty() && !typeMatches(type.trim(), action)) continue;
             String target = log.getTarget() == null ? "" : log.getTarget();
             if (target.isEmpty()) continue;
-            String key = action + ":" + target.toLowerCase();
+            String key = action + ":" + target.toLowerCase(Locale.ROOT);
             toApply.putIfAbsent(key, log);
         }
         return toApply.size();
@@ -75,7 +76,7 @@ public class RollbackManager {
             if (target.isEmpty()) {
                 continue;
             }
-            String key = action + ":" + target.toLowerCase();
+            String key = action + ":" + target.toLowerCase(Locale.ROOT);
             if (!toApply.containsKey(key)) {
                 toApply.put(key, log);
                 result.matched++;
@@ -164,7 +165,7 @@ public class RollbackManager {
     }
 
     private boolean typeMatches(String type, String action) {
-        switch (type.toLowerCase()) {
+        switch (type.toLowerCase(Locale.ROOT)) {
             case "ban":
                 return action.equals("封禁") || action.equals("解封");
             case "ban-ip":

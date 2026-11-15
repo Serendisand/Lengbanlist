@@ -12,6 +12,7 @@ import org.leng.integration.ModelManager;
 import org.leng.util.Utils;
 
 import java.util.List;
+import java.util.Locale;
 
 public class ModelChoiceListener implements Listener {
 
@@ -74,7 +75,7 @@ public class ModelChoiceListener implements Listener {
             Utils.sendMessage(player, plugin.prefix() + "§c不是你的工作喵！");
             return;
         }
-        if (!ModelManager.getInstance().getModels().containsKey(modelName.toLowerCase())) {
+        if (!ModelManager.getInstance().getModels().containsKey(modelName.toLowerCase(Locale.ROOT))) {
             Utils.sendMessage(player, plugin.prefix() + "§c不认识这个模型喵。");
             return;
         }

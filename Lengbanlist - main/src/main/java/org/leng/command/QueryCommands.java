@@ -242,9 +242,9 @@ public final class QueryCommands {
         public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
             List<String> completions = new ArrayList<>();
             if (args.length == 1) {
-                String prefix = args[0].toLowerCase();
+                String prefix = args[0].toLowerCase(Locale.ROOT);
                 for (Player p : Bukkit.getOnlinePlayers()) {
-                    if (p.getName().toLowerCase().startsWith(prefix)) {
+                    if (p.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) {
                         completions.add(p.getName());
                     }
                 }

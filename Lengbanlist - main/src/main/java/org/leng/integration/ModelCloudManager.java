@@ -23,6 +23,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
+import java.util.Locale;
 
 public class ModelCloudManager {
 
@@ -412,7 +413,7 @@ public class ModelCloudManager {
         if (idx.isEmpty()) {
             return Optional.empty();
         }
-        String lower = id.toLowerCase();
+        String lower = id.toLowerCase(Locale.ROOT);
         return idx.get().models().stream()
                 .filter(m -> m.id() != null && m.id().equalsIgnoreCase(lower))
                 .findFirst();
@@ -423,7 +424,7 @@ public class ModelCloudManager {
             return InstallResult.NOT_FOUND;
         }
         beginTask();
-        String lower = id.toLowerCase();
+        String lower = id.toLowerCase(Locale.ROOT);
         if (isPinned(lower)) {
             return InstallResult.PINNED_SKIPPED;
         }

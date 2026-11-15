@@ -13,6 +13,7 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 import java.util.logging.Logger;
+import java.util.Locale;
 
 public class AutoUpdateManager {
     private static final long MAX_DOWNLOAD_BYTES = 64L * 1024 * 1024; 
@@ -265,7 +266,7 @@ public class AutoUpdateManager {
         if (!value.matches("^[0-9a-fA-F]{64}$")) {
             return null;
         }
-        return value.toLowerCase();
+        return value.toLowerCase(Locale.ROOT);
     }
 
     private void copyFile(File source, File destination) throws IOException {

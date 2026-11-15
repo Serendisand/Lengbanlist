@@ -5,6 +5,7 @@ import org.leng.Lengbanlist;
 import org.leng.util.Utils;
 
 import java.util.Arrays;
+import java.util.Locale;
 
 /** 命令包内重复度最高的参数解析与提示文案。 */
 final class CommandSupport {
@@ -26,7 +27,7 @@ final class CommandSupport {
         if (input == null || !plugin.getConfig().isConfigurationSection("preset-reasons")) {
             return input;
         }
-        String value = plugin.getConfig().getString("preset-reasons." + input.toLowerCase());
+        String value = plugin.getConfig().getString("preset-reasons." + input.toLowerCase(Locale.ROOT));
         return value != null ? value : input;
     }
 

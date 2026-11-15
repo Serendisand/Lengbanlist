@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.leng.gui.GuiSessionManager;
+import java.util.Locale;
 
 public class ModelManager {
     private static final String BASE_FILE_NAME = "_base.yml";
@@ -56,12 +57,12 @@ public class ModelManager {
         loadCustomModels();
 
         String modelName = Lengbanlist.getInstance().getConfig().getString("Model", "Default");
-        if (!models.containsKey(modelName.toLowerCase())) {
+        if (!models.containsKey(modelName.toLowerCase(Locale.ROOT))) {
 
             Lengbanlist.getInstance().getLogger().warning("配置的模型 " + modelName + " 当前不可用，回退到 Default（可 /lban models refresh 拉取）");
             modelName = "Default";
         }
-        switchModel(modelName.toLowerCase());
+        switchModel(modelName.toLowerCase(Locale.ROOT));
     }
 
     private void loadBaseConfig() {
@@ -136,7 +137,7 @@ public class ModelManager {
                     continue;
                 }
 
-                String lowerName = modelName.toLowerCase();
+                String lowerName = modelName.toLowerCase(Locale.ROOT);
 
                 if (models.containsKey(lowerName)) {
                     Lengbanlist.getInstance().getLogger().warning("跳过自定义模型 " + modelName + "（来自 " + file.getName() + "）：与内置模型 " + lowerName + " 冲突，内置模型优先");
@@ -164,7 +165,7 @@ public class ModelManager {
     }
 
     public static void switchModel(String modelName) {
-        String lowerCaseModelName = modelName.toLowerCase();
+        String lowerCaseModelName = modelName.toLowerCase(Locale.ROOT);
         if (models.containsKey(lowerCaseModelName)) {
             currentModel = models.get(lowerCaseModelName);
             Lengbanlist.getInstance().getConfig().set("Model", currentModel.getName());
@@ -185,7 +186,7 @@ public class ModelManager {
         loadCustomModels();
 
         String modelName = Lengbanlist.getInstance().getConfig().getString("Model", "Default");
-        switchModel(modelName.toLowerCase());
+        switchModel(modelName.toLowerCase(Locale.ROOT));
         Lengbanlist.getInstance().getServer().getConsoleSender().sendMessage("§a模型已重新加载，当前模型: " + currentModel.getName());
     }
 
@@ -208,7 +209,7 @@ public class ModelManager {
     }
 
     public static Material getModelMaterial(String modelName) {
-        Material material = MODEL_MATERIALS.get(modelName.toLowerCase());
+        Material material = MODEL_MATERIALS.get(modelName.toLowerCase(Locale.ROOT));
         return material != null ? material : Material.PAPER;
     }
 

@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.leng.util.ErrorLog;
+import java.util.Locale;
 
 public class GitHubUpdateChecker {
     public static final String RELEASES_URL = "https://github.com/Serendisand/Lengbanlist/releases";
@@ -329,7 +330,7 @@ public class GitHubUpdateChecker {
     }
 
     private static String getProxyBase(String mirrorUrl) {
-        String lower = mirrorUrl.toLowerCase();
+        String lower = mirrorUrl.toLowerCase(Locale.ROOT);
         int idx = lower.indexOf("https://api.github.com");
         if (idx <= 0) idx = lower.indexOf("http://api.github.com");
         if (idx <= 0) idx = lower.indexOf("https://github.com");

@@ -8,6 +8,7 @@ import org.leng.object.WarnEntry;
 import org.leng.util.TimeUtils;
 
 import java.util.List;
+import java.util.Locale;
 
 public class PlaceholderAPIHook extends PlaceholderExpansion {
 
@@ -43,7 +44,7 @@ public class PlaceholderAPIHook extends PlaceholderExpansion {
             return null;
         }
 
-        String lower = params.toLowerCase();
+        String lower = params.toLowerCase(Locale.ROOT);
 
         if (lower.equals("bans")) {
             return String.valueOf(plugin.getBanManager().countActiveBans());
