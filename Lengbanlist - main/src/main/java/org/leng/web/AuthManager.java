@@ -92,7 +92,7 @@ public class AuthManager {
         long now = System.currentTimeMillis() / 1000;
         payload.addProperty("sub", subject);
         payload.addProperty("iat", now);
-        payload.addProperty("exp", now + + TOKEN_EXP_MS / 1000);
+        payload.addProperty("exp", now + TOKEN_EXP_MS / 1000);
 
         String encodedHeader = b64url(header.toString());
         String encodedPayload = b64url(payload.toString());
@@ -106,8 +106,9 @@ public class AuthManager {
         try {
             String[] parts = token.split("\\.");
             if (parts.length != 3) return null;
+            Credentials current = credentials;
             if (!MessageDigest.isEqual(
-                    hmacSha256(parts[0] + "." + parts[1], credentials.secret).getBytes(StandardCharsets.UTF_8),
+                    hmacSha256(parts[0] + "." + parts[1], current.secret).getBytes(StandardCharsets.UTF_8),
                     parts[2].getBytes(StandardCharsets.UTF_8))) return null;
 
             String json = new String(Base64.getUrlDecoder().decode(parts[1]));
