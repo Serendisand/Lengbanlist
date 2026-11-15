@@ -1,5 +1,7 @@
 package org.leng.api;
 
+import java.time.Duration;
+
 /**
  * 调度器。
  *
@@ -36,4 +38,34 @@ public interface Scheduler {
 
     /** 周期性异步执行，周期以 tick 计。 */
     Cancellable runAsyncRepeating(Runnable task, long delayTicks, long periodTicks);
+
+    // ------------------------------------------------------------ 类型化时长重载
+    // 用 Duration 表达"1 秒""5 分钟"，避免 tick / 毫秒两种单位在调用处混淆。
+
+    /** 延迟 {@code delay}（向上取整到 tick）后同步执行一次。 */
+    default Cancellable runSyncLater(Runnable task, Duration delay) {
+        return runSyncLater(task, toTicks(delay));
+    }
+
+    /** 以 {@code period} 为周期同步执行；周期至少 1 tick。 */
+    default Cancellable runSyncRepeating(Runnable task, Duration delay, Duration period) {
+        return runSyncRepeating(task, toTicks(delay), Math.max(1L, toTicks(period)));
+    }
+
+    /** 延迟 {@code delay} 后在异步线程执行一次。 */
+    default Cancellable runAsyncLater(Runnable task, Duration delay) {
+        return runAsyncLater(task, Math.max(0L, delay == null ? 0L : delay.toMillis()));
+    }
+
+    /** 以 {@code period} 为周期异步执行；周期至少 1 tick。 */
+    default Cancellable runAsyncRepeating(Runnable task, Duration delay, Duration period) {
+        return runAsyncRepeating(task, toTicks(delay), Math.max(1L, toTicks(period)));
+    }
+
+    private static long toTicks(Duration duration) {
+        if (duration == null || duration.isNegative() || duration.isZero()) {
+            return 0L;
+        }
+        return Math.max(1L, (duration.toMillis() + 49L) / 50L);
+    }
 }

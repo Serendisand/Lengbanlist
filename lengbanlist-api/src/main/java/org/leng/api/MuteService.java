@@ -25,4 +25,19 @@ public interface MuteService {
     List<MuteEntry> activeMutes();
 
     int activeMuteCount();
+
+    /**
+     * 用时长字符串禁言，规则与核心命令一致：{@code 30m}、{@code 7d}、{@code forever}……
+     *
+     * @return 实际生效的到期时刻（毫秒）；参数非法或失败返回 {@code null}
+     */
+    default Long mute(String target, String staff, String duration, String reason) {
+        long millis = DurationParser.parseMillis(duration);
+        return millis > 0 ? mute(target, staff, millis, reason) : null;
+    }
+
+    /** 永久禁言。 */
+    default Long mutePermanent(String target, String staff, String reason) {
+        return mute(target, staff, Long.MAX_VALUE, reason);
+    }
 }

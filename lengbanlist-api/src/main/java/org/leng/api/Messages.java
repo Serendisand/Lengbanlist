@@ -21,4 +21,15 @@ public interface Messages {
 
     /** 当前模型名；无模型时返回空串。 */
     String currentName();
+
+    /** 当前是否有可用模型。 */
+    default boolean hasModel() {
+        return current() != null;
+    }
+
+    /** 当前模型名；为空时返回 {@code fallback}。 */
+    default String currentNameOr(String fallback) {
+        String name = currentName();
+        return name == null || name.isBlank() ? fallback : name;
+    }
 }

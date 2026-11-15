@@ -49,4 +49,32 @@ public interface BanService {
 
     /** 该 IP 的历史封禁次数（含已过期记录），用于累犯判定。 */
     int countIpBanHistory(String ip);
+
+    // ------------------------------------------------------------ 便捷重载
+
+    /**
+     * 用时长字符串封禁玩家，规则与核心命令一致：{@code 7d}、{@code 2h}、{@code forever}……
+     *
+     * @return 参数非法或写入失败时返回 {@code false}
+     */
+    default boolean ban(String target, String staff, String duration, String reason, boolean silent) {
+        long millis = DurationParser.parseMillis(duration);
+        return millis > 0 && ban(target, staff, millis, reason, silent);
+    }
+
+    /** 永久封禁玩家。 */
+    default boolean banPermanent(String target, String staff, String reason, boolean silent) {
+        return ban(target, staff, Long.MAX_VALUE, reason, silent);
+    }
+
+    /** 用时长字符串封禁 IP / IP 段。 */
+    default boolean banIp(String ip, String staff, String duration, String reason, boolean silent) {
+        long millis = DurationParser.parseMillis(duration);
+        return millis > 0 && banIp(ip, staff, millis, reason, silent);
+    }
+
+    /** 永久封禁 IP / IP 段。 */
+    default boolean banIpPermanent(String ip, String staff, String reason, boolean silent) {
+        return banIp(ip, staff, Long.MAX_VALUE, reason, silent);
+    }
 }

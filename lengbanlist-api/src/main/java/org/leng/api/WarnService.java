@@ -29,4 +29,14 @@ public interface WarnService {
 
     /** 当前有生效警告的玩家名快照。 */
     List<String> warnedPlayers();
+
+    /** 撤销该玩家最近一条生效警告。 */
+    default boolean unwarnLatest(String target, CommandSender actor) {
+        return unwarn(target, 0, actor);
+    }
+
+    /** 该玩家当前是否有生效警告。 */
+    default boolean hasActiveWarnings(String target) {
+        return countActiveWarnings(target) > 0;
+    }
 }

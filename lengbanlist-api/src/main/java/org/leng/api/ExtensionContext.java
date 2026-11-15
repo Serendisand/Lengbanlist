@@ -31,6 +31,15 @@ public interface ExtensionContext {
      */
     boolean isFeatureActive(String feature);
 
+    /**
+     * 以扩展 id 作为功能键判断开关，等价于 {@code isFeatureActive(extensionId())}。
+     *
+     * <p>绝大多数扩展的 id 就是自己的功能键；带多个功能键的扩展再调用带参版本。
+     */
+    default boolean isFeatureActive() {
+        return isFeatureActive(extensionId());
+    }
+
     /** 注册命令。扩展注册的命令会随该扩展启用/停用自动注册与注销。 */
     CommandRegistrar commands();
 

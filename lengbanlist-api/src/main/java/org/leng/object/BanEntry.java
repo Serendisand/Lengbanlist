@@ -1,5 +1,6 @@
 package org.leng.object;
 
+import java.time.Duration;
 import java.util.Objects;
 
 public record BanEntry(
@@ -51,6 +52,19 @@ public record BanEntry(
 
     public boolean isExpired() {
         return System.currentTimeMillis() > time;
+    }
+
+    /** 是否为永久封禁。 */
+    public boolean isPermanent() {
+        return time == Long.MAX_VALUE;
+    }
+
+    /** 剩余时长；永久封禁返回一个极大值，已过期返回 {@link Duration#ZERO}。 */
+    public Duration remainingDuration() {
+        if (isPermanent()) {
+            return Duration.ofMillis(Long.MAX_VALUE);
+        }
+        return Duration.ofMillis(Math.max(0L, time - System.currentTimeMillis()));
     }
 
     @Override

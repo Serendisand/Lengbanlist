@@ -37,14 +37,19 @@ public final class ApiVersion {
      * <p>何时调整：
      *
      * <ul>
-     *   <li>只新增方法/类/字段（向后兼容）→ 次版本号 +1，如 {@code 2.1.9 → 2.2.0}</li>
-     *   <li>改签名、删方法或改语义（不兼容）→ 主版本号 +1，如 {@code 2.1.9 → 3.0.0}</li>
+     *   <li>只新增方法/类/字段（向后兼容）→ 次版本号 +1，如 {@code 2.2.0 → 2.3.0}</li>
+     *   <li>改签名、删方法或改语义（不兼容）→ 主版本号 +1，如 {@code 2.2.0 → 3.0.0}</li>
      *   <li>插件自身发版（含插件 3.0）→ <b>不动</b></li>
      * </ul>
      */
-    public static final String CONTRACT_VERSION = "2.1.9";
+    public static final String CONTRACT_VERSION = "2.2.0";
 
     private ApiVersion() {
+    }
+
+    /** 当前核心是否满足给定范围；等价于 {@code satisfies(range, CONTRACT_VERSION)}。 */
+    public static boolean isCompatible(String requiredRange) {
+        return satisfies(requiredRange, CONTRACT_VERSION);
     }
 
     /** 判断 {@code actualVersion} 是否落在 {@code requiredRange} 内。 */

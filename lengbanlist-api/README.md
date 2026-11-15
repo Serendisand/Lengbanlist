@@ -27,7 +27,7 @@
     <dependency>
         <groupId>org.leng</groupId>
         <artifactId>lengbanlist-api</artifactId>
-        <version>2.1.6</version>
+        <version>2.2.1</version>
         <scope>provided</scope>
     </dependency>
 </dependencies>
@@ -117,7 +117,7 @@ if (!context.isFeatureActive(id())) {
         <dependency>
             <groupId>org.leng</groupId>
             <artifactId>lengbanlist-api</artifactId>
-            <version>2.1.6</version>
+            <version>2.2.1</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
@@ -309,7 +309,7 @@ cp target/*.jar 服务端/plugins/   # 丢进 plugins，与 Lengbanlist-*.jar �
 
 | 方法 | 说明 |
 | --- | --- |
-| `String apiVersion()` | 契约版本，形如 `2.1.9`（与插件版本解耦，插件升级不会变） |
+| `String apiVersion()` | 契约版本，形如 `2.2.0`（与插件版本解耦，插件升级不会变） |
 | `ExtensionContext enable(LengbanlistExtension)` | 校验 `requiredApi`、建上下文、调 `onEnable`、接入命令表。失败抛 `ExtensionLoadException` |
 | `void disable(String extensionId)` | 停用并注销命令；未注册时是空操作 |
 | `boolean isEnabled(String)` | 是否已启用 |
@@ -321,6 +321,7 @@ cp target/*.jar 服务端/plugins/   # 丢进 plugins，与 Lengbanlist-*.jar �
 | --- | --- | --- |
 | `extensionId()` | `String` | 本上下文的扩展 id |
 | `isFeatureActive(feature)` | `boolean` | 该功能是否"已注册 且 开着"，与核心门控同一语义 |
+| `isFeatureActive()` | `boolean` | 以扩展 id 作为功能键的快捷写法 |
 | `commands()` | `CommandRegistrar` | 注册命令 |
 | `hooks()` | `HookRegistry` | 挂进核心决策点 |
 | `messages()` | `Messages` | 当前人设模型的文案 |
@@ -357,6 +358,10 @@ cp target/*.jar 服务端/plugins/   # 丢进 plugins，与 Lengbanlist-*.jar �
 | `void runAsync(Runnable)` | 异步执行（**不要**在异步里碰 Bukkit API） |
 | `Cancellable runAsyncLater(Runnable, long delayMillis)` | 异步延迟（毫秒） |
 | `Cancellable runAsyncRepeating(Runnable, long delayTicks, long periodTicks)` | 异步周期 |
+| `Cancellable runSyncLater(Runnable, Duration)` | 类型化版本，自动把 `Duration` 换算成 tick |
+| `Cancellable runSyncRepeating(Runnable, Duration, Duration)` | 类型化版本，周期至少 1 tick |
+| `Cancellable runAsyncLater(Runnable, Duration)` | 类型化版本，内部按毫秒调度 |
+| `Cancellable runAsyncRepeating(Runnable, Duration, Duration)` | 类型化版本，周期至少 1 tick |
 
 ### ExtensionConfig
 
@@ -366,14 +371,17 @@ cp target/*.jar 服务端/plugins/   # 丢进 plugins，与 Lengbanlist-*.jar �
 | `File file()` | 配置文件路径（外部扩展在 `plugins/<扩展名>/config.yml`） |
 | `void save()` | 写盘 |
 | `void reload()` | 从盘上重读 |
+| `getString/getBoolean/getInt/getLong/getDouble(path, default)` | 带默认值的类型化读取，内部转发 `raw()` |
+| `List<String> getStringList(path)`、`boolean contains(path)`、`void set(path, value)` | 常用读写快捷方法 |
 
 ### Services（处罚读写）
 
 | 接口 | 方法 |
 | --- | --- |
-| `BanService` | `ban(target, staff, durationMillis, reason, silent)`、`banIp(...)`、`unban(target, actor)`、`unbanIp(ip, actor)`、`isBanned`、`isIpBanned`、`findBan`、`findIpBan`、`activeBans()`、`activeIpBans()`、`activeBanCount()`、`activeIpBanCount()` |
-| `MuteService` | `mute(target, staff, durationMillis, reason)`（返回时长）、`unmute(target, actor)`、`isMuted`、`activeMutes()`、`activeMuteCount()` |
-| `WarnService` | `warn(target, staff, reason)`、`unwarn(target, warnId, actor)`、`countActiveWarnings(target)`、`activeWarnings(target)`、`warnedPlayers()` |
+| `BanService` | `ban(target, staff, durationMillis, reason, silent)`、`banIp(...)`、`unban(target, actor)`、`unbanIp(ip, actor)`、`isBanned`、`isIpBanned`、`findBan`、`findIpBan`、`activeBans()`、`activeIpBans()`、`activeBanCount()`、`activeIpBanCount()`、`countBanHistory`、`countIpBanHistory` |
+| `BanService` 便捷重载 | `ban(target, staff, "7d", reason, silent)`、`banPermanent(...)`、`banIp(..., "2h", ...)`、`banIpPermanent(...)` |
+| `MuteService` | `mute(target, staff, durationMillis, reason)`（返回到期时刻）、`unmute(target, actor)`、`isMuted`、`activeMutes()`、`activeMuteCount()`、`mute(..., "30m", ...)`、`mutePermanent(...)` |
+| `WarnService` | `warn(target, staff, reason)`、`unwarn(target, warnId, actor)`、`unwarnLatest(target, actor)`、`countActiveWarnings(target)`、`hasActiveWarnings(target)`、`activeWarnings(target)`、`warnedPlayers()` |
 
 **写处罚请走这里**，不要直接写核心表——同步、审计、事件广播、Webhook 都在服务层里。
 
@@ -384,6 +392,7 @@ cp target/*.jar 服务端/plugins/   # 丢进 plugins，与 Lengbanlist-*.jar �
 | `Connection connection()` | 借出核心连接池里的一个连接；**用完自己关**（try-with-resources），连接会回到池里 |
 | `String tablePrefix()` | 本扩展专属的表名前缀，形如 `ext_<扩展名>_`（连字符换成下划线） |
 | `boolean isNetworkDatabase()` | 是否 MySQL/MariaDB（跨服共享） |
+| `withConnection(action)` | 借连接执行一段逻辑并自动归还，省掉手写 try-with-resources |
 
 ### HookRegistry（插进核心判定）
 
@@ -405,6 +414,8 @@ cp target/*.jar 服务端/plugins/   # 丢进 plugins，与 Lengbanlist-*.jar �
 | --- | --- |
 | `Messages.current()` | 当前人设模型（取不到返回 `null`，要兜底） |
 | `Messages.currentName()` | 模型名 |
+| `Messages.hasModel()` | 当前是否有可用模型 |
+| `Messages.currentNameOr(fallback)` | 模型名为空时返回兜底值 |
 
 事件（`org.leng.api.events`，普通 Bukkit 事件，`registerEvents` 即可）：
 
@@ -419,11 +430,15 @@ cp target/*.jar 服务端/plugins/   # 丢进 plugins，与 Lengbanlist-*.jar �
 | `LengbanlistUnwarnEvent` | `getTarget()`、`getWarnId()`、`getActor()` |
 | `LengbanlistReportEvent` | `getEntry()`、`getReporter()`、`getTarget()`、`getReason()` |
 
+`BanEntry` / `BanIpEntry` / `MuteEntry` 还提供 `isPermanent()`、`isExpired()` 与
+`remainingDuration()`（`java.time.Duration`，永久处罚返回极大值，已过期返回 `ZERO`）。
+
 ### ApiVersion（自己比较版本时用）
 
 | 方法 | 说明 |
 | --- | --- |
 | `satisfies(String requiredRange, String actualVersion)` | 范围判断：`[2.0,3.0)`、`2.1`（=2.1.x）、`2.x` |
+| `isCompatible(String requiredRange)` | 用当前 `CONTRACT_VERSION` 做范围判断 |
 | `compare(String a, String b)` | 逐段比较，返回负/零/正 |
 
 ---
@@ -440,14 +455,14 @@ cp target/*.jar 服务端/plugins/   # 丢进 plugins，与 Lengbanlist-*.jar �
 
 - `requiredApi()` 写范围，核心在 `enable` 前校验，不满足就**拒绝启用并给出可读原因**，
   而不是等到运行时抛 `NoSuchMethodError`。
-- **契约版本与插件版本是两件事**：`requiredApi()` 比较的是 `apiVersion()`（当前 `2.1.9`），
+- **契约版本与插件版本是两件事**：`requiredApi()` 比较的是 `apiVersion()`（当前 `2.2.0`），
   不是 `plugin.yml` 的版本号。插件从 2.x 发到 3.0，只要 `org.leng.api` 没变，按
   `[2.0,3.0)` 声明的扩展照常启用。
-- 契约版本的调整规则：只新增能力 → `2.1.9 → 2.2.0`；改签名/删方法 → `2.1.9 → 3.0.0`；
+- 契约版本的调整规则：只新增能力 → `2.2.0 → 2.3.0`；改签名/删方法 → `2.2.0 → 3.0.0`；
   插件自身发版 → 不动。
 - 契约**只增不改**：已有方法不会改签名、不会删。想提前挡住未来的不兼容，把 `requiredApi()`
   写成上界封闭的区间。
-- `lengbanlist-api` 会连源码包一起发布，IDE 里点进接口就能看到这些注释。
+- `lengbanlist-api` 会连**源码包**与 **Javadoc 包**一起发布，IDE 里点进接口就能看到这些注释。
 
 ## 九、排查
 

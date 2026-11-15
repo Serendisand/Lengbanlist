@@ -39,4 +39,29 @@ public interface DataStore {
 
     /** 当前是否为共享数据库（MySQL / MariaDB / PostgreSQL）；SQLite 为 false。 */
     boolean isNetworkDatabase();
+
+    /** 在借出的连接上执行一段逻辑并自动归还；无需手写 try-with-resources。 */
+    @FunctionalInterface
+    interface ConnectionAction<T> {
+        T apply(Connection connection) throws SQLException;
+    }
+
+    /**
+     * 自动关连接的便捷写法：
+     *
+     * <pre>{@code
+     * int count = data.withConnection(c -> {
+     *     try (PreparedStatement ps = c.prepareStatement("SELECT COUNT(*) FROM " + data.tablePrefix() + "log")) {
+     *         try (ResultSet rs = ps.executeQuery()) {
+     *             return rs.next() ? rs.getInt(1) : 0;
+     *         }
+     *     }
+     * });
+     * }</pre>
+     */
+    default <T> T withConnection(ConnectionAction<T> action) throws SQLException {
+        try (Connection connection = connection()) {
+            return action.apply(connection);
+        }
+    }
 }
