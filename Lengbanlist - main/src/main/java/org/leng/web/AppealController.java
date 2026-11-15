@@ -30,7 +30,7 @@ public class AppealController extends WebController {
 
     private boolean requirePublic(HttpExchange exchange, String method) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return false;
         }
         if (!method.equals(exchange.getRequestMethod())) {
@@ -96,7 +96,7 @@ public class AppealController extends WebController {
 
     private void handleStatus(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!"GET".equals(exchange.getRequestMethod())) {
@@ -139,7 +139,7 @@ public class AppealController extends WebController {
 
     private void handleList(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!"GET".equals(exchange.getRequestMethod())) {
@@ -190,7 +190,7 @@ public class AppealController extends WebController {
 
     private void handleHandle(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!"POST".equals(exchange.getRequestMethod())) {

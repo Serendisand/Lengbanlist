@@ -29,7 +29,7 @@ public class MuteController extends WebController {
 
     private void handleMute(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!"POST".equals(exchange.getRequestMethod())) {
@@ -84,7 +84,7 @@ public class MuteController extends WebController {
 
     private void handleUnmute(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!"POST".equals(exchange.getRequestMethod())) {
@@ -125,7 +125,7 @@ public class MuteController extends WebController {
 
     private void handleMuteList(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!requireAuth(exchange)) return;

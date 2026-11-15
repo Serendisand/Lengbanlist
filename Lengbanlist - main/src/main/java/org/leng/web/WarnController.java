@@ -22,7 +22,7 @@ public class WarnController extends WebController {
 
     private void handleWarn(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!"POST".equals(exchange.getRequestMethod())) {

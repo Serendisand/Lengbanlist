@@ -32,7 +32,7 @@ public class BanController extends WebController {
 
     private void handleBan(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!"POST".equals(exchange.getRequestMethod())) {
@@ -104,7 +104,7 @@ public class BanController extends WebController {
 
     private void handleUnban(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!"POST".equals(exchange.getRequestMethod())) {
@@ -154,7 +154,7 @@ public class BanController extends WebController {
 
     private void handleBanList(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!requireAuth(exchange)) return;
@@ -191,7 +191,7 @@ public class BanController extends WebController {
 
     private void handleIpBanList(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!requireAuth(exchange)) return;

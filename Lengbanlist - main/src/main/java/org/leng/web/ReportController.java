@@ -26,7 +26,7 @@ public class ReportController extends WebController {
 
     private void handleReports(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!requireAuth(exchange) || !requireFeature(exchange, "admin")) return;
@@ -51,7 +51,7 @@ public class ReportController extends WebController {
 
     private void handleReportAction(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!"POST".equals(exchange.getRequestMethod())) {

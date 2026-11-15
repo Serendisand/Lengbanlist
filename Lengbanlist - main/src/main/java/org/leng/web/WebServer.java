@@ -5,7 +5,6 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.leng.Lengbanlist;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
@@ -68,6 +67,18 @@ public class WebServer {
             return true;
         } catch (Exception e) {
             plugin.getLogger().severe("Web管理面板启动失败: " + e.getMessage());
+            if (server != null) {
+                try {
+                    server.stop(0);
+                } catch (Exception ignored) {
+                }
+                server = null;
+            }
+            if (executor != null) {
+                executor.shutdownNow();
+                executor = null;
+            }
+            running = false;
             return false;
         }
     }
@@ -75,6 +86,7 @@ public class WebServer {
     public void stop() {
         if (server != null) {
             server.stop(1);
+            server = null;
             if (executor != null) {
                 executor.shutdown();
                 try {
@@ -85,6 +97,7 @@ public class WebServer {
                     executor.shutdownNow();
                     Thread.currentThread().interrupt();
                 }
+                executor = null;
             }
             running = false;
             plugin.getLogger().info("Web管理面板已关闭");
@@ -139,12 +152,8 @@ public class WebServer {
 
     private void handleStatic(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            try {
-                exchange.sendResponseHeaders(204, -1);
-            } catch (IOException ignored) {
-            } finally {
-                exchange.close();
-            }
+            WebResponse.applyCorsHeaders(exchange, plugin);
+            WebResponse.handleOptions(exchange);
             return;
         }
         try {
@@ -166,33 +175,29 @@ public class WebServer {
             info.addProperty("version", plugin.getPluginVersion());
             info.addProperty("login", "POST /api/login 获取token");
             info.addProperty("usage", "在请求头加 Authorization: Bearer <token> 调用其他接口");
-            sendJson(exchange, 200, info.toString());
+            WebResponse.sendJson(exchange, 200, info.toString());
         } catch (IOException e) {
-            sendError(exchange, 500, "静态资源读取失败");
+            WebResponse.sendError(exchange, 500, "静态资源读取失败");
         }
     }
 
     private void handleAppealPage(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            try {
-                exchange.sendResponseHeaders(204, -1);
-            } catch (IOException ignored) {
-            } finally {
-                exchange.close();
-            }
+            WebResponse.applyCorsHeaders(exchange, plugin);
+            WebResponse.handleOptions(exchange);
             return;
         }
         try {
             byte[] bytes = resourceBytes("web/appeal.html");
             if (bytes == null) {
-                sendError(exchange, 404, "申诉页不存在");
+                WebResponse.sendError(exchange, 404, "申诉页不存在");
                 return;
             }
             exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
             exchange.sendResponseHeaders(200, bytes.length);
             exchange.getResponseBody().write(bytes);
         } catch (IOException e) {
-            sendError(exchange, 500, "申诉页读取失败");
+            WebResponse.sendError(exchange, 500, "申诉页读取失败");
         } finally {
             exchange.close();
         }
@@ -207,23 +212,12 @@ public class WebServer {
             if (stream == null) {
                 return null;
             }
-            byte[] bytes = readAllBytes(stream);
+            byte[] bytes = stream.readAllBytes();
             resourceCache.put(resourcePath, bytes);
             return bytes;
         } catch (IOException e) {
             plugin.getLogger().warning("读取 Web 静态资源失败: " + resourcePath);
             return null;
-        }
-    }
-
-    private byte[] readAllBytes(InputStream stream) throws IOException {
-        try (InputStream input = stream; ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = input.read(buffer)) != -1) {
-                out.write(buffer, 0, read);
-            }
-            return out.toByteArray();
         }
     }
 
@@ -237,23 +231,5 @@ public class WebServer {
         if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
         if (path.endsWith(".svg")) return "image/svg+xml";
         return "application/octet-stream";
-    }
-
-    private void sendJson(HttpExchange exchange, int status, String json) {
-        try {
-            byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
-            exchange.sendResponseHeaders(status, bytes.length);
-            exchange.getResponseBody().write(bytes);
-        } catch (IOException ignored) {
-        } finally {
-            exchange.close();
-        }
-    }
-
-    private void sendError(HttpExchange exchange, int status, String message) {
-        JsonObject error = new JsonObject();
-        error.addProperty("error", message);
-        sendJson(exchange, status, error.toString());
     }
 }

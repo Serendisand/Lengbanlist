@@ -8,7 +8,6 @@ import com.sun.net.httpserver.HttpServer;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.object.BanEntry;
-import org.leng.object.BanIpEntry;
 import org.leng.object.MuteEntry;
 import org.leng.object.WarnEntry;
 import org.leng.util.IpMatcher;
@@ -36,7 +35,7 @@ public class PlayerController extends WebController {
 
     private void handlePlayers(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!requireAuth(exchange)) return;
@@ -48,6 +47,11 @@ public class PlayerController extends WebController {
                 return;
             }
             query = query.trim();
+            // 历史表里存的是规范化后的地址（IPv6 为 8 段小写），查询前先统一形态。
+            String normalizedQuery = IpMatcher.normalizeIpOrCidr(query);
+            if (normalizedQuery != null) {
+                query = normalizedQuery;
+            }
 
             JsonObject result = new JsonObject();
             result.addProperty("query", query);
@@ -97,7 +101,7 @@ public class PlayerController extends WebController {
 
     private void handleOnline(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!requireAuth(exchange)) return;
@@ -125,7 +129,7 @@ public class PlayerController extends WebController {
 
     private void handleKick(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!"POST".equals(exchange.getRequestMethod())) {
@@ -177,7 +181,7 @@ public class PlayerController extends WebController {
 
     private void handleHistory(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!requireAuth(exchange) || !requireFeature(exchange, "history")) return;

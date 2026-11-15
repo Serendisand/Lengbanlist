@@ -31,7 +31,7 @@ public class ThemeController extends WebController {
 
     private void handleTheme(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!requireAuth(exchange)) return;
@@ -92,7 +92,7 @@ public class ThemeController extends WebController {
 
     private void handleThemeUpload(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!requireAuth(exchange)) return;

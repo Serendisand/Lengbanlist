@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.leng.Lengbanlist;
+import org.leng.util.SchedulerUtils;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -24,7 +25,14 @@ public abstract class WebController {
 
     public abstract void registerRoutes(HttpServer server);
 
+    /** 统一的 OPTIONS 处理：先按 web.allowed-origins 回 CORS 头，再返回 204。 */
+    protected void handleOptions(HttpExchange exchange) {
+        WebResponse.applyCorsHeaders(exchange, plugin);
+        WebResponse.handleOptions(exchange);
+    }
+
     protected boolean checkRateLimit(HttpExchange exchange) {
+        WebResponse.applyCorsHeaders(exchange, plugin);
         String ip = exchange.getRemoteAddress().getAddress().getHostAddress();
         if (rateLimiter.isRateLimited(ip)) {
             WebResponse.sendError(exchange, 429, "请求过于频繁,请稍后再试");
@@ -61,7 +69,7 @@ public abstract class WebController {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<Throwable> error = new AtomicReference<>();
         AtomicBoolean timedOut = new AtomicBoolean(false);
-        org.leng.util.SchedulerUtils.SchedulerTask ignored = org.leng.util.SchedulerUtils.runTask(plugin, () -> {
+        SchedulerUtils.SchedulerTask ignored = SchedulerUtils.runTask(plugin, () -> {
             try {
                 if (timedOut.get()) return;
                 task.run();

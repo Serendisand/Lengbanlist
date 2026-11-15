@@ -25,7 +25,7 @@ public class StatsController extends WebController {
 
     private void handleStats(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!"GET".equals(exchange.getRequestMethod())) {

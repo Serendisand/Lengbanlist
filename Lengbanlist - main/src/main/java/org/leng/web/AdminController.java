@@ -23,7 +23,7 @@ public class AdminController extends WebController {
 
     private void handleReload(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!requireAuth(exchange) || !requireFeature(exchange, "reload")) return;
@@ -62,7 +62,7 @@ public class AdminController extends WebController {
 
     private void handleBroadcast(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!"POST".equals(exchange.getRequestMethod())) {

@@ -62,6 +62,8 @@ public final class WebResponse {
     public static void applyCorsHeaders(HttpExchange exchange, Lengbanlist plugin) {
         String origin = exchange.getRequestHeaders().getFirst("Origin");
         if (origin == null || origin.trim().isEmpty()) return;
+        // 即使命中白名单也要带 Vary，避免缓存把某个来源的响应复用到另一个来源。
+        exchange.getResponseHeaders().set("Vary", "Origin");
         for (String allowed : plugin.getConfig().getStringList("web.allowed-origins")) {
             if (!allowed.trim().isEmpty() && origin.equalsIgnoreCase(allowed.trim())) {
                 exchange.getResponseHeaders().set("Access-Control-Allow-Origin", origin);
@@ -70,7 +72,6 @@ public final class WebResponse {
                 return;
             }
         }
-        exchange.getResponseHeaders().set("Vary", "Origin");
     }
 
     public static boolean sendMutationFailure(HttpExchange exchange, BanManager.BanMutationResult result, String target) {

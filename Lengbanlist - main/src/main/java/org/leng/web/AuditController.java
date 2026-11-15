@@ -24,7 +24,7 @@ public class AuditController extends WebController {
 
     private void handleAudit(HttpExchange exchange) {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
-            WebResponse.handleOptions(exchange);
+            handleOptions(exchange);
             return;
         }
         if (!requireAuth(exchange) || !requireFeature(exchange, "audit")) return;
