@@ -11,6 +11,29 @@
 
     <name>Lengbanlist Parent</name>
     <description>Lengbanlist 多模块构建父工程：契约模块（lengbanlist-api）与主插件（Lengbanlist）</description>
+    <url>https://github.com/Serendisand/Lengbanlist</url>
+
+    <licenses>
+        <license>
+            <name>Mozilla Public License 2.0</name>
+            <url>https://www.mozilla.org/en-US/MPL/2.0/</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>Serendisand</id>
+            <name>Serendisand</name>
+            <url>https://github.com/Serendisand</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/Serendisand/Lengbanlist.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/Serendisand/Lengbanlist.git</developerConnection>
+        <url>https://github.com/Serendisand/Lengbanlist</url>
+    </scm>
 
     <distributionManagement>
         <repository>
@@ -22,9 +45,8 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
-        <lengbanlist.name>Lengbanlist</lengbanlist.name>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <maven.compiler.release>17</maven.compiler.release>
     </properties>
 
     <modules>
