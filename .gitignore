@@ -12,3 +12,6 @@ dependency-reduced-pom.xml
 /docs/plugin-ecosystem-plan.md
 /docs/extension-catalog.md
 /docs/lua-extension-plan.md
+
+# Agent 工作日志（本地）
+.agent-worklog/
