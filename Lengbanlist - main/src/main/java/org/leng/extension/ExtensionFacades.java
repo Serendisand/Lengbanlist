@@ -163,7 +163,7 @@ final class ExtensionFacades {
 
         @Override
         public Optional<BanIpEntry> findIpBan(String ip) {
-            return Optional.ofNullable(plugin.getBanManager().getBanIpEntry(ip));
+            return Optional.ofNullable(plugin.getBanManager().getMatchingIpBan(ip));
         }
 
         @Override

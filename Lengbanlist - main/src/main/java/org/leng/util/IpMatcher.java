@@ -1,5 +1,6 @@
 package org.leng.util;
 
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -56,9 +57,14 @@ public class IpMatcher {
         return isIpv4(value) || isIpv6(value);
     }
 
-    /** 命令输入是否"看起来像 IP"：含点或含冒号。用于区分玩家名与 IP/CIDR 参数。 */
+    /**
+     * 是否是合法的 IP / CIDR / 通配符目标。
+     *
+     * <p>不能只看"含点或含冒号"：Floodgate/Geyser 的基岩版玩家名默认带 {@code .} 前缀
+     * （如 {@code .Steve}），按字符判断会把玩家名误当成 IP。
+     */
     public static boolean looksLikeIp(String value) {
-        return value != null && (value.indexOf('.') >= 0 || value.indexOf(':') >= 0);
+        return isValidIpOrCidrOrWildcard(value);
     }
 
     public static boolean isCidr(String value) {
@@ -158,10 +164,18 @@ public class IpMatcher {
             if (bytes == null) return null;
             int prefix = Integer.parseInt(trimmed.substring(slash + 1));
             String mapped = ipv4MappedAddress(bytes);
-            if (mapped != null) {
-                return mapped + "/" + Math.max(0, prefix - 96);
+            // 只有 /96 及更长的前缀才落在 IPv4 映射段内，才能安全改写成 IPv4 CIDR。
+            // prefix < 96 时保留 IPv6 语义，否则 ::ffff:8.8.8.8/90 会被错误缩成 8.8.8.8/0。
+            if (mapped != null && prefix >= 96) {
+                return mapped + "/" + (prefix - 96);
             }
-            return normalizeIpv6(trimmed.substring(0, slash)) + "/" + prefix;
+            try {
+                // 强制按 IPv6 文本输出：InetAddress 对映射地址会折叠成 IPv4，
+                // 这里的 /prefix 仍是 IPv6 语义，必须保留 8 段形式。
+                return Inet6Address.getByAddress(null, bytes, -1).getHostAddress() + "/" + prefix;
+            } catch (UnknownHostException e) {
+                return null;
+            }
         }
         if (isIpv6(trimmed)) {
             return normalizeIpv6(trimmed);

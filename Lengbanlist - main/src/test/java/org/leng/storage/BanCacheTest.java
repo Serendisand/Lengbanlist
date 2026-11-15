@@ -147,4 +147,33 @@ class BanCacheTest {
         assertFalse(cache.isBannedByUuid(""));
         assertFalse(cache.isBannedByUuid(UUID_ALICE));
     }
+
+    private static BanCache ipCacheOf(List<BanIpEntry> ipBans) {
+        return new BanCache(new BanCache.Loader() {
+            @Override
+            public List<BanCache.BanRow> loadActiveBans() {
+                return List.of();
+            }
+
+            @Override
+            public List<BanIpEntry> loadActiveIpBans() {
+                return ipBans;
+            }
+        }, 5000L, LOGGER);
+    }
+
+    @Test
+    void findMatchingIpBan_supportsLegacyWildcardRows() {
+        BanCache cache = ipCacheOf(List.of(ipBan("203.0.113.x")));
+
+        assertEquals("203.0.113.x", cache.findMatchingIpBan("203.0.113.7").getIp());
+        assertNull(cache.findMatchingIpBan("203.0.114.7"));
+    }
+
+    @Test
+    void findMatchingIpBan_normalizesIpv6Input() {
+        BanCache cache = ipCacheOf(List.of(ipBan("2001:db8:0:0:0:0:0:1")));
+
+        assertEquals("2001:db8:0:0:0:0:0:1", cache.findMatchingIpBan("2001:DB8::1").getIp());
+    }
 }

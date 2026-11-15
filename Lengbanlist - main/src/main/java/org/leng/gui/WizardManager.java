@@ -178,7 +178,8 @@ public class WizardManager {
                 }
                 break;
             case "ipban":
-                if (check(player, "lengbanlist.banip", "ban-ip") && validIp(player, input)) {
+                if (check(player, "lengbanlist.banip", "ban-ip")
+                        && (!STEP_TARGET.equals(stepOf(player)) || validIp(player, input))) {
                     handlePunish(player, input, "lban add", "封禁");
                 }
                 break;

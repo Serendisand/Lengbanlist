@@ -91,32 +91,42 @@ public class BanManager {
     }
 
     public BanMutationResult tryBanIp(BanIpEntry banIpEntry, boolean silent) {
-        if (isPrivateOrReservedIp(banIpEntry)) {
+        // 统一入库形态：扩展或 Web 直接调用服务层时，压缩形式的 IPv6 也要与登录检查一致。
+        String normalized = IpMatcher.normalizeIpOrCidr(banIpEntry.getIp());
+        BanIpEntry entry = normalized == null || normalized.equals(banIpEntry.getIp())
+                ? banIpEntry
+                : new BanIpEntry(normalized, banIpEntry.getStaff(), banIpEntry.getEndTime(),
+                        banIpEntry.getReason(), banIpEntry.isAuto(), banIpEntry.isActive());
+        if (isPrivateOrReservedIp(entry)) {
             return BanMutationResult.REJECTED_PRIVATE_OR_RESERVED_IP;
         }
-        BanMutationResult writeResult = mapWriteResult(db.replaceActiveIpBan(banIpEntry));
+        BanMutationResult writeResult = mapWriteResult(db.replaceActiveIpBan(entry));
         if (!writeResult.isApplied()) {
             return writeResult;
         }
-        long durationMillis = issuedDurationMillis(banIpEntry.getEndTime());
+        publishAppliedIpBan(entry, silent);
+        return BanMutationResult.APPLIED;
+    }
+
+    void publishAppliedIpBan(BanIpEntry entry, boolean silent) {
+        long durationMillis = issuedDurationMillis(entry.getEndTime());
         String duration = TimeUtils.formatDuration(durationMillis, TimeUtils.isEnglishLocale());
 
         Model currentModel = plugin.getModelManager().getCurrentModel();
-        String banIpResult = currentModel.addBanIp(banIpEntry.getIp(), duration, banIpEntry.getReason());
-        plugin.getAuditManager().log("封禁IP", banIpEntry.getStaff(), banIpEntry.getIp(), banIpEntry.getReason());
+        String banIpResult = currentModel.addBanIp(entry.getIp(), duration, entry.getReason());
+        plugin.getAuditManager().log("封禁IP", entry.getStaff(), entry.getIp(), entry.getReason());
 
         SchedulerUtils.runSync(plugin, () -> org.bukkit.Bukkit.getPluginManager()
-                .callEvent(new org.leng.api.events.LengbanlistBanIpEvent(banIpEntry, silent)));
+                .callEvent(new org.leng.api.events.LengbanlistBanIpEvent(entry, silent)));
 
         if (!silent) {
             if (banIpResult != null && !banIpResult.isEmpty()) {
                 Utils.broadcast(banIpResult);
             } else {
-                String defaultMessage = String.format("§cIP %s 已被封禁！原因：%s，时长：%s", banIpEntry.getIp(), banIpEntry.getReason(), duration);
+                String defaultMessage = String.format("§cIP %s 已被封禁！原因：%s，时长：%s", entry.getIp(), entry.getReason(), duration);
                 Utils.broadcast(defaultMessage);
             }
         }
-        return BanMutationResult.APPLIED;
     }
 
     public BanMutationResult tryUnbanPlayer(String target, String actor, boolean silent) {
@@ -142,43 +152,39 @@ public class BanManager {
 
     public BanMutationResult tryUnbanIp(String ip, String actor, boolean silent) {
         long now = System.currentTimeMillis();
+        String normalized = IpMatcher.normalizeIpOrCidr(ip);
+        if (normalized != null) {
+            ip = normalized;
+        }
         BanMutationResult writeResult = mapWriteResult(db.deactivateIpBanForUnban(ip, now));
+        if (writeResult == BanMutationResult.NOT_ACTIVE) {
+            // 兜底旧数据：历史上可能以通配符或未归一化的 IPv6 形态入库，
+            // 用缓存匹配到实际存储的 IP 再解一次。
+            BanIpEntry matching = getMatchingIpBan(ip);
+            if (matching != null && !matching.getIp().equals(ip)) {
+                writeResult = mapWriteResult(db.deactivateIpBanForUnban(matching.getIp(), now));
+                if (writeResult.isApplied()) {
+                    ip = matching.getIp();
+                }
+            }
+        }
         if (writeResult.isApplied()) {
+            final String effectiveIp = ip;
             Model currentModel = plugin.getModelManager().getCurrentModel();
-            String unbanIpResult = currentModel.removeBanIp(ip);
-            plugin.getAuditManager().log("解封IP", actor, ip, "");
+            String unbanIpResult = currentModel.removeBanIp(effectiveIp);
+            plugin.getAuditManager().log("解封IP", actor, effectiveIp, "");
             SchedulerUtils.runSync(plugin, () -> org.bukkit.Bukkit.getPluginManager()
-                    .callEvent(new org.leng.api.events.LengbanlistUnbanEvent(ip, true, actor)));
+                    .callEvent(new org.leng.api.events.LengbanlistUnbanEvent(effectiveIp, true, actor)));
             if (!silent) {
                 if (unbanIpResult != null && !unbanIpResult.isEmpty()) {
                     Utils.broadcast(unbanIpResult);
                 } else {
-                    Utils.broadcast(String.format("§aIP %s 已被解封", ip));
+                    Utils.broadcast(String.format("§aIP %s 已被解封", effectiveIp));
                 }
             }
             return BanMutationResult.APPLIED;
         }
         return writeResult;
-    }
-
-    public void kickOnlineIfBanned(String target, boolean isIp) {
-        if (target == null || target.isEmpty()) return;
-        for (Player online : plugin.getServer().getOnlinePlayers()) {
-            if (isIp) {
-                java.net.InetSocketAddress addr = online.getAddress();
-                if (addr == null || addr.getAddress() == null) continue;
-                String ip = addr.getAddress().getHostAddress();
-                if (ip == null) continue;
-                BanIpEntry banIp = getMatchingIpBan(ip);
-                if (banIp == null || banIp.getTime() <= System.currentTimeMillis()) continue;
-                SchedulerUtils.runTask(plugin, online, () -> online.kickPlayer("您的 IP 已被封禁，原因：" + banIp.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(banIp.getTime())));
-            } else {
-                if (!online.getName().equalsIgnoreCase(target)) continue;
-                BanEntry ban = getBanEntry(target);
-                if (ban == null || ban.getTime() <= System.currentTimeMillis()) continue;
-                SchedulerUtils.runTask(plugin, online, () -> online.kickPlayer("您已被封禁，原因：" + ban.getReason() + "，封禁到：" + TimeUtils.timestampToReadable(ban.getTime())));
-            }
-        }
     }
 
     public boolean isPlayerBanned(String target) {
@@ -294,7 +300,7 @@ public class BanManager {
         return url.isEmpty() ? "" : "\n§f申诉地址: §b" + url;
     }
 
-    private boolean isPrivateOrReservedIp(BanIpEntry entry) {
+    boolean isPrivateOrReservedIp(BanIpEntry entry) {
         if (!IpMatcher.isPrivateOrReserved(entry.getIp())) {
             return false;
         }
@@ -322,7 +328,8 @@ public class BanManager {
 
     public BanIpEntry getMatchingIpBan(String ip) {
         if (ip == null) return null;
-        return db.findMatchingIpBan(ip);
+        String normalized = IpMatcher.normalizeIpOrCidr(ip);
+        return db.findMatchingIpBan(normalized != null ? normalized : ip);
     }
 
     public boolean isIpBannedByCidr(String ip) {

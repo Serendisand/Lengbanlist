@@ -209,6 +209,23 @@ class IpMatcherTest {
     }
 
     @Test
+    void normalizeIpOrCidr_keepsIpv4MappedIpv6CidrSemantics() {
+        // prefix < 96 时不能折叠成 IPv4，否则 /90 会被错误缩成 /0 覆盖整个 IPv4 空间
+        assertEquals("0:0:0:0:0:ffff:808:808/90", IpMatcher.normalizeIpOrCidr("::ffff:8.8.8.8/90"));
+        assertEquals("8.8.8.8/24", IpMatcher.normalizeIpOrCidr("::ffff:8.8.8.8/120"));
+    }
+
+    @Test
+    void looksLikeIp_rejectsFloodgateDotNames() {
+        assertFalse(IpMatcher.looksLikeIp(".Steve"));
+        assertFalse(IpMatcher.looksLikeIp("Steve."));
+        assertTrue(IpMatcher.looksLikeIp("192.168.1.1"));
+        assertTrue(IpMatcher.looksLikeIp("172.198.2.x"));
+        assertTrue(IpMatcher.looksLikeIp("2001:db8::1"));
+        assertTrue(IpMatcher.looksLikeIp("2001:db8::/32"));
+    }
+
+    @Test
     void cidrMatches_ipv6() {
         assertTrue(IpMatcher.cidrMatches("2001:db8::1", "2001:db8::/32"));
         assertTrue(IpMatcher.cidrMatches("::1", "::1/128"));
