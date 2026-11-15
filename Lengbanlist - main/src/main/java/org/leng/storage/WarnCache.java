@@ -41,7 +41,7 @@ final class WarnCache {
     private final Logger logger;
     private final Map<String, Entry> entries = new LinkedHashMap<>(64, 0.75f, true) {
         @Override
-        protected boolean removeEldestEntry(Map.Entry<String, Entry> eldest) {
+        protected boolean removeEldestEntry(Map.Entry<String, WarnCache.Entry> eldest) {
             return size() > MAX_CACHED_PLAYERS;
         }
     };
@@ -57,10 +57,6 @@ final class WarnCache {
 
     void setTtlMillis(long ttlMillis) {
         this.ttlMillis = Math.max(1000L, ttlMillis);
-    }
-
-    long getTtlMillis() {
-        return ttlMillis;
     }
 
     List<WarnEntry> get(String player, boolean activeOnly) {

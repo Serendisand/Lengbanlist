@@ -265,14 +265,6 @@ public class DatabaseManager {
         warnCache.invalidate(player);
     }
 
-    public long getBanCacheTtlMillis() {
-        return banCache.getTtlMillis();
-    }
-
-    public long getWarnCacheTtlMillis() {
-        return warnCache.getTtlMillis();
-    }
-
     public Connection getConnection() throws SQLException {
         return dataSource.getConnection();
     }
@@ -905,6 +897,20 @@ public class DatabaseManager {
         return result;
     }
 
+    public WriteResult replaceActiveIpBanAndUpdateReport(BanIpEntry banEntry, ReportEntry reportEntry,
+                                                         String reportStatus) {
+        WriteResult result = invalidateBans(replaceActiveEntry(
+                "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1",
+                new Object[]{banEntry.getIp()},
+                "INSERT INTO ip_bans (ip, staff, end_time, reason, is_auto, active, start_time) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                new Object[]{banEntry.getIp(), banEntry.getStaff(), banEntry.getTime(), banEntry.getReason(),
+                        banEntry.isAuto(), banEntry.isActive(), System.currentTimeMillis()},
+                "UPDATE reports SET status = ? WHERE id = ? AND status = ?",
+                new Object[]{status(reportStatus), reportEntry.getId(), status(reportEntry.getStatus())}));
+        publishIfApplied(result, SyncEvent.SCOPE_IP_BAN, banEntry.getIp(), SyncEvent.ACTION_ADD);
+        return result;
+    }
+
     public WriteResult replaceExistingActiveIpBan(BanIpEntry entry) {
         WriteResult result = invalidateBans(replaceExistingActiveEntry(
                 "UPDATE ip_bans SET active = 0 WHERE ip = ? AND active = 1",
@@ -1025,6 +1031,25 @@ public class DatabaseManager {
         String where = identityPredicate("target", "uuid", identity, args);
         return queryOne("SELECT target, staff, end_time, reason FROM mutes WHERE " + where + " ORDER BY end_time DESC",
                 this::readMute, args.toArray());
+    }
+
+    /**
+     * 与 {@link #getMute(PlayerIdentity)} 相同，但数据库错误会抛出来。
+     *
+     * <p>调用方需要区分「确实没有禁言」与「查询失败」时用它——前者可以缓存，
+     * 后者不能当成未禁言缓存，否则数据库瞬断会短暂放行被禁言玩家。
+     */
+    public MuteEntry getMuteOrThrow(PlayerIdentity identity) throws SQLException {
+        List<Object> args = new ArrayList<>();
+        String where = identityPredicate("target", "uuid", identity, args);
+        try (Connection connection = getConnection();
+             PreparedStatement ps = connection.prepareStatement(
+                     "SELECT target, staff, end_time, reason FROM mutes WHERE " + where + " ORDER BY end_time DESC")) {
+            setValues(ps, args.toArray());
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? readMute(rs) : null;
+            }
+        }
     }
 
     public List<MuteEntry> getMutes() {

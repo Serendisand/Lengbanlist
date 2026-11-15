@@ -78,12 +78,7 @@ final class BanCache {
     }
 
     void setTtlMillis(long ttlMillis) {
-
         this.ttlMillis = Math.max(1000L, ttlMillis);
-    }
-
-    long getTtlMillis() {
-        return ttlMillis;
     }
 
     void invalidate() {
@@ -251,6 +246,10 @@ final class BanCache {
         if (ip == null) {
             return null;
         }
+        String normalized = IpMatcher.normalizeIpOrCidr(ip);
+        if (normalized != null) {
+            ip = normalized;
+        }
         ensureFresh();
         long now = System.currentTimeMillis();
         BanIpEntry exact = snapshot.ipBansByIp.get(ip);
@@ -258,7 +257,19 @@ final class BanCache {
             return exact;
         }
         for (BanIpEntry ban : snapshot.ipBans) {
-            if (ban.getTime() > now && (IpMatcher.cidrMatches(ip, ban.getIp()) || IpMatcher.sameIp(ip, ban.getIp()))) {
+            if (ban.getTime() <= now) {
+                continue;
+            }
+            String stored = ban.getIp();
+            // 兼容旧版本以 203.0.113.x 形式入库的通配符记录。
+            if (IpMatcher.isWildcardIp(stored)) {
+                String asCidr = IpMatcher.wildcardToCidr(stored);
+                if (asCidr != null && IpMatcher.cidrMatches(ip, asCidr)) {
+                    return ban;
+                }
+                continue;
+            }
+            if (IpMatcher.cidrMatches(ip, stored) || IpMatcher.sameIp(ip, stored)) {
                 return ban;
             }
         }
