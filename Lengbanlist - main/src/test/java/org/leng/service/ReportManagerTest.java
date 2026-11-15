@@ -40,6 +40,7 @@ class ReportManagerTest {
     @Mock DatabaseManager db;
     @Mock AuditManager audit;
     @Mock PluginManager pluginManager;
+    @Mock BanManager banManager;
 
     ReportManager manager;
     MockedStatic<Bukkit> bukkit;
@@ -48,6 +49,7 @@ class ReportManagerTest {
     void setUp() {
         lenient().when(plugin.getDatabaseManager()).thenReturn(db);
         lenient().when(plugin.getAuditManager()).thenReturn(audit);
+        lenient().when(plugin.getBanManager()).thenReturn(banManager);
         bukkit = Mockito.mockStatic(Bukkit.class);
         lenient().when(Bukkit.getPluginManager()).thenReturn(pluginManager);
         lenient().when(Bukkit.getPlayer(anyString())).thenReturn(null);
@@ -226,6 +228,24 @@ class ReportManagerTest {
         assertTrue(manager.enableReporting("Alex", "Admin"));
         verify(db).deleteReportBan("Alex");
         verify(audit).log(eq("解除举报禁用"), eq("Admin"), eq("Alex"), eq("滥用举报"));
+    }
+
+    @Test
+    void banFromReport_writesIpTableWhenTargetIsIp() {
+        ReportEntry entry = new ReportEntry("2001:DB8::1", "Alex", "vpn", "ip-report",
+                System.currentTimeMillis(), ReportEntry.STATUS_PENDING);
+        when(db.replaceActiveIpBanAndUpdateReport(any(), any(), anyString()))
+                .thenReturn(DatabaseManager.WriteResult.APPLIED);
+
+        BanManager.BanMutationResult result = manager.tryBanFromReport(
+                entry, "staff", System.currentTimeMillis() + 60_000L, "vpn", false);
+
+        assertEquals(BanManager.BanMutationResult.APPLIED, result);
+        verify(db).replaceActiveIpBanAndUpdateReport(
+                argThat(ban -> "2001:db8:0:0:0:0:0:1".equals(ban.getIp())),
+                eq(entry), eq(ReportEntry.STATUS_HANDLED));
+        verify(banManager).publishAppliedIpBan(any(), eq(false));
+        verify(db, never()).replaceActiveBanAndUpdateReport(any(), any(), anyString());
     }
 
     private Player reporter(String name) {

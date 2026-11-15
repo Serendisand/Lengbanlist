@@ -8,9 +8,11 @@ import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.api.events.LengbanlistReportEvent;
 import org.leng.object.BanEntry;
+import org.leng.object.BanIpEntry;
 import org.leng.object.ReportBanEntry;
 import org.leng.object.ReportEntry;
 import org.leng.storage.DatabaseManager;
+import org.leng.util.IpMatcher;
 import org.leng.util.SchedulerUtils;
 import org.leng.util.TimeUtils;
 import org.leng.util.Utils;
@@ -47,10 +49,6 @@ public class ReportManager {
 
     public boolean updateReport(ReportEntry report) {
         return plugin.getDatabaseManager().upsertReport(report);
-    }
-
-    public void removeReport(String id) {
-        plugin.getDatabaseManager().deleteReport(id);
     }
 
     public int getReportCount(String target) {
@@ -378,16 +376,37 @@ public class ReportManager {
     }
 
     public BanManager.BanMutationResult tryBanFromReport(ReportEntry entry, String staff, long endTime, String reason, boolean isAuto) {
-        BanEntry banEntry = new BanEntry(entry.getTarget(), staff, endTime, reason, isAuto);
-        DatabaseManager.WriteResult writeResult = plugin.getDatabaseManager()
-                .replaceActiveBanAndUpdateReport(banEntry, entry, ReportEntry.STATUS_HANDLED);
+        BanEntry banEntry = null;
+        BanIpEntry banIpEntry = null;
+        DatabaseManager.WriteResult writeResult;
+        if (IpMatcher.isValidIpOrCidrOrWildcard(entry.getTarget())) {
+            String normalized = IpMatcher.normalizeIpOrCidr(entry.getTarget());
+            if (normalized == null) {
+                plugin.getLogger().warning("举报目标形似 IP 但无法规范化: " + entry.getTarget());
+                return BanManager.BanMutationResult.DATABASE_ERROR;
+            }
+            banIpEntry = new BanIpEntry(normalized, staff, endTime, reason, isAuto);
+            if (plugin.getBanManager().isPrivateOrReservedIp(banIpEntry)) {
+                return BanManager.BanMutationResult.REJECTED_PRIVATE_OR_RESERVED_IP;
+            }
+            writeResult = plugin.getDatabaseManager()
+                    .replaceActiveIpBanAndUpdateReport(banIpEntry, entry, ReportEntry.STATUS_HANDLED);
+        } else {
+            banEntry = new BanEntry(entry.getTarget(), staff, endTime, reason, isAuto);
+            writeResult = plugin.getDatabaseManager()
+                    .replaceActiveBanAndUpdateReport(banEntry, entry, ReportEntry.STATUS_HANDLED);
+        }
         if (writeResult == DatabaseManager.WriteResult.DATABASE_ERROR) {
             return BanManager.BanMutationResult.DATABASE_ERROR;
         }
         if (writeResult == DatabaseManager.WriteResult.NO_CHANGE) {
             return BanManager.BanMutationResult.STATE_CHANGED;
         }
-        plugin.getBanManager().publishAppliedPlayerBan(banEntry, false);
+        if (banIpEntry != null) {
+            plugin.getBanManager().publishAppliedIpBan(banIpEntry, false);
+        } else {
+            plugin.getBanManager().publishAppliedPlayerBan(banEntry, false);
+        }
         Player reporterPlayer = Bukkit.getPlayer(entry.getReporter());
         if (reporterPlayer != null) {
             long durationMillis = endTime == Long.MAX_VALUE ? Long.MAX_VALUE : endTime - System.currentTimeMillis();
