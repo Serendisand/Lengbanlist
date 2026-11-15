@@ -65,6 +65,7 @@ import org.leng.web.WebServer;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Locale;
 
 public class Lengbanlist extends JavaPlugin {
     private static Lengbanlist instance;
@@ -97,6 +98,8 @@ public class Lengbanlist extends JavaPlugin {
     private volatile FileConfiguration chatConfig;
     private ModelChoiceListener modelChoiceListener;
     private ChatListener chatListener;
+    private FreezeListener freezeListener;
+    private MuteCommandBlockListener muteCommandBlockListener;
     private String hitokoto;
     private DatabaseManager databaseManager;
     private volatile ThemeManager themeManager;
@@ -141,7 +144,7 @@ public void onLoad() {
     saveDefaultConfig();
     if (firstLoad && getConfig().getBoolean("model-auto-detect", true)) {
         String language = java.util.Locale.getDefault().getLanguage();
-        String detectedModel = language != null && language.toLowerCase().startsWith("zh") ? "Default" : "English";
+        String detectedModel = language != null && language.toLowerCase(Locale.ROOT).startsWith("zh") ? "Default" : "English";
         getConfig().set("Model", detectedModel);
         try {
             getConfig().save(configFile);
@@ -283,13 +286,15 @@ public void onEnable() {
     getServer().getPluginManager().registerEvents(new OpJoinListener(Lengbanlist.this), Lengbanlist.this);
     modelChoiceListener = new ModelChoiceListener(Lengbanlist.this);
     getServer().getPluginManager().registerEvents(modelChoiceListener, Lengbanlist.this);
-    getServer().getPluginManager().registerEvents(new MuteCommandBlockListener(this), Lengbanlist.this);
+    muteCommandBlockListener = new MuteCommandBlockListener(this);
+    getServer().getPluginManager().registerEvents(muteCommandBlockListener, Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new GuiCleanupListener(this), this);
     getServer().getPluginManager().registerEvents(guiCommand, Lengbanlist.this);
     getServer().getPluginManager().registerEvents(reportSubmitGui, Lengbanlist.this);
     getServer().getPluginManager().registerEvents(reportManageGui, Lengbanlist.this);
     getServer().getPluginManager().registerEvents(new VanishListener(this), Lengbanlist.this);
-    getServer().getPluginManager().registerEvents(new FreezeListener(this), Lengbanlist.this);
+    freezeListener = new FreezeListener(this);
+    getServer().getPluginManager().registerEvents(freezeListener, Lengbanlist.this);
 
     LengbanlistCommand lbanCmd = new LengbanlistCommand("lban", Lengbanlist.this);
     PluginCommand lban = getCommand("lban");
@@ -380,6 +385,16 @@ public boolean reloadWebServer() {
 
 public void reloadStorageConfig() {
     loadStorageConfig();
+}
+
+/** 配置重载后清掉监听器里的配置快照，让下一次事件读取新值。 */
+public void invalidateListenerConfigCaches() {
+    if (freezeListener != null) {
+        freezeListener.invalidateConfigCache();
+    }
+    if (muteCommandBlockListener != null) {
+        muteCommandBlockListener.invalidateConfigCache();
+    }
 }
 
 public void restartScheduledTasks() {
@@ -669,10 +684,6 @@ void shutdownStorage() {
         return guiSessionManager;
     }
 
-    public GuiCommands.Gui getGuiCommand() {
-        return guiCommand;
-    }
-
     public ReportSubmitGui getReportSubmitGui() {
         return reportSubmitGui;
     }
@@ -765,10 +776,6 @@ void shutdownStorage() {
 
     public WebServer getWebServer() {
         return webServer;
-    }
-
-    public ModelChoiceListener getModelChoiceListener() {
-        return modelChoiceListener;
     }
 
     public ChatListener getChatListener() {

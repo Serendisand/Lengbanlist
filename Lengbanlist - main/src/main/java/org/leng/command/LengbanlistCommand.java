@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 
 public class LengbanlistCommand extends Command implements CommandExecutor, TabCompleter {
 
@@ -53,7 +54,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
             return true;
         }
 
-        switch (args[0].toLowerCase()) {
+        switch (args[0].toLowerCase(Locale.ROOT)) {
             case "toggle":
                 if (!sender.hasPermission("lengbanlist.toggle")) {
                     Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
@@ -125,6 +126,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     }
                 }
                 plugin.refreshFeatureCommands();
+                plugin.invalidateListenerConfigCaches();
                 Utils.sendMessage(sender, currentModel.reloadConfig());
                 plugin.reloadWebServer();
 
@@ -608,7 +610,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> completions = new ArrayList<>();
         if (args.length == 1) {
-            String prefix = args[0].toLowerCase();
+            String prefix = args[0].toLowerCase(Locale.ROOT);
             for (String s : subcommandSuggestions()) {
                 if (s.startsWith(prefix)) completions.add(s);
             }
@@ -625,8 +627,8 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
 
             return new FreezeCommands.Unfreeze(plugin).onTabComplete(sender, null, "", Arrays.copyOfRange(args, 1, args.length));
         } else if (args.length == 2) {
-            String sub = args[0].toLowerCase();
-            String prefix = args[1].toLowerCase();
+            String sub = args[0].toLowerCase(Locale.ROOT);
+            String prefix = args[1].toLowerCase(Locale.ROOT);
             switch (sub) {
                 case "mute":
                 case "warn":
@@ -636,7 +638,7 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 case "history":
                 case "alts":
                     for (Player p : Bukkit.getOnlinePlayers()) {
-                        if (p.getName().toLowerCase().startsWith(prefix)) completions.add(p.getName());
+                        if (p.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) completions.add(p.getName());
                     }
                     break;
                 case "audit":
@@ -661,33 +663,33 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                     break;
                 case "unmute":
                     for (MuteEntry e : plugin.getMuteManager().getMuteList()) {
-                        if (e.getTarget().toLowerCase().startsWith(prefix)) completions.add(e.getTarget());
+                        if (e.getTarget().toLowerCase(Locale.ROOT).startsWith(prefix)) completions.add(e.getTarget());
                     }
                     break;
                 case "unwarn":
                     for (String name : plugin.getWarnManager().getWarnedPlayers()) {
-                        if (name.toLowerCase().startsWith(prefix)) completions.add(name);
+                        if (name.toLowerCase(Locale.ROOT).startsWith(prefix)) completions.add(name);
                     }
                     break;
                 case "remove":
                     for (BanEntry e : plugin.getBanManager().getBanList()) {
-                        if (e.getTarget().toLowerCase().startsWith(prefix)) completions.add(e.getTarget());
+                        if (e.getTarget().toLowerCase(Locale.ROOT).startsWith(prefix)) completions.add(e.getTarget());
                     }
                     break;
                 case "model":
                     for (String name : ModelManager.getInstance().getModels().keySet()) {
-                        if (name.toLowerCase().startsWith(prefix)) completions.add(name);
+                        if (name.toLowerCase(Locale.ROOT).startsWith(prefix)) completions.add(name);
                     }
                     break;
             }
         } else if (args.length >= 2 && args[0].equalsIgnoreCase("report")) {
             if (args.length == 2) {
-                String prefix = args[1].toLowerCase();
+                String prefix = args[1].toLowerCase(Locale.ROOT);
                 for (String s : new String[]{"accept", "close"}) {
                     if (s.startsWith(prefix)) completions.add(s);
                 }
             } else if (args.length == 3 && (args[1].equalsIgnoreCase("accept") || args[1].equalsIgnoreCase("close"))) {
-                String prefix = args[2].toLowerCase();
+                String prefix = args[2].toLowerCase(Locale.ROOT);
                 for (ReportEntry r : plugin.getReportManager().getPendingReports()) {
                     if (r.getId().startsWith(prefix)) completions.add(r.getId());
                 }
