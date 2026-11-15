@@ -15,6 +15,7 @@ import org.leng.util.Utils;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -25,9 +26,10 @@ public class ChatListener implements Listener {
     private final Lengbanlist plugin;
     private final Map<String, Integer> badWordCount = new ConcurrentHashMap<>();
     private final Map<String, PendingChat> pendingChats = new ConcurrentHashMap<>();
+    private final AtomicLong pendingChatSequence = new AtomicLong();
     private static final Pattern MEOW_REPEAT = Pattern.compile(".*喵.*喵.*");
 
-    private record PendingChat(String message, long at) {}
+    private record PendingChat(String id, String message, long at) {}
 
     private record FilterConfig(Pattern badWordPattern, int muteThreshold) {}
 
@@ -139,13 +141,13 @@ public class ChatListener implements Listener {
         }
 
         if (!containsBadWord && MEOW_REPEAT.matcher(message).find()) {
-            rememberPendingChat(player.getName(), message);
+            String pendingId = rememberPendingChat(player.getName(), message);
             SchedulerUtils.runTask(plugin, () -> {
                 for (Player admin : Bukkit.getOnlinePlayers()) {
                     if (admin.isOp()) {
                         Utils.sendMessage(admin,
-                                Utils.clickableText("【正常】", "/allowmsg " + player.getName()),
-                                Utils.clickableText("【违规】", "/warnmsg " + player.getName())
+                                Utils.clickableText("【正常】", "/allowmsg " + player.getName() + " " + pendingId),
+                                Utils.clickableText("【违规】", "/warnmsg " + player.getName() + " " + pendingId)
                         );
                     }
                 }
@@ -157,10 +159,14 @@ public class ChatListener implements Listener {
         event.setMessage(message);
     }
 
-    /** 暂存被拦截的聊天消息，等管理员点【正常】时原样放行。 */
-    public void rememberPendingChat(String playerName, String message) {
+    /**
+     * 暂存被拦截的聊天消息，等管理员点【正常】时原样放行。
+     *
+     * @return 这条待放行消息的 id；管理员按钮会带上它，避免多条消息互相覆盖
+     */
+    public String rememberPendingChat(String playerName, String message) {
         if (playerName == null || message == null || message.isBlank()) {
-            return;
+            return null;
         }
         long now = System.currentTimeMillis();
         if (pendingChats.size() >= PENDING_CHAT_LIMIT) {
@@ -169,28 +175,63 @@ public class ChatListener implements Listener {
                 pendingChats.clear();
             }
         }
-        pendingChats.put(playerName.toLowerCase(Locale.ROOT), new PendingChat(message, now));
+        String id = Long.toString(pendingChatSequence.incrementAndGet(), 36);
+        pendingChats.put(pendingKey(playerName, id), new PendingChat(id, message, now));
+        return id;
     }
 
     /**
-     * 取走并清除待放行消息。
+     * 按 id 取走并清除待放行消息。
      *
-     * @return 消息正文；不存在或超过 5 分钟返回 {@code null}
+     * @return 消息正文；id 为空时退化为取该玩家最早的一条待放行消息；
+     *         不存在或超过 5 分钟返回 {@code null}
      */
-    public String takePendingChat(String playerName) {
+    public String takePendingChat(String playerName, String id) {
         if (playerName == null) {
             return null;
         }
-        PendingChat pending = pendingChats.remove(playerName.toLowerCase(Locale.ROOT));
+        if (id == null || id.isEmpty()) {
+            return takePendingChat(playerName);
+        }
+        PendingChat pending = pendingChats.remove(pendingKey(playerName, id));
         if (pending == null || System.currentTimeMillis() - pending.at() > PENDING_CHAT_TTL_MS) {
             return null;
         }
         return pending.message();
     }
 
+    /**
+     * 取走该玩家最早的一条待放行消息（兼容不带 id 的旧按钮）。
+     */
+    public String takePendingChat(String playerName) {
+        if (playerName == null) {
+            return null;
+        }
+        String prefix = playerName.toLowerCase(Locale.ROOT) + "\u0000";
+        PendingChat oldest = null;
+        for (Map.Entry<String, PendingChat> entry : pendingChats.entrySet()) {
+            if (!entry.getKey().startsWith(prefix)) {
+                continue;
+            }
+            PendingChat candidate = entry.getValue();
+            if (oldest == null || candidate.at() < oldest.at()) {
+                oldest = candidate;
+            }
+        }
+        if (oldest == null) {
+            return null;
+        }
+        return takePendingChat(playerName, oldest.id());
+    }
+
+    private static String pendingKey(String playerName, String id) {
+        return playerName.toLowerCase(Locale.ROOT) + "\u0000" + id;
+    }
+
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         badWordCount.remove(event.getPlayer().getName());
-        pendingChats.remove(event.getPlayer().getName().toLowerCase(Locale.ROOT));
+        String prefix = event.getPlayer().getName().toLowerCase(Locale.ROOT) + "\u0000";
+        pendingChats.keySet().removeIf(key -> key.startsWith(prefix));
     }
 }

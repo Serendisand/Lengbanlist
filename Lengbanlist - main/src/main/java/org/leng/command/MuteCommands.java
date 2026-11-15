@@ -195,7 +195,8 @@ public final class MuteCommands {
 
 
             ChatListener chatListener = plugin.getChatListener();
-            String pending = chatListener == null ? null : chatListener.takePendingChat(target.getName());
+            String pendingId = args.length > 1 ? args[1] : null;
+            String pending = chatListener == null ? null : chatListener.takePendingChat(target.getName(), pendingId);
             if (pending == null) {
                 sender.sendMessage(plugin.prefix() + "§e玩家 " + target.getName()
                         + " 没有待放行的消息（可能已过期或已被处理）。");

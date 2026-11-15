@@ -16,6 +16,7 @@ import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import org.leng.object.WarnEntry;
+import java.util.Locale;
 
 public final class WarnCommands {
 
@@ -86,22 +87,22 @@ public final class WarnCommands {
         @Override
         public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
             if (args.length == 1) {
-                String prefix = args[0].toLowerCase();
+                String prefix = args[0].toLowerCase(Locale.ROOT);
                 List<String> completions = new ArrayList<>();
                 for (Player p : Bukkit.getOnlinePlayers()) {
-                    if (p.getName().toLowerCase().startsWith(prefix)) completions.add(p.getName());
+                    if (p.getName().toLowerCase(Locale.ROOT).startsWith(prefix)) completions.add(p.getName());
                 }
                 return completions;
             }
             if (args.length == 2) {
-                String prefix = args[1].toLowerCase();
+                String prefix = args[1].toLowerCase(Locale.ROOT);
                 List<String> presets = new ArrayList<>();
                 if (plugin.getConfig().isConfigurationSection("preset-reasons")) {
                     presets.addAll(plugin.getConfig().getConfigurationSection("preset-reasons").getKeys(false));
                 }
                 List<String> completions = new ArrayList<>();
                 for (String key : presets) {
-                    if (key.toLowerCase().startsWith(prefix)) completions.add(key);
+                    if (key.toLowerCase(Locale.ROOT).startsWith(prefix)) completions.add(key);
                 }
                 return completions;
             }
@@ -199,8 +200,7 @@ public final class WarnCommands {
                 if (id > 0 && id <= warnings.size()) {
                     return id;
                 }
-            } catch (NumberFormatException e) {
-
+            } catch (NumberFormatException ignored) {
             }
             return -1;
         }
@@ -247,7 +247,7 @@ public final class WarnCommands {
             // 判定违规后丢弃待放行消息，避免之后误点【正常】又把原消息广播出去
             ChatListener chatListener = plugin.getChatListener();
             if (chatListener != null) {
-                chatListener.takePendingChat(target.getName());
+                chatListener.takePendingChat(target.getName(), args.length > 1 ? args[1] : null);
             }
             target.sendMessage(plugin.prefix() + "§c你因消息违规被警告一次。");
             sender.sendMessage(plugin.prefix() + "§a已警告玩家 " + target.getName() + "。");

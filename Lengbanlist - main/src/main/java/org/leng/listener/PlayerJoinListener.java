@@ -11,6 +11,7 @@ import org.leng.object.BanIpEntry;
 import org.leng.object.ReportEntry;
 import org.leng.util.SchedulerUtils;
 import org.leng.service.PlayerIpService;
+import org.leng.util.ErrorLog;
 import org.leng.util.TimeUtils;
 import org.leng.util.Utils;
 
@@ -32,10 +33,16 @@ public class PlayerJoinListener implements Listener {
 
         // 封禁检查会读封禁缓存；缓存过期时那是一次数据库查询，绝不能压在登录主线程上。
         SchedulerUtils.runAsync(plugin, () -> {
-            if ((banEnabled || banIpEnabled) && plugin.getBanManager().checkBanOnJoin(player, banEnabled, banIpEnabled)) {
-                return;
+            try {
+                if (banEnabled || banIpEnabled) {
+                    plugin.getBanManager().checkBanOnJoin(player, banEnabled, banIpEnabled);
+                }
+                // 即使玩家随后被踢出，也要记录本次登录的 IP 与身份：
+                // /lban alts、IP 关联告警与查询都依赖这份历史。
+                prepareJoin(player);
+            } catch (Throwable t) {
+                ErrorLog.record(plugin, "玩家登录处理失败: " + player.getName(), t);
             }
-            prepareJoin(player);
         });
 
         if (plugin.isFeatureEnabled("vpn-detection") && player.getAddress() != null && player.getAddress().getAddress() != null) {
