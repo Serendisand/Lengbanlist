@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
+import java.util.Locale;
 
 public class ThemeManager {
 
@@ -325,7 +326,7 @@ public class ThemeManager {
         if (originalFilename != null) {
             int dot = originalFilename.lastIndexOf('.');
             if (dot > 0 && dot < originalFilename.length() - 1) {
-                ext = originalFilename.substring(dot + 1).toLowerCase();
+                ext = originalFilename.substring(dot + 1).toLowerCase(Locale.ROOT);
             }
         }
         if (!ALLOWED_EXTENSIONS.contains(ext)) {
@@ -348,32 +349,16 @@ public class ThemeManager {
         return safeName;
     }
 
-    public File getBackgroundFileOnDisk() {
-        if (backgroundFile.isEmpty()) return null;
-        return new File(webAssetsDir, backgroundFile);
-    }
-
     public Set<String> getHiddenButtons() {
         return Collections.unmodifiableSet(hiddenButtons);
     }
 
     public void setHiddenButtons(Set<String> buttons) {
-
         Set<String> filtered = new HashSet<>();
         for (String b : buttons) {
             if (ALL_BUTTONS.contains(b)) filtered.add(b);
         }
         this.hiddenButtons = filtered;
         save();
-    }
-
-    public boolean isButtonVisible(String buttonId) {
-        return !hiddenButtons.contains(buttonId);
-    }
-
-    public Set<String> getVisibleButtons() {
-        Set<String> visible = new HashSet<>(ALL_BUTTONS);
-        visible.removeAll(hiddenButtons);
-        return visible;
     }
 }

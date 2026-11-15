@@ -31,10 +31,6 @@ public class FeatureCommand extends Command {
         setPermission(permission);
     }
 
-    public String getFeature() {
-        return feature;
-    }
-
     @Override
     public boolean execute(CommandSender sender, String label, String[] args) {
         if (!plugin.isEnabled()) {

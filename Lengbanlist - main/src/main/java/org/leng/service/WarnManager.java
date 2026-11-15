@@ -3,7 +3,6 @@ package org.leng.service;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
 import org.leng.api.events.LengbanlistUnwarnEvent;
@@ -263,24 +262,6 @@ public class WarnManager {
 
     public long calculateBanDuration(int triggerCount) {
         return policy.durationForTrigger(triggerCount);
-    }
-
-    public void loadFromConfig(FileConfiguration config) {
-        for (String entry : config.getStringList("warnings")) {
-            String[] parts = entry.split(":");
-            if (parts.length >= 5) {
-                try {
-                    WarnEntry warn = new WarnEntry(parts[0], parts[1], Long.parseLong(parts[2]), parts[3]);
-                    if (Boolean.parseBoolean(parts[4])) {
-                        warn = warn.revoke();
-                    }
-                    db.upsertWarning(warn);
-                } catch (NumberFormatException e) {
-
-                    continue;
-                }
-            }
-        }
     }
 
 }

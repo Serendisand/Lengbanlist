@@ -10,7 +10,6 @@ import java.util.Locale;
 
 public final class MuteCommandBlockPolicy {
     private static final String CONFIG_PATH = "mute-blocked-commands";
-    private static final String STRIP_NAMESPACE_PATH = "mute-command-block-strip-namespace";
 
     private MuteCommandBlockPolicy() {
     }

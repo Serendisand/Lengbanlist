@@ -6,7 +6,6 @@ import org.leng.command.BanCommands;
 import org.leng.command.MuteCommands;
 import org.leng.command.QueryCommands;
 import org.leng.command.ReportCommands;
-import org.leng.command.StaffCommands;
 import org.leng.command.WarnCommands;
 import org.leng.api.CommandSpec;
 import org.leng.api.ExtensionContext;
