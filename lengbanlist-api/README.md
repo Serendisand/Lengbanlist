@@ -309,7 +309,7 @@ cp target/*.jar 服务端/plugins/   # 丢进 plugins，与 Lengbanlist-*.jar �
 
 | 方法 | 说明 |
 | --- | --- |
-| `String apiVersion()` | 契约版本，形如 `2.2.0`（与插件版本解耦，插件升级不会变） |
+| `String apiVersion()` | 契约版本，形如 `2.3.0`（与插件版本解耦，插件升级不会变） |
 | `ExtensionContext enable(LengbanlistExtension)` | 校验 `requiredApi`、建上下文、调 `onEnable`、接入命令表。失败抛 `ExtensionLoadException` |
 | `void disable(String extensionId)` | 停用并注销命令；未注册时是空操作 |
 | `boolean isEnabled(String)` | 是否已启用 |
@@ -382,6 +382,7 @@ cp target/*.jar 服务端/plugins/   # 丢进 plugins，与 Lengbanlist-*.jar �
 | `BanService` 便捷重载 | `ban(target, staff, "7d", reason, silent)`、`banPermanent(...)`、`banIp(..., "2h", ...)`、`banIpPermanent(...)` |
 | `MuteService` | `mute(target, staff, durationMillis, reason)`（返回到期时刻）、`unmute(target, actor)`、`isMuted`、`activeMutes()`、`activeMuteCount()`、`mute(..., "30m", ...)`、`mutePermanent(...)` |
 | `WarnService` | `warn(target, staff, reason)`、`unwarn(target, warnId, actor)`、`unwarnLatest(target, actor)`、`countActiveWarnings(target)`、`hasActiveWarnings(target)`、`activeWarnings(target)`、`warnedPlayers()` |
+| `AuditService` | `log(action, actor, target, details)`：走核心审计链路（开关、哈希链、Webhook、数据库），扩展不要直接写 `audit_log` |
 
 **写处罚请走这里**，不要直接写核心表——同步、审计、事件广播、Webhook 都在服务层里。
 
@@ -455,10 +456,10 @@ cp target/*.jar 服务端/plugins/   # 丢进 plugins，与 Lengbanlist-*.jar �
 
 - `requiredApi()` 写范围，核心在 `enable` 前校验，不满足就**拒绝启用并给出可读原因**，
   而不是等到运行时抛 `NoSuchMethodError`。
-- **契约版本与插件版本是两件事**：`requiredApi()` 比较的是 `apiVersion()`（当前 `2.2.0`），
+- **契约版本与插件版本是两件事**：`requiredApi()` 比较的是 `apiVersion()`（当前 `2.3.0`），
   不是 `plugin.yml` 的版本号。插件从 2.x 发到 3.0，只要 `org.leng.api` 没变，按
   `[2.0,3.0)` 声明的扩展照常启用。
-- 契约版本的调整规则：只新增能力 → `2.2.0 → 2.3.0`；改签名/删方法 → `2.2.0 → 3.0.0`；
+- 契约版本的调整规则：只新增能力 → `2.3.0 → 2.4.0`；改签名/删方法 → `2.x → 3.0.0`；
   插件自身发版 → 不动。
 - 契约**只增不改**：已有方法不会改签名、不会删。想提前挡住未来的不兼容，把 `requiredApi()`
   写成上界封闭的区间。
