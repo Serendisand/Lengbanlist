@@ -55,31 +55,6 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
         }
 
         switch (args[0].toLowerCase(Locale.ROOT)) {
-            case "toggle":
-                if (!sender.hasPermission("lengbanlist.toggle")) {
-                    Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
-                    return true;
-                }
-                if (!plugin.isFeatureActive("broadcast")) {
-                    plugin.sendFeatureDisabled(sender);
-                    return true;
-                }
-                boolean enabled = !plugin.isBroadcastEnabled();
-                plugin.setBroadcastEnabled(enabled);
-                Utils.sendMessage(sender, currentModel.toggleBroadcast(enabled));
-                plugin.getAuditManager().log(enabled ? "开启广播" : "关闭广播", Utils.getSenderName(sender), "", "");
-                break;
-            case "a":
-                if (!sender.hasPermission("lengbanlist.broadcast")) {
-                    Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
-                    return true;
-                }
-                if (!plugin.isFeatureActive("broadcast")) {
-                    plugin.sendFeatureDisabled(sender);
-                    return true;
-                }
-                plugin.getBroadCastManager().broadcastNow(sender);
-                break;
             case "list":
                 if (!plugin.isFeatureEnabled("ban")) {
                     plugin.sendFeatureDisabled(sender);
@@ -109,14 +84,6 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 }
                 ModelManager.getInstance().reloadModel();
 
-                File broadcastFile = new File(plugin.getDataFolder(), "broadcast.yml");
-                if (broadcastFile.exists()) {
-                    try {
-                        plugin.reloadBroadcastConfig(broadcastFile);
-                    } catch (Exception e) {
-                        plugin.getLogger().warning("重载broadcast.yml失败: " + e.getMessage());
-                    }
-                }
                 File chatConfigFile = new File(plugin.getDataFolder(), "chatconfig.yml");
                 if (chatConfigFile.exists()) {
                     try {
@@ -149,9 +116,6 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
                 }
                 if (plugin.getModelCloudManager() != null) {
                     plugin.getModelCloudManager().cachedIndexOnly();
-                }
-                if (!plugin.isFeatureEnabled("vanish") && plugin.getVanishManager() != null) {
-                    plugin.getVanishManager().restoreAll();
                 }
                 plugin.restartScheduledTasks();
                 if (plugin.getWebServer() != null) {
@@ -328,8 +292,6 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
 
                 String[] reportArgs = Arrays.copyOfRange(args, 1, args.length);
                 return new ReportCommands.Report(plugin).onCommand(sender, this, label, reportArgs);
-            case "vanish":
-                return new StaffCommands.Vanish(plugin).onCommand(sender, this, label, Arrays.copyOfRange(args, 1, args.length));
             case "freeze":
                 return new FreezeCommands.Freeze(plugin).onCommand(sender, this, label, Arrays.copyOfRange(args, 1, args.length));
             case "unfreeze":
@@ -709,10 +671,10 @@ public class LengbanlistCommand extends Command implements CommandExecutor, TabC
 
     /** 内置子命令提示表：写死在 {@code /lban} 的 switch 里、不占独立命令名的那些。 */
     private static final List<String> BUILTIN_SUBCOMMANDS = List.of(
-            "toggle", "a", "list", "reload", "ext", "add", "remove", "help", "open",
+            "list", "reload", "ext", "add", "remove", "help", "open",
             "getip", "model", "models", "mute", "unmute", "list-mute", "warn", "unwarn",
             "report", "admin", "check", "info", "history", "audit", "webhook", "handle",
-            "alts", "sync", "rollback", "vanish", "freeze", "unfreeze");
+            "alts", "sync", "rollback", "freeze", "unfreeze");
 
     /**
      * 提示与补全共用的子命令名：内置的 + 扩展提供的。

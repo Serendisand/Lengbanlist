@@ -23,11 +23,11 @@ model-auto-detect: true             # 首次加载按系统语言自动选模型
 
 features:                           # 每个功能都能单独关掉
                                     # 关掉后独立命令（/ban、/report 等）直接不注册，名字让给别的插件
-                                    # /lban 的子命令（/lban freeze、/lban vanish 等）无法单独注销，会提示"已被管理员禁用"
+                                    # /lban 的子命令（/lban freeze 等）无法单独注销，会提示"已被管理员禁用"
   ban: true                         # 封禁
-  vanish: true                      # 管理员隐身（/lban vanish）
   freeze: true                      # 冻结玩家（/lban freeze）
   # ……其余见 config.yml 内注释
+  # 已外置的功能（vanish / broadcast 等）不在这里：开关在各自扩展的 config.yml 里
 
 freeze:
   block-commands: true              # 冻结期间禁止使用命令（防 /spawn /home 逃脱）

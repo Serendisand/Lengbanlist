@@ -117,7 +117,7 @@ public final class QueryCommands {
                 if (freeze != null) {
                     Utils.sendMessage(sender, plugin.prefix() + "§b冻结状态: §c已冻结 §7(处理人 " + freeze.staff() + "，理由：" + freeze.reason() + ")");
                 }
-                if (plugin.getVanishManager().isVanished(online)) {
+                if (plugin.isVanished(online)) {
                     Utils.sendMessage(sender, plugin.prefix() + "§b隐身状态: §d隐身中");
                 }
             }
@@ -517,7 +517,7 @@ public final class QueryCommands {
             String serverName = plugin.getServerName();
             infoMessage.append("§7本服标识：§b").append(serverName.isEmpty() ? "未设置" : serverName)
                     .append(" §7| §b存储：").append(plugin.getDatabaseManager().getDatabaseProductName()).append("\n");
-            infoMessage.append("§7隐身中：§b").append(plugin.getVanishManager().count())
+            infoMessage.append("§7隐身中：§b").append(plugin.vanishedCount())
                     .append(" §7| §b冻结中：§b").append(plugin.getFreezeManager().count()).append("\n");
 
             if (plugin.isUpdateCheckEnabled()) {

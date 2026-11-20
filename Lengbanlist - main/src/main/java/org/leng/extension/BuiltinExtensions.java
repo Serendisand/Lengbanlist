@@ -88,12 +88,10 @@ public final class BuiltinExtensions {
             // 以下功能没有自己的命令或钩子，行为分散在核心各处（GUI 按钮、监听器、
             // 定时任务、Web 端点）。登记它们是为了让 isFeatureActive 能回答
             // "已安装 且 开启"，而不是回落到"未知功能只看开关"。
-            Map.entry("vanish", "管理员隐身"),
             Map.entry("freeze", "冻结玩家"),
             Map.entry("appeal", "封禁申诉"),
             Map.entry("model", "角色模型"),
             Map.entry("chest-ui", "箱子 GUI"),
-            Map.entry("broadcast", "封禁广播"),
             Map.entry("mute-command-block", "禁言期指令屏蔽"),
             Map.entry("ip-association", "IP 关联检测"),
             Map.entry("vpn-detection", "VPN 检测"),
@@ -108,7 +106,8 @@ public final class BuiltinExtensions {
             Map.entry("webhook-events", "Webhook 推送"),
             Map.entry("reload", "配置重载"));
     // 注意：tp 与 staffchat 已搬进 Lua 扩展（extensions/tp.lua、extensions/staffchat.lua），
-    // 这里不能再登记它们——功能键被内置提供者先占住，LuaLoader 会判定撞车而拒绝加载，
+    // vanish 与 broadcast 已搬进 Java 扩展（Lengbanlist-Ext-Vanish / -Broadcast）。
+    // 这里不能再登记它们——功能键被内置提供者先占住，扩展会判定撞车而拒绝加载，
     // 于是扩展自己的开关永远不会被读到。
 
     private static final List<Declaration> DECLARATIONS = List.of(

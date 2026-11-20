@@ -12,7 +12,6 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.leng.Lengbanlist;
 import org.leng.service.ReportManager;
-import org.leng.service.VanishManager;
 import org.leng.util.ErrorLog;
 import org.leng.util.Utils;
 
@@ -111,12 +110,11 @@ public final class ReportSubmitGui implements Listener {
 
     private List<Player> targets(Player viewer) {
         List<Player> targets = new ArrayList<>();
-        VanishManager vanish = plugin.getVanishManager();
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (online.getUniqueId().equals(viewer.getUniqueId())) {
                 continue;
             }
-            if (vanish != null && vanish.isVanished(online) && !vanish.canSee(viewer)) {
+            if (plugin.isVanished(online) && !plugin.canSeeVanished(viewer)) {
                 continue;
             }
             targets.add(online);

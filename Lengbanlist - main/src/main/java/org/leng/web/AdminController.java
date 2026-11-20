@@ -71,21 +71,20 @@ public class AdminController extends WebController {
         }
         if (!requireAuth(exchange) || !requireFeature(exchange, "broadcast")) return;
 
+        org.leng.api.BroadcastService broadcast = plugin.getBroadcastService();
+        if (broadcast == null) {
+            WebResponse.sendError(exchange, 503, "广播扩展未安装");
+            return;
+        }
+
         try {
-            String defaultMessage = plugin.getBroadcastFC().getString("default-message", "本服已封禁 %s 名玩家和 %i 个 IP，合计 %t 项处罚");
-            int banCount = plugin.getBanManager().countActiveBans();
-            int banIpCount = plugin.getBanManager().countActiveIpBans();
-            int totalBans = banCount + banIpCount;
-
-            String message = defaultMessage
-                    .replace("%s", String.valueOf(banCount))
-                    .replace("%i", String.valueOf(banIpCount))
-                    .replace("%t", String.valueOf(totalBans));
-
-            final String broadcast = message;
-            boolean completed = runSync(exchange, () ->
-                    plugin.getServer().broadcastMessage(plugin.prefix() + " " + broadcast));
+            java.util.concurrent.atomic.AtomicBoolean sent = new java.util.concurrent.atomic.AtomicBoolean();
+            boolean completed = runSync(exchange, () -> sent.set(broadcast.broadcastNow(null)));
             if (!completed) return;
+            if (!sent.get()) {
+                WebResponse.sendError(exchange, 500, "广播失败：请检查广播扩展的消息配置");
+                return;
+            }
 
             JsonObject result = new JsonObject();
             result.addProperty("success", true);

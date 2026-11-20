@@ -341,7 +341,6 @@ public class CommandRegistry {
         SUBCOMMAND_FEATURES.put("/lban unmute", "mute");
         SUBCOMMAND_FEATURES.put("/lban warn", "warn");
         SUBCOMMAND_FEATURES.put("/lban unwarn", "unwarn");
-        SUBCOMMAND_FEATURES.put("/lban vanish", "vanish");
         SUBCOMMAND_FEATURES.put("/lban freeze", "freeze");
         SUBCOMMAND_FEATURES.put("/lban unfreeze", "freeze");
         SUBCOMMAND_FEATURES.put("/lban check", "check");

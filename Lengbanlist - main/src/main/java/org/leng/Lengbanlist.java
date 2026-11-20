@@ -4,11 +4,14 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.leng.api.BroadcastService;
+import org.leng.api.VanishService;
 import org.leng.command.CommandRegistry;
 import org.leng.command.LengbanlistCommand;
 import org.leng.extension.BuiltinExtensions;
@@ -36,7 +39,6 @@ import org.leng.listener.ModelChoiceListener;
 import org.leng.listener.MuteCommandBlockListener;
 import org.leng.listener.OpJoinListener;
 import org.leng.listener.PlayerJoinListener;
-import org.leng.listener.VanishListener;
 import org.leng.migration.ConfigMigrationManager;
 import org.leng.models.Model;
 import org.leng.net.DownloadService;
@@ -44,14 +46,12 @@ import org.leng.net.DownloadSettings;
 import org.leng.service.AppealManager;
 import org.leng.service.AuditManager;
 import org.leng.service.BanManager;
-import org.leng.service.BroadcastManager;
 import org.leng.service.ExpiryReminderTask;
 import org.leng.service.FreezeManager;
 import org.leng.service.IpAssociationManager;
 import org.leng.service.MuteManager;
 import org.leng.service.ReportManager;
 import org.leng.service.SyncManager;
-import org.leng.service.VanishManager;
 import org.leng.service.WarnManager;
 import org.leng.storage.DatabaseManager;
 import org.leng.storage.PlayerIdentityResolver;
@@ -77,7 +77,6 @@ public class Lengbanlist extends JavaPlugin {
     public volatile ReportManager reportManager;
     public volatile IpAssociationManager ipAssociationManager;
     public WebServer webServer;
-    public SchedulerUtils.SchedulerTask broadcastTask;
     private SchedulerUtils.SchedulerTask historyCleanupTask;
     private SchedulerUtils.SchedulerTask expiryReminderTask;
     private GuiSessionManager guiSessionManager;
@@ -93,8 +92,6 @@ public class Lengbanlist extends JavaPlugin {
     private PunishmentGate punishmentGate;
     private DurationPolicy durationPolicy;
     private LuaLoader luaLoader;
-    private boolean isBroadcast;
-    private volatile FileConfiguration broadcastFC;
     private volatile FileConfiguration chatConfig;
     private ModelChoiceListener modelChoiceListener;
     private ChatListener chatListener;
@@ -103,10 +100,8 @@ public class Lengbanlist extends JavaPlugin {
     private String hitokoto;
     private DatabaseManager databaseManager;
     private volatile ThemeManager themeManager;
-    private volatile VanishManager vanishManager;
     private volatile FreezeManager freezeManager;
     private volatile WizardManager wizardManager;
-    private volatile BroadcastManager broadCastManager;
     private volatile WebhookNotifier webhookNotifier;
     private volatile AppealManager appealManager;
     private FileConfiguration eulaFC;
@@ -204,15 +199,6 @@ public void onLoad() {
     }
     chatConfig = YamlConfiguration.loadConfiguration(chatConfigFile);
 
-    File broadcastFile = new File(getDataFolder(), "broadcast.yml");
-    if (!broadcastFile.exists()) {
-        broadcastFile.getParentFile().mkdirs();
-        saveResource("broadcast.yml", false);
-    }
-    broadcastFC = YamlConfiguration.loadConfiguration(broadcastFile);
-    new ConfigMigrationManager(this).migrateBroadcastConfig(broadcastFile);
-    isBroadcast = broadcastFC.getBoolean("opensendtime", true);
-
 }
 
 private void loadStorageConfig() {
@@ -292,7 +278,6 @@ public void onEnable() {
     getServer().getPluginManager().registerEvents(guiCommand, Lengbanlist.this);
     getServer().getPluginManager().registerEvents(reportSubmitGui, Lengbanlist.this);
     getServer().getPluginManager().registerEvents(reportManageGui, Lengbanlist.this);
-    getServer().getPluginManager().registerEvents(new VanishListener(this), Lengbanlist.this);
     freezeListener = new FreezeListener(this);
     getServer().getPluginManager().registerEvents(freezeListener, Lengbanlist.this);
 
@@ -334,10 +319,6 @@ public void onEnable() {
         SchedulerUtils.runAsyncDelayed(this, this::checkUpdate, 5000);
     } else if (isUpdateCheckEnabled()) {
         SchedulerUtils.runAsync(this, GitHubUpdateChecker::checkUpdate);
-    }
-
-    if (isBroadcast && isFeatureActive("broadcast")) {
-        startBroadcastTask();
     }
 
     if (getConfig().getBoolean("web.enabled", false)) {
@@ -398,16 +379,6 @@ public void invalidateListenerConfigCaches() {
 }
 
 public void restartScheduledTasks() {
-    isBroadcast = broadcastFC != null
-            ? broadcastFC.getBoolean("opensendtime", true)
-            : getConfig().getBoolean("opensendtime", true);
-    if (broadcastTask != null) {
-        broadcastTask.cancel();
-        broadcastTask = null;
-    }
-    if (isBroadcast && isFeatureActive("broadcast")) {
-        startBroadcastTask();
-    }
     if (expiryReminderTask != null) {
         expiryReminderTask.cancel();
         expiryReminderTask = null;
@@ -423,7 +394,6 @@ public void restartScheduledTasks() {
 public void onDisable() {
     getServer().getConsoleSender().sendMessage(prefix() + consoleText("shutdown"));
 
-    if (broadcastTask != null) broadcastTask.cancel();
     if (historyCleanupTask != null) historyCleanupTask.cancel();
     if (expiryReminderTask != null) expiryReminderTask.cancel();
     if (webhookNotifier != null) webhookNotifier.stop();
@@ -443,14 +413,6 @@ public void onDisable() {
     if (webServer != null) webServer.stop();
 
     try {
-        if (vanishManager != null) {
-            vanishManager.restoreAll();
-        }
-    } catch (Exception e) {
-        getLogger().warning("还原隐身状态时出错: " + e.getMessage());
-    }
-
-    try {
         if (metrics != null) {
             metrics.shutdown();
         }
@@ -467,13 +429,6 @@ public void onDisable() {
 
 void shutdownStorage() {
     try {
-        if (broadcastFC != null) {
-            saveBroadcastConfig();
-        }
-    } catch (Exception e) {
-        getLogger().warning("保存配置文件时出错: " + e.getMessage());
-    }
-    try {
         if (databaseManager != null) {
             databaseManager.close();
         }
@@ -481,17 +436,6 @@ void shutdownStorage() {
         getLogger().warning("关闭数据库时出错: " + e.getMessage());
     }
 }
-
-    private int broadcastIntervalMinutes() {
-        return broadcastFC != null ? broadcastFC.getInt("sendtime", 5) : 5;
-    }
-
-    private void startBroadcastTask() {
-        long interval = Math.max(broadcastIntervalMinutes() * 1200L, 1200L);
-        long delay = 200L;
-        broadcastTask = SchedulerUtils.runTaskTimer(this,
-                getBroadCastManager(), delay, interval);
-    }
 
     private void startIdentityBackfillTask() {
         if (storageConfig != null && !storageConfig.getBoolean("database.identity-backfill", true)) {
@@ -555,10 +499,6 @@ void shutdownStorage() {
         return instance;
     }
 
-    public boolean isBroadcastEnabled() {
-        return isBroadcast;
-    }
-
     /**
      * 扩展注册表。门控与命令表都以它为准。
      *
@@ -569,6 +509,39 @@ void shutdownStorage() {
      */
     public ExtensionRegistry getExtensionRegistry() {
         return extensionRegistry;
+    }
+
+    /**
+     * 隐身扩展提供的只读/切换服务；扩展没装时返回 {@code null}。
+     *
+     * <p>核心的查询、举报目标列表与箱子菜单只通过它读取隐身状态，
+     * 不再持有 {@code VanishManager}——功能搬走之后核心仍然编译得过、跑得动。
+     */
+    public VanishService getVanishService() {
+        ExtensionRegistry registry = extensionRegistry;
+        return registry == null ? null : registry.hook("vanish", VanishService.class);
+    }
+
+    public boolean isVanished(Player player) {
+        VanishService service = getVanishService();
+        return service != null && service.isVanished(player);
+    }
+
+    public int vanishedCount() {
+        VanishService service = getVanishService();
+        return service == null ? 0 : service.count();
+    }
+
+    /** 观察者能不能看见隐身玩家；没有隐身扩展时人人可见。 */
+    public boolean canSeeVanished(Player viewer) {
+        VanishService service = getVanishService();
+        return service == null || service.canSee(viewer);
+    }
+
+    /** 广播扩展提供的服务；扩展没装时返回 {@code null}。 */
+    public BroadcastService getBroadcastService() {
+        ExtensionRegistry registry = extensionRegistry;
+        return registry == null ? null : registry.hook("broadcast", BroadcastService.class);
     }
 
     /**
@@ -620,33 +593,6 @@ void shutdownStorage() {
 
     public void sendFeatureDisabled(CommandSender sender) {
         Utils.sendMessage(sender, prefix() + "§c该功能已被管理员禁用。");
-    }
-
-    public void setBroadcastEnabled(boolean broadcastEnabled) {
-        this.isBroadcast = broadcastEnabled;
-        if (broadcastFC != null) {
-            broadcastFC.set("opensendtime", broadcastEnabled);
-            saveBroadcastConfig();
-        } else {
-            getConfig().set("opensendtime", broadcastEnabled);
-            saveConfig();
-        }
-        if (isBroadcast && isFeatureActive("broadcast")) {
-            if (broadcastTask != null) {
-                broadcastTask.cancel();
-                broadcastTask = null;
-            }
-            startBroadcastTask();
-        } else {
-            if (broadcastTask != null) {
-                broadcastTask.cancel();
-            }
-        }
-    }
-
-    public String toggleBroadcast() {
-        setBroadcastEnabled(!isBroadcastEnabled());
-        return isBroadcastEnabled() ? "§a已开启" : "§c已关闭";
     }
 
     public ModelManager getModelManager() {
@@ -801,17 +747,6 @@ void shutdownStorage() {
         return themeManager;
     }
 
-    public VanishManager getVanishManager() {
-        if (vanishManager == null) {
-            synchronized (this) {
-                if (vanishManager == null) {
-                    vanishManager = new VanishManager(this);
-                }
-            }
-        }
-        return vanishManager;
-    }
-
     public FreezeManager getFreezeManager() {
         if (freezeManager == null) {
             synchronized (this) {
@@ -834,27 +769,6 @@ void shutdownStorage() {
         return wizardManager;
     }
 
-    public BroadcastManager getBroadCastManager() {
-        if (broadCastManager == null) {
-            synchronized (this) {
-                if (broadCastManager == null) {
-                    broadCastManager = new BroadcastManager(this);
-                }
-            }
-        }
-        return broadCastManager;
-    }
-
-    public FileConfiguration getBroadcastFC() {
-        return broadcastFC;
-    }
-
-    public void reloadBroadcastConfig(File broadcastFile)
-            throws IOException, InvalidConfigurationException {
-        broadcastFC.load(broadcastFile);
-        new ConfigMigrationManager(this).migrateBroadcastConfig(broadcastFile);
-    }
-
     public FileConfiguration getChatConfig() {
         return chatConfig;
     }
@@ -864,14 +778,6 @@ void shutdownStorage() {
         FileConfiguration loaded = new YamlConfiguration();
         loaded.load(chatConfigFile);
         chatConfig = loaded;
-    }
-
-    public void saveBroadcastConfig() {
-        try {
-            broadcastFC.save(new File(getDataFolder(), "broadcast.yml"));
-        } catch (IOException e) {
-            ErrorLog.record(this, "保存 broadcast.yml 失败", e);
-        }
     }
 
     public String getHitokoto() {

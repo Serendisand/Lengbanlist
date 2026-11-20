@@ -3,7 +3,6 @@ package org.leng.migration;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.leng.Lengbanlist;
-import org.leng.util.ErrorLog;
 
 import java.io.File;
 import java.io.IOException;
@@ -71,54 +70,6 @@ public class ConfigMigrationManager {
         } catch (IOException e) {
             plugin.getLogger().warning(plugin.consoleText("storage-migrate-failed",
                     "error", e.getMessage()));
-        }
-    }
-
-    /**
-     * 旧版放在 config.yml 的广播设置迁移到 broadcast.yml。
-     *
-     * @param broadcastFile 已加载的 broadcast.yml 文件，用于写回
-     */
-    public void migrateBroadcastConfig(File broadcastFile) {
-        FileConfiguration root = plugin.getConfig();
-        FileConfiguration broadcast = plugin.getBroadcastFC();
-        if (broadcast == null) {
-            return;
-        }
-
-        boolean broadcastChanged = false;
-        boolean configChanged = false;
-
-        if (!broadcast.contains("opensendtime")) {
-            broadcast.set("opensendtime", root.getBoolean("opensendtime", true));
-            broadcastChanged = true;
-        }
-        if (!broadcast.contains("sendtime")) {
-            broadcast.set("sendtime", root.getInt("sendtime", 5));
-            broadcastChanged = true;
-        }
-        if (root.contains("opensendtime")) {
-            root.set("opensendtime", null);
-            configChanged = true;
-        }
-        if (root.contains("sendtime")) {
-            root.set("sendtime", null);
-            configChanged = true;
-        }
-
-        if (broadcastChanged) {
-            try {
-                broadcast.save(broadcastFile);
-            } catch (IOException e) {
-                ErrorLog.record(plugin, "迁移广播设置到 broadcast.yml 失败", e);
-                return;
-            }
-        }
-        if (configChanged) {
-            plugin.saveConfig();
-        }
-        if (broadcastChanged || configChanged) {
-            plugin.getLogger().info("广播设置已迁移到 broadcast.yml");
         }
     }
 }

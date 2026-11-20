@@ -4,11 +4,11 @@
 | 命令 | 功能 | 别名 |
 |------|------|------|
 | `/lban list` | 查看封禁名单 | - |
-| `/lban a` | 广播当前封禁人数 | - |
-| `/lban toggle` | 开关自动广播 | - |
+| `/lban a` | 广播当前封禁人数（Broadcast 扩展） | - |
+| `/lban toggle` | 开关自动广播（Broadcast 扩展） | - |
 | `/lban model <名称>` | 切换角色模型 | - |
 | `/lban models list` | 查看本地与云端模型 | - |
-| `/lban vanish` | 隐身/现身（完全隐身，含装备） | - |
+| `/lban vanish` | 隐身/现身（Vanish 扩展） | - |
 | `/lban freeze <玩家> <理由>` | 冻结玩家 | - |
 | `/lban unfreeze <玩家/all>` | 解除冻结 | - |
 | `/lban reload` | 重载配置 | - |

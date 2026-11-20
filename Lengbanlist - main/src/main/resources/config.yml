@@ -3,7 +3,7 @@ prefix: "§f§l[§x§0§8§4§c§f§bL§x§1§9§5§d§f§be§x§2§9§6§d§f§
 
 # ---------- 角色模型 ----------
 Model: "Default"     # 当前模型
-model-auto-detect: true  # 首次加载时根据系统语言自动选择模型（zh→Default 中文，其他→English）
+model-auto-detect: true  # 首次加载时根据系统语言自动选择模型
 
 # ---------- 帮助菜单 ----------
 help:
@@ -11,7 +11,7 @@ help:
 
 # ---------- 功能开关----------
 # 关闭后：独立命令（/ban、/report 等）直接不注册，名字可以留给其他插件；
-#         /lban 的子命令（/lban freeze、/lban vanish 等）无法单独注销，执行时会提示"已被管理员禁用"。
+#         /lban 的子命令（/lban freeze 等）无法单独注销，执行时会提示"已被管理员禁用"。
 features:
   # --- 封禁与处罚 ---
   ban: true            # 封禁玩家（/lban ban）
@@ -22,7 +22,6 @@ features:
   kick: true           # 踢出玩家（/lban kick）
   mute: true           # 禁言/解禁（/lban mute）
   setban: true         # 自定义封禁（/lban setban）
-  vanish: true         # 管理员隐身（/lban vanish，对无 lengbanlist.vanish.see 权限者完全不可见）
   freeze: true         # 冻结玩家（/lban freeze、/lban unfreeze）
 
   # --- 查询与信息 ---
@@ -39,8 +38,6 @@ features:
   # --- 玩家体验 ---
   model: true          # 角色模型切换（/lban model）
   chest-ui: true       # 箱子 GUI 界面（/lban open、/report、/admin）
-  # --- 广播 ---
-  broadcast: true        # 广播封禁人数（/lban a、Web 面板触发）
 
   # --- 聊天与过滤 ---
   chat-filter: true    # 违禁词过滤、自动禁言、可疑消息标记

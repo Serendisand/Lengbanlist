@@ -192,6 +192,11 @@ final class ExtensionContextImpl implements ExtensionContext {
         }
 
         @Override
+        public Cancellable runSync(org.bukkit.entity.Entity entity, Runnable task) {
+            return wrap(SchedulerUtils.runTask(plugin, entity, task));
+        }
+
+        @Override
         public Cancellable runSyncLater(Runnable task, long delayTicks) {
             return wrap(SchedulerUtils.runTaskLater(plugin, task, delayTicks));
         }

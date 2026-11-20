@@ -98,9 +98,12 @@ public final class GuiCommands {
             put(chest, player, 34, "lengbanlist.freeze", "freeze",
                     createGuiItem(Material.ICE, "§b解除冻结", "§7/lban unfreeze", "§7聊天栏向导：输入玩家名或 all"));
 
-            put(chest, player, 37, "lengbanlist.vanish", "vanish",
-                    createGuiItem(Material.FEATHER, "§d隐身/现身 (" + (plugin.getVanishManager().isVanished(player) ? "隐身中" : "可见") + ")",
-                            "§7/lban vanish", "§7其他玩家完全看不见你（含手持物品与盔甲）"));
+            org.leng.api.VanishService vanish = plugin.getVanishService();
+            if (vanish != null) {
+                put(chest, player, 37, "lengbanlist.vanish", "vanish",
+                        createGuiItem(Material.FEATHER, "§d隐身/现身 (" + (vanish.isVanished(player) ? "隐身中" : "可见") + ")",
+                                "§7/lban vanish", "§7其他玩家完全看不见你（含手持物品与盔甲）"));
+            }
             put(chest, player, 39, "lengbanlist.model", "model",
                     createGuiItem(Material.NAME_TAG, "§a切换模型 (" + ModelManager.getInstance().getCurrentModelName() + ")",
                             "§7/lban model", "§7当前模型: " + ModelManager.getInstance().getCurrentModelName()));
@@ -108,11 +111,14 @@ public final class GuiCommands {
                     createGuiItem(Material.WRITABLE_BOOK, "§a查看封禁名单", "§7/lban list", "§7在聊天栏输出封禁名单"));
             chest.setItem(43, createGuiItem(Material.BOOK, "§a帮助信息", "§7/lban help", "§7显示帮助信息"));
 
-            put(chest, player, 46, "lengbanlist.toggle", "broadcast",
-                    createGuiItem(Material.LEVER, "§a切换自动广播 (" + (plugin.isBroadcastEnabled() ? "开启" : "关闭") + ")",
-                            "§7/lban toggle", "§7开启或关闭自动广播"));
-            put(chest, player, 48, "lengbanlist.broadcast", "broadcast",
-                    createGuiItem(Material.NOTE_BLOCK, "§a广播封禁人数", "§7/lban a", "§7广播当前封禁人数"));
+            org.leng.api.BroadcastService broadcast = plugin.getBroadcastService();
+            if (broadcast != null) {
+                put(chest, player, 46, "lengbanlist.toggle", "broadcast",
+                        createGuiItem(Material.LEVER, "§a切换自动广播 (" + (broadcast.isEnabled() ? "开启" : "关闭") + ")",
+                                "§7/lban toggle", "§7开启或关闭自动广播"));
+                put(chest, player, 48, "lengbanlist.broadcast", "broadcast",
+                        createGuiItem(Material.NOTE_BLOCK, "§a广播封禁人数", "§7/lban a", "§7广播当前封禁人数"));
+            }
             put(chest, player, 50, "lengbanlist.reload", "reload",
                     createGuiItem(Material.COMPARATOR, "§a重新加载配置", "§7/lban reload", "§7重新加载插件配置"));
             chest.setItem(52, createGuiItem(Material.GOLD_INGOT, "§6赞助作者", ACTION_SPONSOR,

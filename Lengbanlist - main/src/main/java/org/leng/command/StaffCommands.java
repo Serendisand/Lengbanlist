@@ -3,12 +3,8 @@ package org.leng.command;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.TabCompleter;
-import org.bukkit.entity.Player;
 import org.leng.Lengbanlist;
-import org.leng.models.Model;
 import org.leng.service.RollbackManager;
-import org.leng.service.VanishManager;
 import org.leng.util.SchedulerUtils;
 import org.leng.util.TimeUtils;
 import org.leng.util.Utils;
@@ -17,7 +13,6 @@ import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,47 +23,9 @@ public final class StaffCommands {
 
     private StaffCommands() {}
 
-    // 管理员频道 /sc 已搬进 Lua 扩展（plugins/Lengbanlist/extensions/staffchat.lua），
-    // 作为「Lua 命令与内置命令走同一条注册路径」的第二个样本。
-
-    public static final class Vanish implements CommandExecutor, TabCompleter {
-
-        private final Lengbanlist plugin;
-
-        public Vanish(Lengbanlist plugin) {
-            this.plugin = plugin;
-        }
-
-        @Override
-        public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-            if (!plugin.isFeatureEnabled("vanish")) {
-                plugin.sendFeatureDisabled(sender);
-                return true;
-            }
-            if (!sender.hasPermission(VanishManager.PERMISSION_USE)) {
-                Utils.sendMessage(sender, plugin.prefix() + "§c不是你的工作喵！");
-                return true;
-            }
-            if (!(sender instanceof Player)) {
-                Utils.sendMessage(sender, plugin.prefix() + "§c此命令只能由玩家执行。");
-                return true;
-            }
-
-            Player player = (Player) sender;
-            boolean vanished = plugin.getVanishManager().toggle(player);
-            Model model = plugin.getModelManager().getCurrentModel();
-            if (model != null) {
-                Utils.sendMessage(sender, plugin.prefix() + model.onVanish(vanished));
-            }
-            plugin.getAuditManager().log(vanished ? "开启隐身" : "关闭隐身", Utils.getSenderName(sender), player.getName(), "");
-            return true;
-        }
-
-        @Override
-        public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-            return Collections.emptyList();
-        }
-    }
+    // 管理员频道 /sc 已搬进 Lua 扩展（extensions/staffchat.lua）；
+    // /lban vanish 已搬进 Java 扩展 Lengbanlist-Ext-Vanish。
+    // 这里只留与审计日志强耦合的操作回滚。
 
     public static final class Rollback implements CommandExecutor {
         private static final Pattern DATE_ONLY = Pattern.compile("^(\\d{4})-(\\d{1,2})-(\\d{1,2})$");

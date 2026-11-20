@@ -2,6 +2,7 @@ package org.leng.extension;
 
 import org.bukkit.command.CommandSender;
 import org.leng.Lengbanlist;
+import org.leng.api.AuditService;
 import org.leng.api.BanService;
 import org.leng.api.DataStore;
 import org.leng.api.Messages;
@@ -50,6 +51,12 @@ final class ExtensionFacades {
             String name = ModelManager.getCurrentModelName();
             return name == null ? "" : name;
         }
+
+        @Override
+        public String prefix() {
+            Lengbanlist plugin = Lengbanlist.getInstance();
+            return plugin == null ? "" : plugin.prefix();
+        }
     }
 
     // ------------------------------------------------------------ 数据
@@ -93,11 +100,13 @@ final class ExtensionFacades {
         private final BanService bans;
         private final MuteService mutes;
         private final WarnService warnings;
+        private final AuditService audit;
 
         ServicesImpl(Lengbanlist plugin) {
             this.bans = new BanServiceImpl(plugin);
             this.mutes = new MuteServiceImpl(plugin);
             this.warnings = new WarnServiceImpl(plugin);
+            this.audit = new AuditServiceImpl(plugin);
         }
 
         @Override
@@ -113,6 +122,26 @@ final class ExtensionFacades {
         @Override
         public WarnService warnings() {
             return warnings;
+        }
+
+        @Override
+        public AuditService audit() {
+            return audit;
+        }
+    }
+
+    /** 审计只是转发到核心的 manager，开关、哈希链与 Webhook 都由核心统一处理。 */
+    private static final class AuditServiceImpl implements AuditService {
+
+        private final Lengbanlist plugin;
+
+        private AuditServiceImpl(Lengbanlist plugin) {
+            this.plugin = plugin;
+        }
+
+        @Override
+        public void log(String action, String actor, String target, String details) {
+            plugin.getAuditManager().log(action, actor, target, details);
         }
     }
 

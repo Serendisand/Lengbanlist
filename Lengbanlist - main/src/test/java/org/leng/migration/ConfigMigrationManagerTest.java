@@ -60,46 +60,4 @@ class ConfigMigrationManagerTest {
         assertTrue(storageFile.exists());
         verify(plugin).saveConfig();
     }
-
-    @Test
-    void broadcastConfigMovesSettingsOutOfRootConfig() throws Exception {
-        YamlConfiguration root = new YamlConfiguration();
-        root.set("opensendtime", false);
-        root.set("sendtime", 7);
-        YamlConfiguration broadcast = new YamlConfiguration();
-        File broadcastFile = tempDir.resolve("broadcast.yml").toFile();
-        lenient().when(plugin.getLogger()).thenReturn(Logger.getLogger("ConfigMigrationManagerTest"));
-        when(plugin.getConfig()).thenReturn(root);
-        when(plugin.getBroadcastFC()).thenReturn(broadcast);
-
-        new ConfigMigrationManager(plugin).migrateBroadcastConfig(broadcastFile);
-
-        assertFalse(broadcast.getBoolean("opensendtime", true));
-        assertEquals(7, broadcast.getInt("sendtime"));
-        assertFalse(root.contains("opensendtime"));
-        assertFalse(root.contains("sendtime"));
-        assertTrue(broadcastFile.exists());
-        verify(plugin).saveConfig();
-    }
-
-    @Test
-    void broadcastConfigDoesNotOverwriteExistingBroadcastValues() throws Exception {
-        YamlConfiguration root = new YamlConfiguration();
-        root.set("opensendtime", false);
-        root.set("sendtime", 7);
-        YamlConfiguration broadcast = new YamlConfiguration();
-        broadcast.set("opensendtime", true);
-        broadcast.set("sendtime", 3);
-        File broadcastFile = tempDir.resolve("broadcast.yml").toFile();
-        lenient().when(plugin.getLogger()).thenReturn(Logger.getLogger("ConfigMigrationManagerTest"));
-        when(plugin.getConfig()).thenReturn(root);
-        when(plugin.getBroadcastFC()).thenReturn(broadcast);
-
-        new ConfigMigrationManager(plugin).migrateBroadcastConfig(broadcastFile);
-
-        assertTrue(broadcast.getBoolean("opensendtime"));
-        assertEquals(3, broadcast.getInt("sendtime"));
-        assertFalse(root.contains("opensendtime"));
-        assertFalse(root.contains("sendtime"));
-    }
 }
