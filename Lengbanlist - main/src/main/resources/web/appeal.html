@@ -5,76 +5,84 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>封禁申诉 · Lengbanlist</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a1119'/%3E%3Cpath d='M16 5.5l8 3v6.8c0 4.8-3.3 8.4-8 9.7-4.7-1.3-8-4.9-8-9.7V8.5z' fill='none' stroke='%234fc3f7' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a1119'/%3E%3Cpath d='M16 5.5l8 3v6.8c0 4.8-3.3 8.4-8 9.7-4.7-1.3-8-4.9-8-9.7V8.5z' fill='none' stroke='%237fa9c4' stroke-width='2'/%3E%3C/svg%3E">
 <style>
   :root{
-    --bg:#0a1119; --card:#16222e; --input:#0b1219; --line:#1e2e3e; --line-2:#253545;
-    --text:#d6dee6; --muted:#7a8a9a; --accent:#4fc3f7; --accent-2:#39b0e4;
-    --ok:#2ecc71; --warn:#e6a23c; --err:#e74c3c;
+    --bg:#141821; --surface-1:#181d27; --surface-2:#1c222d; --surface-inset:#11151d;
+    --line:rgba(255,255,255,.065); --line-strong:rgba(255,255,255,.09);
+    --text:#d4d8de; --secondary:#9ba1aa; --muted:#7b818b;
+    --accent:#7fa9c4; --accent-hover:#93b9d0; --accent-soft:rgba(127,169,196,.12);
+    --ok:#7a9a7e; --ok-soft:rgba(122,154,126,.12); --ok-line:rgba(122,154,126,.30);
+    --warn:#c4a35a; --warn-soft:rgba(196,163,90,.12); --warn-line:rgba(196,163,90,.30);
+    --danger:#b86b62; --danger-soft:rgba(184,107,98,.12); --danger-line:rgba(184,107,98,.30);
+    --radius:8px; --radius-control:4px;
+    --font-sans:"Microsoft YaHei","微软雅黑","PingFang SC","Noto Sans SC","Gen Jyuu Gothic","IBM Plex Sans",sans-serif;
+    --font-mono:"JetBrains Mono","IBM Plex Mono","Consolas","Menlo",monospace;
+    --noise:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
   }
   *{box-sizing:border-box}
-  html,body{height:100%}
+  html,body{min-height:100%}
   body{
-    margin:0; font:15px/1.6 system-ui,-apple-system,"Segoe UI","Noto Sans SC","Microsoft YaHei",sans-serif;
-    color:var(--text); background:var(--bg);
-    background-image:linear-gradient(155deg,#0b1219 0%,#10202f 45%,#17364b 100%);
+    margin:0; font:14px/1.55 var(--font-sans); color:var(--text); background-color:var(--bg);
+    background-image:radial-gradient(ellipse 760px at 10% -10%,rgba(127,169,196,.10),transparent 62%);
     background-attachment:fixed;
     display:flex; align-items:center; justify-content:center; padding:32px 16px;
   }
-  .wrap{width:100%; max-width:620px}
-  .brand{display:flex; align-items:center; gap:10px; margin-bottom:18px; justify-content:center; color:var(--muted); font-size:13px; letter-spacing:.4px}
-  .brand svg{width:22px; height:22px}
-  .card{
-    background:var(--card); border:1px solid var(--line); border-radius:16px;
-    box-shadow:0 18px 60px rgba(0,0,0,.45); overflow:hidden;
-  }
+  body::after{content:"";position:fixed;inset:0;z-index:90;pointer-events:none;background-image:var(--noise);opacity:.04;mix-blend-mode:soft-light}
+  ::selection{background:rgba(127,169,196,.22);color:var(--text)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .wrap{width:100%;max-width:620px}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:18px;justify-content:center;color:var(--muted);font-size:12px;letter-spacing:.06em}
+  .brand svg{width:22px;height:22px}
+  .card{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
   .card-head{padding:22px 24px 0}
-  h1{margin:0 0 6px; font-size:20px; font-weight:650; letter-spacing:.2px}
-  .sub{margin:0; color:var(--muted); font-size:13.5px}
-  .steps{display:flex; gap:8px; padding:18px 24px 0}
-  .step{flex:1; height:3px; border-radius:2px; background:var(--line-2); transition:background .25s}
+  h1{margin:0 0 6px;font-size:22px;font-weight:600;letter-spacing:-.01em;line-height:1.3}
+  .sub{margin:0;color:var(--muted);font-size:13px}
+  .steps{display:flex;gap:8px;padding:18px 24px 0}
+  .step{flex:1;height:3px;border-radius:var(--radius-control);background:var(--line);transition:background 150ms ease-out}
   .step.on{background:var(--accent)}
   .card-body{padding:20px 24px 24px}
   .field{margin-bottom:14px}
-  label{display:block; font-size:13px; color:var(--muted); margin-bottom:6px}
+  label{display:block;font-size:12px;color:var(--secondary);margin-bottom:6px;letter-spacing:.04em}
   input,textarea{
-    width:100%; padding:11px 13px; border-radius:10px; border:1px solid var(--line-2);
-    background:var(--input); color:var(--text); font:inherit; outline:none; transition:border-color .15s,box-shadow .15s;
+    width:100%;padding:10px 12px;border-radius:var(--radius-control);border:1px solid var(--line);
+    background:var(--surface-inset);color:var(--text);font:inherit;font-size:14px;outline:none;
+    transition:border-color 150ms ease-out;
   }
-  input:focus,textarea:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(79,195,247,.14)}
-  textarea{min-height:108px; resize:vertical}
+  input:hover,textarea:hover{border-color:var(--line-strong)}
+  input:focus,textarea:focus{border-color:var(--accent);outline:2px solid var(--accent);outline-offset:1px}
+  textarea{min-height:108px;resize:vertical}
   .btn{
-    display:inline-flex; align-items:center; justify-content:center; gap:8px;
-    padding:11px 18px; border-radius:10px; border:1px solid transparent; cursor:pointer;
-    background:var(--accent); color:#04121c; font:inherit; font-weight:600; transition:background .15s,opacity .15s;
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    min-height:34px;padding:0 16px;border-radius:var(--radius-control);border:1px solid transparent;cursor:pointer;
+    background:var(--accent);color:#141821;font:inherit;font-size:13px;font-weight:500;
+    transition:background 150ms ease-out,border-color 150ms ease-out,color 150ms ease-out;
   }
-  .btn:hover{background:var(--accent-2)}
-  .btn:disabled{opacity:.55; cursor:not-allowed}
-  .btn-ghost{background:transparent; color:var(--text); border-color:var(--line-2)}
-  .btn-ghost:hover{background:rgba(79,195,247,.08); border-color:var(--accent)}
-  .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
+  .btn:hover{background:var(--accent-hover)}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+  .btn-ghost{background:transparent;color:var(--secondary);border-color:var(--line)}
+  .btn-ghost:hover{background:rgba(255,255,255,.03);border-color:var(--line-strong);color:var(--text)}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .row .btn{flex:0 0 auto}
-  .note{border-radius:10px; padding:11px 13px; font-size:13.5px; margin-bottom:14px; border:1px solid}
-  .note-info{background:rgba(79,195,247,.08); border-color:rgba(79,195,247,.3); color:#bfe6fa}
-  .note-ok{background:rgba(46,204,113,.09); border-color:rgba(46,204,113,.3); color:#b6f0cf}
-  .note-err{background:rgba(231,76,60,.1); border-color:rgba(231,76,60,.32); color:#f7c6c1}
-  dl{margin:0 0 14px; display:grid; grid-template-columns:88px 1fr; gap:8px 12px; font-size:14px}
+  .note{border-radius:var(--radius-control);padding:10px 12px;font-size:13px;margin-bottom:14px;border:1px solid}
+  .note-info{background:var(--accent-soft);border-color:rgba(127,169,196,.30);color:var(--accent)}
+  .note-ok{background:var(--ok-soft);border-color:var(--ok-line);color:var(--ok)}
+  .note-err{background:var(--danger-soft);border-color:var(--danger-line);color:var(--danger)}
+  dl{margin:0 0 14px;display:grid;grid-template-columns:88px 1fr;gap:8px 12px;font-size:14px}
   dt{color:var(--muted)}
-  dd{margin:0; word-break:break-word}
-  .ticket{
-    display:flex; gap:10px; align-items:center; background:var(--input); border:1px dashed var(--line-2);
-    border-radius:10px; padding:12px 14px; margin:4px 0 14px;
-  }
-  .ticket code{flex:1; font-family:ui-monospace,Consolas,monospace; font-size:13px; color:var(--accent); word-break:break-all}
+  dd{margin:0;word-break:break-word}
+  .ticket{display:flex;gap:10px;align-items:center;background:var(--surface-inset);border:1px dashed var(--line-strong);border-radius:var(--radius-control);padding:12px 14px;margin:4px 0 14px}
+  .ticket code{flex:1;font-family:var(--font-mono);font-size:13px;color:var(--accent);word-break:break-all}
   .hidden{display:none !important}
-  .hint{color:var(--muted); font-size:12.5px; margin:10px 0 0}
-  .foot{margin-top:16px; text-align:center; color:var(--muted); font-size:12px}
+  .hint{color:var(--muted);font-size:12px;margin:10px 0 0}
+  .foot{margin-top:16px;text-align:center;color:var(--muted);font-size:12px}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="brand">
-    <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 5.5l8 3v6.8c0 4.8-3.3 8.4-8 9.7-4.7-1.3-8-4.9-8-9.7V8.5z" fill="none" stroke="#4fc3f7" stroke-width="2"/><path d="M12 15.5l3 3 6-6" fill="none" stroke="#4fc3f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 5.5l8 3v6.8c0 4.8-3.3 8.4-8 9.7-4.7-1.3-8-4.9-8-9.7V8.5z" fill="none" stroke="#7fa9c4" stroke-width="2"/><path d="M12 15.5l3 3 6-6" fill="none" stroke="#7fa9c4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     <span>Lengbanlist · 封禁申诉</span>
   </div>
 

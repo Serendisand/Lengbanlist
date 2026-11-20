@@ -7,6 +7,7 @@
   var TOKEN_KEY = 'lengbanlist_token';
   var THEME_KEY = 'lengbanlist_theme';
   var EULA_KEY = 'lengbanlist_eula';
+  var FONT_KEY = 'lengbanlist_user_font';
   var PAGE_SIZE = 5;
 
   var token = '';
@@ -33,7 +34,7 @@
     history: { title: '处罚历史', desc: '按玩家查询封禁 / 禁言 / 警告记录' },
     audit: { title: '审计日志', desc: '管理操作的完整审计流水' },
     actions: { title: '快捷操作', desc: '常用维护动作' },
-    settings: { title: '面板设置', desc: '背景壁纸与功能按钮显隐' }
+    settings: { title: '面板设置', desc: '背景壁纸、界面字体与功能按钮显隐' }
   };
 
   var BTN_LABELS = {
@@ -317,6 +318,104 @@
     paintThemeIcon(isLight);
   }
 
+  /* ================= 用户字体（只调用本机字体） ================= */
+
+  function normalizeFontName(name) {
+    return String(name || '').replace(/["'\\;{}]/g, '').trim();
+  }
+
+  function applyUserFont(name) {
+    var font = normalizeFontName(name);
+    if (font) {
+      document.documentElement.style.setProperty('--font-user', '"' + font + '"');
+    } else {
+      document.documentElement.style.removeProperty('--font-user');
+    }
+    try {
+      if (font) localStorage.setItem(FONT_KEY, font);
+      else localStorage.removeItem(FONT_KEY);
+    } catch (e) { /* 隐私模式下忽略 */ }
+
+    var input = $('fontCustom');
+    if (input) input.value = font;
+    var preset = $('fontPreset');
+    if (preset) {
+      var known = Array.prototype.some.call(preset.options, function (o) { return o.value === font; });
+      preset.value = known ? font : '';
+    }
+  }
+
+  function initUserFont() {
+    var saved = null;
+    try { saved = localStorage.getItem(FONT_KEY); } catch (e) { saved = null; }
+    if (saved) applyUserFont(saved);
+  }
+
+  function onFontPresetChange() {
+    var preset = $('fontPreset');
+    if (!preset) return;
+    if (!preset.value) resetFont();
+    else applyUserFont(preset.value);
+  }
+
+  async function pickLocalFont() {
+    if (typeof window.queryLocalFonts !== 'function') {
+      toastWarn('当前浏览器不支持读取本机字体，请在下方手动输入字体名称');
+      var input = $('fontCustom');
+      if (input) input.focus();
+      return;
+    }
+    try {
+      var fonts = await window.queryLocalFonts();
+      var families = [];
+      fonts.forEach(function (f) {
+        if (f.family && families.indexOf(f.family) < 0) families.push(f.family);
+      });
+      families.sort();
+      if (!families.length) {
+        toastWarn('没有读到可用字体');
+        return;
+      }
+      var select = $('fontLocalSelect');
+      if (!select) return;
+      select.innerHTML = families.map(function (name) {
+        return '<option value="' + esc(name) + '">' + esc(name) + '</option>';
+      }).join('');
+      setHidden(select, false);
+      var apply = $('fontLocalApply');
+      if (apply) setHidden(apply, false);
+      toastOk('已读取 ' + families.length + ' 个本机字体，选择后点「应用」');
+    } catch (e) {
+      toastErr('读取本机字体被取消或失败');
+    }
+  }
+
+  function applyLocalFont() {
+    var select = $('fontLocalSelect');
+    if (!select || !select.value) {
+      toastWarn('请先选择字体');
+      return;
+    }
+    applyUserFont(select.value);
+    toastOk('已应用本机字体：' + select.value);
+  }
+
+  function applyCustomFont() {
+    var input = $('fontCustom');
+    var name = input ? input.value.trim() : '';
+    if (!name) {
+      toastWarn('请输入字体名称');
+      return;
+    }
+    applyUserFont(name);
+    toastOk('已应用字体：' + name);
+  }
+
+  function resetFont() {
+    applyUserFont('');
+    toastOk('已恢复系统默认字体');
+  }
+
   /* ================= 鉴权 ================= */
 
   function jwtDecode(t) {
@@ -414,6 +513,7 @@
 
   function bootstrap() {
     initTheme();
+    initUserFont();
     var accepted = false;
     try { accepted = !!localStorage.getItem(EULA_KEY); } catch (e) { accepted = true; }
     if (!accepted) {
@@ -459,6 +559,7 @@
     if (panel) panel.classList.add('is-active');
     setText($('pageTitle'), cfg.title);
     setText($('pageDesc'), cfg.desc);
+    setHidden($('statsCards'), name !== 'dashboard');
 
     stopAutoRefresh();
     stopBanListRefresh();
@@ -489,9 +590,8 @@
         ? esc(String(s.online_players || 0)) + '<span class="kpi-unit">/' + esc(String(s.max_players || 0)) + '</span>'
         : esc(String(s[c.k] || 0));
       return '<button class="kpi" type="button" data-action="tab" data-tab="' + c.tab + '">' +
-        '<span class="kpi-icon">' + svgIcon(c.icon) + '</span>' +
-        '<span class="kpi-value">' + value + '</span>' +
         '<span class="kpi-label">' + esc(c.label) + '</span>' +
+        '<span class="kpi-value">' + value + '</span>' +
         '</button>';
     }).join('');
     var pending = Number(s.pending_reports || 0);
@@ -1296,6 +1396,10 @@
     'reset-bg': function () { resetBackground(); },
     'pick-file': function () { if ($('bgFile')) $('bgFile').click(); },
     'save-hidden': function () { saveHiddenButtons(); },
+    'pick-local-font': function () { pickLocalFont(); },
+    'apply-local-font': function () { applyLocalFont(); },
+    'apply-custom-font': function () { applyCustomFont(); },
+    'reset-font': function () { resetFont(); },
     'page': function (el) { changePage(el.getAttribute('data-key'), Number(el.getAttribute('data-delta'))); },
     'kick': function (el) { doKick(el.getAttribute('data-player')); },
     'report-accept': function (el) { reportAction(el.getAttribute('data-id'), 'accept'); },
@@ -1326,7 +1430,8 @@
   var CHANGES = {
     'ban-duration': function () { onDurationChange(); },
     'bg-type': function () { onBgTypeChange(); },
-    'file-picked': function () { onFilePicked(); }
+    'file-picked': function () { onFilePicked(); },
+    'font-preset': function () { onFontPresetChange(); }
   };
 
   function wire() {

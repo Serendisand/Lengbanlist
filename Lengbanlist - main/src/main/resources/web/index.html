@@ -7,7 +7,7 @@
 <meta name="color-scheme" content="dark light">
 <meta name="theme-color" content="#0a1119">
 <title>Lengbanlist 管理面板</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a1119'/%3E%3Cpath d='M16 5.5l8 3v6.8c0 4.8-3.3 8.4-8 9.7-4.7-1.3-8-4.9-8-9.7V8.5z' fill='none' stroke='%234fc3f7' stroke-width='2'/%3E%3Cpath d='M12 15.5l3 3 6-6' fill='none' stroke='%234fc3f7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a1119'/%3E%3Cpath d='M16 5.5l8 3v6.8c0 4.8-3.3 8.4-8 9.7-4.7-1.3-8-4.9-8-9.7V8.5z' fill='none' stroke='%237fa9c4' stroke-width='2'/%3E%3Cpath d='M12 15.5l3 3 6-6' fill='none' stroke='%237fa9c4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="assets/app.css">
 <script>try{if(localStorage.getItem('lengbanlist_theme')==='light'){document.documentElement.classList.add('light');}}catch(e){}</script>
 </head>
@@ -113,15 +113,19 @@
     </div>
 
     <nav class="rail-nav" id="tabBar" role="tablist" aria-label="面板导航">
+      <div class="rail-group" aria-hidden="true">总览</div>
       <button class="tab is-active" type="button" role="tab" id="tabbtn-dashboard" data-action="tab" data-tab="dashboard" aria-controls="tabDashboard" aria-selected="true"><svg class="icon" aria-hidden="true"><use href="#ic-dashboard"/></svg><span class="tab-text">概览</span></button>
+      <div class="rail-group" aria-hidden="true">处罚</div>
       <button class="tab" type="button" role="tab" id="tabbtn-players" data-action="tab" data-tab="players" aria-controls="tabPlayers" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#ic-players"/></svg><span class="tab-text">玩家查询</span></button>
       <button class="tab" type="button" role="tab" id="tabbtn-ban" data-action="tab" data-tab="ban" aria-controls="tabBan" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#ic-ban"/></svg><span class="tab-text">封禁管理</span></button>
       <button class="tab" type="button" role="tab" id="tabbtn-banlist" data-action="tab" data-tab="banlist" aria-controls="tabBanlist" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#ic-banlist"/></svg><span class="tab-text">封禁名单</span></button>
       <button class="tab" type="button" role="tab" id="tabbtn-mutelist" data-action="tab" data-tab="mutelist" aria-controls="tabMutelist" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#ic-mute"/></svg><span class="tab-text">禁言管理</span></button>
       <button class="tab" type="button" role="tab" id="tabbtn-reports" data-action="tab" data-tab="reports" aria-controls="tabReports" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#ic-reports"/></svg><span class="tab-text">举报管理</span><span class="tab-badge hidden" id="reportsBadge">0</span></button>
       <button class="tab" type="button" role="tab" id="tabbtn-appeals" data-action="tab" data-tab="appeals" aria-controls="tabAppeals" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#ic-reports"/></svg><span class="tab-text">申诉管理</span><span class="tab-badge hidden" id="appealsBadge">0</span></button>
+      <div class="rail-group" aria-hidden="true">记录</div>
       <button class="tab" type="button" role="tab" id="tabbtn-history" data-action="tab" data-tab="history" aria-controls="tabHistory" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#ic-history"/></svg><span class="tab-text">处罚历史</span></button>
       <button class="tab" type="button" role="tab" id="tabbtn-audit" data-action="tab" data-tab="audit" aria-controls="tabAudit" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#ic-audit"/></svg><span class="tab-text">审计日志</span></button>
+      <div class="rail-group" aria-hidden="true">系统</div>
       <button class="tab" type="button" role="tab" id="tabbtn-actions" data-action="tab" data-tab="actions" aria-controls="tabActions" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#ic-actions"/></svg><span class="tab-text">快捷操作</span></button>
       <button class="tab" type="button" role="tab" id="tabbtn-settings" data-action="tab" data-tab="settings" aria-controls="tabSettings" aria-selected="false"><svg class="icon" aria-hidden="true"><use href="#ic-settings"/></svg><span class="tab-text">面板设置</span></button>
     </nav>
@@ -418,6 +422,43 @@
             <div class="btn-row">
               <button class="btn btn-primary" type="button" data-action="save-theme"><svg class="icon" aria-hidden="true"><use href="#ic-check"/></svg>保存背景</button>
               <button class="btn btn-ghost" type="button" data-action="reset-bg"><svg class="icon" aria-hidden="true"><use href="#ic-reset"/></svg>恢复默认背景</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h2 class="panel-title">界面字体</h2>
+            <div class="panel-tools"><span class="hint">只调用本机字体，不上传、不嵌入</span></div>
+          </div>
+          <div class="panel-body">
+            <div class="field">
+              <label class="field-label" for="fontPreset">预设字体</label>
+              <select class="select" id="fontPreset" data-change="font-preset">
+                <option value="">系统默认（微软雅黑优先）</option>
+                <option value="Microsoft YaHei">微软雅黑</option>
+                <option value="SimHei">黑体</option>
+                <option value="SimSun">宋体</option>
+                <option value="Noto Sans SC">Noto Sans SC（需已安装）</option>
+                <option value="IBM Plex Sans">IBM Plex Sans（需已安装）</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="fontLocalSelect">本机字体</label>
+              <div class="font-row">
+                <button class="btn btn-ghost" type="button" data-action="pick-local-font">使用我电脑上已安装的字体</button>
+                <select class="select hidden" id="fontLocalSelect"></select>
+                <button class="btn btn-primary hidden" type="button" id="fontLocalApply" data-action="apply-local-font">应用</button>
+              </div>
+              <p class="field-hint">仅调用你本机已安装的字体，不会上传或嵌入字体文件。</p>
+            </div>
+            <div class="field">
+              <label class="field-label" for="fontCustom">手动输入字体名称</label>
+              <div class="font-row">
+                <input class="input" type="text" id="fontCustom" placeholder="如 Microsoft YaHei、SimSun" spellcheck="false" autocomplete="off">
+                <button class="btn btn-ghost" type="button" data-action="apply-custom-font">应用</button>
+                <button class="btn btn-ghost" type="button" data-action="reset-font">恢复默认</button>
+              </div>
+              <p class="field-hint">浏览器不支持 Local Font Access API 时，可在这里输入字体名称；同样只通过 font-family 调用。</p>
             </div>
           </div>
         </div>
