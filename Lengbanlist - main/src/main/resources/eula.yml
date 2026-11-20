@@ -146,8 +146,8 @@
 # 1. 本插件默认所有数据（封禁记录、配置、日志等）均存储在服务器本地，不上传至作者服务器。
 # 1. By default, all data (ban records, configurations, logs, etc.) is stored locally on the server and is not uploaded to the author's servers.
 
-# 2. 若插件包含匿名统计功能，仅收集插件版本、启动次数等非个人身份信息，且可在配置中关闭。
-# 2. If the plugin includes anonymous statistics, it only collects non-personally identifiable information such as plugin version and startup count, and can be disabled in the configuration.
+# 2. 若插件包含匿名统计功能，仅收集插件版本等非个人身份信息，且可在配置中关闭。
+# 2. If the plugin includes anonymous statistics, it only collects non-personally identifiable information such as plugin version, and can be disabled in the configuration.
 
 # 3. 服务器管理员应自行确保封禁数据的收集、存储与使用符合当地隐私法规（如 GDPR、个人信息保护法等）。
 # 3. Server administrators are responsible for ensuring that the collection, storage, and use of ban data comply with local privacy laws (such as GDPR or personal information protection laws).
@@ -201,7 +201,7 @@
 # 十一、开发者信息 / Developer Information
 # ------------------------------------------------
 # 作者：Serendisand
-# 最后更新：2026年10月11日
+# 最后更新：2026年11月20日
 
 # ================================================
 # 十二、用户同意 / User Agreement
