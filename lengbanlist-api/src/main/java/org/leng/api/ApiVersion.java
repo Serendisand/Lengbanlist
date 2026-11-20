@@ -42,7 +42,7 @@ public final class ApiVersion {
      *   <li>插件自身发版（含插件 3.0）→ <b>不动</b></li>
      * </ul>
      */
-    public static final String CONTRACT_VERSION = "2.2.0";
+    public static final String CONTRACT_VERSION = "2.3.0";
 
     private ApiVersion() {
     }

@@ -24,6 +24,14 @@ public interface Scheduler {
     /** 在主线程（Folia 上为当前区域线程）执行一次。 */
     Cancellable runSync(Runnable task);
 
+    /**
+     * 在那个实体所属的线程上执行一次。
+     *
+     * <p>Folia 上玩家/实体分属不同区域，改玩家可见性、发消息这类操作应当走这里，
+     * 而不是全局 {@link #runSync(Runnable)}。Spigot/Paper 上两者等价。
+     */
+    Cancellable runSync(org.bukkit.entity.Entity entity, Runnable task);
+
     /** 延迟若干个 tick 后执行一次。 */
     Cancellable runSyncLater(Runnable task, long delayTicks);
 

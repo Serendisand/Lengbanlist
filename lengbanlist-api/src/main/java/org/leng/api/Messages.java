@@ -22,6 +22,14 @@ public interface Messages {
     /** 当前模型名；无模型时返回空串。 */
     String currentName();
 
+    /**
+     * 核心的聊天前缀（{@code config.yml} 的 {@code prefix}）。
+     *
+     * <p>扩展自己发全服消息时用它，保证与控制台、核心命令的观感一致；
+     * 不要在自己的配置里再抄一份前缀。
+     */
+    String prefix();
+
     /** 当前是否有可用模型。 */
     default boolean hasModel() {
         return current() != null;

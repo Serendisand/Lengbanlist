@@ -14,4 +14,7 @@ public interface Services {
     MuteService mutes();
 
     WarnService warnings();
+
+    /** 审计日志写入。扩展做了管理动作时调用它，不要直接写审计表。 */
+    AuditService audit();
 }
